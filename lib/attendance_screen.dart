@@ -144,17 +144,24 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     body: FutureBuilder<List<Map<String, dynamic>>>(
       future: _future,
       builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
-        if (snapshot.hasError) return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Text('Data absensi belum bisa dimuat.'), TextButton(onPressed: _refresh, child: const Text('Coba lagi')),
-        ]));
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const Text('Data absensi belum bisa dimuat.'),
+            TextButton(onPressed: _refresh, child: const Text('Coba lagi')),
+          ]));
+        }
         final rows = snapshot.data ?? [];
-        if (rows.isEmpty) return Center(child: Padding(padding: const EdgeInsets.all(28), child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.fact_check_outlined, size: 48, color: Color(0xFF167D68)), const SizedBox(height: 12),
-          Text(_admin ? 'Belum ada kegiatan' : 'Belum ada catatan absensi', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 6),
-          Text(_admin ? 'Buat jadwal kegiatan terlebih dahulu untuk mulai mencatat kehadiran.' : 'Catatan kehadiranmu akan muncul setelah admin mengisi absensi.', textAlign: TextAlign.center),
-        ])));
+        if (rows.isEmpty) {
+          return Center(child: Padding(padding: const EdgeInsets.all(28), child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.fact_check_outlined, size: 48, color: Color(0xFF167D68)), const SizedBox(height: 12),
+            Text(_admin ? 'Belum ada kegiatan' : 'Belum ada catatan absensi', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 6),
+            Text(_admin ? 'Buat jadwal kegiatan terlebih dahulu untuk mulai mencatat kehadiran.' : 'Catatan kehadiranmu akan muncul setelah admin mengisi absensi.', textAlign: TextAlign.center),
+          ])));
+        }
         return ListView.separated(
           padding: const EdgeInsets.all(16), itemCount: rows.length,
           separatorBuilder: (_, __) => const SizedBox(height: 10),
