@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'profile_edit_screen.dart';
 import 'announcements_screen.dart';
 import 'activities_screen.dart';
+import 'attendance_screen.dart';
 
 const supabaseUrl = 'https://yatbnzczricrwrqhzsqr.supabase.co';
 const supabasePublishableKey = 'sb_publishable_Uz6EYSbI3Nhj28uP3lEFsw_nCbEYMHS';
@@ -589,7 +590,11 @@ class HomeScreen extends StatelessWidget {
                   subtitle: 'Kehadiran latihan',
                   color: const Color(0xFFEAF0FF),
                   iconColor: const Color(0xFF4B6FCB),
-                  onTap: () => _showComingSoon(context, 'Absensi'),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => AttendanceScreen(role: role),
+                    ),
+                  ),
                 ),
                 _MenuCard(
                   icon: Icons.event_note_rounded,
