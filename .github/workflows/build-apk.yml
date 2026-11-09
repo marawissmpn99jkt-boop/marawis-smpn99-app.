@@ -25,6 +25,26 @@ jobs:
       - name: Generate Android platform files
         run: flutter create --platforms=android --project-name marawis_smpn99 .
 
+      - name: Configure Supabase OAuth deep link
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("android/app/src/main/AndroidManifest.xml")
+          content = path.read_text()
+          marker = 'android:scheme="marawissmpn99"'
+          if marker not in content:
+              intent_filter = """
+                  <intent-filter android:label="supabase_auth">
+                      <action android:name="android.intent.action.VIEW" />
+                      <category android:name="android.intent.category.DEFAULT" />
+                      <category android:name="android.intent.category.BROWSABLE" />
+                      <data android:scheme="marawissmpn99" android:host="login-callback" />
+                  </intent-filter>
+              """
+              content = content.replace("</activity>", intent_filter + "\n        </activity>", 1)
+              path.write_text(content)
+          PY
+
       - name: Install dependencies
         run: flutter pub get
 
