@@ -89,7 +89,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                         DropdownMenuItem(value: 'sakit', child: Text('Sakit')),
                         DropdownMenuItem(value: 'alpa', child: Text('Alpa')),
                       ],
-                      onChanged: (value) { if (value != null) setSheetState(() => statuses[memberId] = value); },
+                      onChanged: (value) { if (value != null) {
+                        setSheetState(() => statuses[memberId] = value);
+                      } },
                     ),
                   );
                 },
@@ -106,12 +108,16 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                         'status': statuses[member['id'].toString()] ?? 'hadir',
                         'marked_by': _db.auth.currentUser!.id,
                       }).toList();
-                      if (rows.isNotEmpty) await _db.from('attendance').upsert(rows, onConflict: 'activity_id,member_id');
-                      if (sheetContext.mounted) Navigator.pop(sheetContext);
+                      if (rows.isNotEmpty) {
+                        await _db.from('attendance').upsert(rows, onConflict: 'activity_id,member_id');
+                      }
+                      if (sheetContext.mounted) {
+                        Navigator.pop(sheetContext);
+                      }
                       _refresh();
                       _notify('Absensi berhasil disimpan.');
                     } catch (error) {
-                      _notify('Gagal menyimpan absensi: ${error}');
+                      _notify('Gagal menyimpan absensi: $error');
                     } finally {
                       if (mounted) setState(() => _saving = false);
                     }
@@ -123,7 +129,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           ),
         ),
       );
-    } catch (error) { _notify('Data anggota/absensi gagal dimuat: ${error}'); }
+    } catch (error) { _notify('Data anggota/absensi gagal dimuat: $error'); }
   }
 
   void _notify(String message) {
