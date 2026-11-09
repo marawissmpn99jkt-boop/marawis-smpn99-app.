@@ -79,3 +79,35 @@ using (
   bucket_id = 'profile-avatars'
   and (storage.foldername(name))[1] = (select auth.uid())::text
 );
+
+-- Anggota boleh mengubah kelas dan bio miliknya sendiri, bukan jabatan/status.
+drop policy if exists "Users update own member details" on public.members;
+create policy "Users update own member details"
+on public.members for update
+to authenticated
+using (id = (select auth.uid()))
+with check (id = (select auth.uid()));
+
+create or replace function public.protect_member_admin_fields()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if (not public.is_marawis_admin())
+     and (
+       new.position is distinct from old.position
+       or new.membership_status is distinct from old.membership_status
+       or new.joined_at is distinct from old.joined_at
+     ) then
+    raise exception 'Jabatan, status keanggotaan, dan tanggal bergabung hanya dapat diubah admin.';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists protect_member_admin_fields_trigger on public.members;
+create trigger protect_member_admin_fields_trigger
+before update on public.members
+for each row execute procedure public.protect_member_admin_fields();
