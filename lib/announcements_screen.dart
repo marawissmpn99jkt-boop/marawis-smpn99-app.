@@ -91,7 +91,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                   const Text('Ditujukan kepada', style: TextStyle(fontWeight: FontWeight.w800)),
                   const SizedBox(height: 7),
                   DropdownButtonFormField<String>(
-                    value: audience,
+                    initialValue: audience,
                     decoration: _decoration('Pilih audiens'),
                     items: const [
                       DropdownMenuItem(value: 'all', child: Text('Semua anggota')),
