@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'profile_edit_screen.dart';
+import 'announcements_screen.dart';
 
 const supabaseUrl = 'https://yatbnzczricrwrqhzsqr.supabase.co';
 const supabasePublishableKey = 'sb_publishable_Uz6EYSbI3Nhj28uP3lEFsw_nCbEYMHS';
@@ -613,45 +614,54 @@ class HomeScreen extends StatelessWidget {
               subtitle: 'Pengumuman terbaru organisasi',
             ),
             const SizedBox(height: 14),
-            Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFFE8EEEA)),
+            InkWell(
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => AnnouncementsScreen(role: role),
+                ),
               ),
-              child: const Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  CircleAvatar(
-                    backgroundColor: Color(0xFFE7F4EE),
-                    child: Icon(
-                      Icons.campaign_rounded,
-                      color: Color(0xFF167D68),
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFFE8EEEA)),
+                ),
+                child: const Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: Color(0xFFE7F4EE),
+                      child: Icon(
+                        Icons.campaign_rounded,
+                        color: Color(0xFF167D68),
+                      ),
                     ),
-                  ),
-                  SizedBox(width: 13),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Belum ada pengumuman',
-                          style: TextStyle(fontWeight: FontWeight.w800),
-                        ),
-                        SizedBox(height: 5),
-                        Text(
-                          'Pengumuman kegiatan akan tampil di sini setelah admin menambahkannya.',
-                          style: TextStyle(
-                            color: Color(0xFF718078),
-                            fontSize: 12,
-                            height: 1.5,
+                    SizedBox(width: 13),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Buka pengumuman',
+                            style: TextStyle(fontWeight: FontWeight.w800),
                           ),
-                        ),
-                      ],
+                          SizedBox(height: 5),
+                          Text(
+                            'Lihat informasi terbaru. Admin dapat membuat, mengedit, dan menghapus pengumuman.',
+                            style: TextStyle(
+                              color: Color(0xFF718078),
+                              fontSize: 12,
+                              height: 1.5,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                    Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Color(0xFF167D68)),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 22),
