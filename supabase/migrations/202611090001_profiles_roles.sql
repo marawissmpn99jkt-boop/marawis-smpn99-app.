@@ -60,6 +60,21 @@ create trigger on_auth_user_created_marawis
 after insert on auth.users
 for each row execute procedure public.handle_new_marawis_user();
 
+-- Sinkronkan akun yang sudah terdaftar sebelum trigger dibuat.
+insert into public.profiles (id, full_name, email, avatar_url, role)
+select
+  u.id,
+  coalesce(u.raw_user_meta_data->>'full_name', u.raw_user_meta_data->>'name'),
+  u.email,
+  u.raw_user_meta_data->>'avatar_url',
+  'anggota'
+from auth.users u
+on conflict (id) do update set
+  full_name = coalesce(public.profiles.full_name, excluded.full_name),
+  email = excluded.email,
+  avatar_url = coalesce(public.profiles.avatar_url, excluded.avatar_url),
+  updated_at = now();
+
 alter table public.profiles enable row level security;
 
 drop policy if exists "Users read own profile" on public.profiles;
