@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'profile_edit_screen.dart';
+
 const supabaseUrl = 'https://yatbnzczricrwrqhzsqr.supabase.co';
 const supabasePublishableKey = 'sb_publishable_Uz6EYSbI3Nhj28uP3lEFsw_nCbEYMHS';
 const authRedirectUrl = 'marawissmpn99://login-callback';
@@ -380,6 +382,19 @@ class HomeScreen extends StatelessWidget {
     }
   }
 
+  Future<void> _openProfileEditor(BuildContext context) async {
+    final updated = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => ProfileEditScreen(user: user, profile: profile),
+      ),
+    );
+    if (updated == true && context.mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => _ProfileGate(user: user)),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final metadata = user.userMetadata ?? <String, dynamic>{};
@@ -415,6 +430,11 @@ class HomeScreen extends StatelessWidget {
           ],
         ),
         actions: [
+          IconButton(
+            tooltip: 'Edit profil',
+            onPressed: () => _openProfileEditor(context),
+            icon: const Icon(Icons.edit_outlined),
+          ),
           IconButton(
             tooltip: 'Keluar',
             onPressed: () => _signOut(context),
