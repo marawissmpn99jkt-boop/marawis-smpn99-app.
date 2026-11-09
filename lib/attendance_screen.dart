@@ -167,12 +167,14 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           separatorBuilder: (_, __) => const SizedBox(height: 10),
           itemBuilder: (context, index) {
             final row = rows[index];
-            if (_admin) return Card(color: Colors.white, child: ListTile(
-              leading: const CircleAvatar(backgroundColor: Color(0xFFE7F4EE), child: Icon(Icons.event, color: Color(0xFF167D68))),
-              title: Text(row['title'].toString(), style: const TextStyle(fontWeight: FontWeight.w800)),
-              subtitle: Text(_date(row['starts_at'])), trailing: const Icon(Icons.chevron_right),
-              onTap: () => _manageActivity(row),
-            ));
+            if (_admin) {
+              return Card(color: Colors.white, child: ListTile(
+                leading: const CircleAvatar(backgroundColor: Color(0xFFE7F4EE), child: Icon(Icons.event, color: Color(0xFF167D68))),
+                title: Text(row['title'].toString(), style: const TextStyle(fontWeight: FontWeight.w800)),
+                subtitle: Text(_date(row['starts_at'])), trailing: const Icon(Icons.chevron_right),
+                onTap: () => _manageActivity(row),
+              ));
+            }
             final activity = row['activity'] as Map<String, dynamic>?;
             return Card(color: Colors.white, child: ListTile(
               leading: const CircleAvatar(backgroundColor: Color(0xFFE7F4EE), child: Icon(Icons.fact_check, color: Color(0xFF167D68))),
