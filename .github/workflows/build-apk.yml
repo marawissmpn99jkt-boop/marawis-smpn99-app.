@@ -52,6 +52,31 @@ jobs:
           path.write_text(content)
           PY
 
+      - name: Verify Android OAuth callback
+        run: |
+          python3 - <<'PY'
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+
+          manifest = ET.parse(Path("android/app/src/main/AndroidManifest.xml")).getroot()
+          android = "{http://schemas.android.com/apk/res/android}"
+          activities = manifest.findall(".//activity")
+          main_activity = next(
+              (item for item in activities if item.get(android + "name") == ".MainActivity"),
+              None,
+          )
+          assert main_activity is not None, "MainActivity tidak ditemukan"
+          assert main_activity.get(android + "launchMode") == "singleTop", "MainActivity harus memakai launchMode singleTop"
+
+          callback_found = False
+          for intent_filter in main_activity.findall("intent-filter"):
+              for data in intent_filter.findall("data"):
+                  if data.get(android + "scheme") == "marawissmpn99" and data.get(android + "host") == "login-callback":
+                      callback_found = True
+          assert callback_found, "Intent filter marawissmpn99://login-callback tidak terpasang pada MainActivity"
+          print("OAuth callback Android terverifikasi: marawissmpn99://login-callback")
+          PY
+
       - name: Install dependencies
         run: flutter pub get
 
