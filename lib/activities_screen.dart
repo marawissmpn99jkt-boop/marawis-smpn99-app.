@@ -160,7 +160,7 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
                   _refresh();
                   _message('Kegiatan berhasil ditambahkan.');
                 } catch (error) {
-                  _message('Gagal menambahkan kegiatan: ' + error.toString());
+                  _message('Gagal menambahkan kegiatan: $error');
                 } finally {
                   if (mounted) setState(() => _saving = false);
                 }
@@ -181,7 +181,7 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Hapus kegiatan?'),
-        content: Text('Kegiatan "' + item['title'].toString() + '" akan dihapus beserta catatan absensinya.'),
+        content: Text('Kegiatan "${item['title']}" akan dihapus beserta catatan absensinya.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Batal')),
           FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Hapus')),
@@ -194,17 +194,13 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
       _refresh();
       _message('Kegiatan berhasil dihapus.');
     } catch (error) {
-      _message('Gagal menghapus kegiatan: ' + error.toString());
+      _message('Gagal menghapus kegiatan: $error');
     }
   }
 
   String _dateLabel(DateTime value) {
     final local = value.toLocal();
-    return local.day.toString().padLeft(2, '0') + '/' +
-        local.month.toString().padLeft(2, '0') + '/' +
-        local.year.toString() + ' • ' +
-        local.hour.toString().padLeft(2, '0') + ':' +
-        local.minute.toString().padLeft(2, '0');
+    return '${local.day.toString().padLeft(2, '0')}/${local.month.toString().padLeft(2, '0')}/${local.year} • ${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
   }
 
   String _typeLabel(String type) {
@@ -291,15 +287,15 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
                       Text(item['title'].toString(), style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
                       if (start != null) Padding(
                         padding: const EdgeInsets.only(top: 6),
-                        child: Text('Mulai: ' + _dateLabel(start), style: const TextStyle(color: Color(0xFF64736B), fontSize: 12)),
+                        child: Text('Mulai: ${_dateLabel(start)}', style: const TextStyle(color: Color(0xFF64736B), fontSize: 12)),
                       ),
                       if (end != null) Padding(
                         padding: const EdgeInsets.only(top: 3),
-                        child: Text('Selesai: ' + _dateLabel(end), style: const TextStyle(color: Color(0xFF64736B), fontSize: 12)),
+                        child: Text('Selesai: ${_dateLabel(end)}', style: const TextStyle(color: Color(0xFF64736B), fontSize: 12)),
                       ),
                       if ((item['location'] ?? '').toString().isNotEmpty) Padding(
                         padding: const EdgeInsets.only(top: 7),
-                        child: Text('Lokasi: ' + item['location'].toString()),
+                        child: Text('Lokasi: ${item['location']}'),
                       ),
                       if ((item['description'] ?? '').toString().isNotEmpty) Padding(
                         padding: const EdgeInsets.only(top: 7),
