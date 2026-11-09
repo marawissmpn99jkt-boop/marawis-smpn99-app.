@@ -15,6 +15,11 @@ create table if not exists public.members (
 create index if not exists members_class_idx on public.members(class_name);
 create index if not exists members_status_idx on public.members(membership_status);
 
+-- Buat entri direktori untuk akun yang sudah memiliki profil.
+insert into public.members (id)
+select id from public.profiles
+on conflict (id) do nothing;
+
 alter table public.members enable row level security;
 
 drop policy if exists "Authenticated read active member directory" on public.members;
