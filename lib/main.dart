@@ -5,6 +5,9 @@ import 'profile_edit_screen.dart';
 import 'announcements_screen.dart';
 import 'activities_screen.dart';
 import 'attendance_screen.dart';
+import 'cash_screen.dart';
+import 'members_screen.dart';
+import 'work_programs_screen.dart';
 
 const supabaseUrl = 'https://yatbnzczricrwrqhzsqr.supabase.co';
 const supabasePublishableKey = 'sb_publishable_Uz6EYSbI3Nhj28uP3lEFsw_nCbEYMHS';
@@ -582,7 +585,7 @@ class HomeScreen extends StatelessWidget {
                   subtitle: 'Pembayaran & riwayat',
                   color: const Color(0xFFE7F4EE),
                   iconColor: const Color(0xFF167D68),
-                  onTap: () => _showComingSoon(context, 'Uang kas'),
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => CashScreen(role: role))),
                 ),
                 _MenuCard(
                   icon: Icons.fact_check_rounded,
@@ -614,7 +617,7 @@ class HomeScreen extends StatelessWidget {
                   subtitle: 'Data & profil anggota',
                   color: const Color(0xFFFFF2E3),
                   iconColor: const Color(0xFFC47A25),
-                  onTap: () => _showComingSoon(context, 'Data anggota'),
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => MembersScreen(role: role))),
                 ),
                 _MenuCard(
                   icon: Icons.leaderboard_rounded,
@@ -622,9 +625,18 @@ class HomeScreen extends StatelessWidget {
                   subtitle: 'Keaktifan & kedisiplinan',
                   color: const Color(0xFFF2EAFE),
                   iconColor: const Color(0xFF8458BD),
-                  onTap: () => _showComingSoon(context, 'Peringkat'),
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => LeaderboardScreen(role: role))),
                 ),
               ],
+            ),
+            const SizedBox(height: 14),
+            _MenuCard(
+              icon: Icons.assignment_turned_in_rounded,
+              title: 'Program kerja',
+              subtitle: 'Rencana & pelaksanaan',
+              color: const Color(0xFFE7F4EE),
+              iconColor: const Color(0xFF167D68),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => WorkProgramsScreen(role: role))),
             ),
             const SizedBox(height: 26),
             const _SectionHeading(
