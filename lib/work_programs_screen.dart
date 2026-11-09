@@ -79,7 +79,7 @@ class _WorkProgramsScreenState extends State<WorkProgramsScreen> {
           subtitle: Text('Status: ${item['status']} • PIC: ${item['person_in_charge'] ?? '-'}'),
           children: [
             if ((item['description'] ?? '').toString().isNotEmpty) Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 12), child: Text(item['description'].toString())),
-            if (admin) ButtonBar(children: [TextButton(onPressed: () => edit(item: item), child: const Text('Edit')), TextButton(onPressed: () => remove(item), child: const Text('Hapus'))]),
+            if (admin) OverflowBar(alignment: MainAxisAlignment.end, children: [TextButton(onPressed: () => edit(item: item), child: const Text('Edit')), TextButton(onPressed: () => remove(item), child: const Text('Hapus'))]),
           ],
         ));
       }));
