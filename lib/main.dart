@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'profile_edit_screen.dart';
+import 'notifications_screen.dart';
 import 'announcements_screen.dart';
 import 'activities_screen.dart';
 import 'attendance_screen.dart';
@@ -427,6 +428,15 @@ class HomeScreen extends StatelessWidget {
           ],
         ),
         actions: [
+          IconButton(
+            tooltip: 'Notifikasi',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => NotificationsScreen(role: role),
+              ),
+            ),
+            icon: const Icon(Icons.notifications_none_rounded),
+          ),
           IconButton(
             tooltip: 'Edit profil',
             onPressed: () => _openProfileEditor(context),
