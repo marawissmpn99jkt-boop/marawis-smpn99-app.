@@ -149,8 +149,8 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                             try {
                               final sent = await _sendAnnouncementNotifications(
                                 announcementId,
-                                title.text.trim(),
-                                body.text.trim(),
+                                data['title'] as String,
+                                data['body'] as String,
                                 audience,
                               );
                               if (sent > 0) {
