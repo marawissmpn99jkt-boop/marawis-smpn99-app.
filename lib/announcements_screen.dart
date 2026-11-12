@@ -123,15 +123,45 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                             'is_published': published,
                             'updated_at': DateTime.now().toUtc().toIso8601String(),
                           };
+                          late final int announcementId;
                           if (item == null) {
                             data['created_by'] = _client.auth.currentUser!.id;
-                            await _client.from('announcements').insert(data);
+                            final saved = await _client
+                                .from('announcements')
+                                .insert(data)
+                                .select('id')
+                                .single();
+                            announcementId = (saved['id'] as num).toInt();
                           } else {
-                            await _client.from('announcements').update(data).eq('id', item['id']);
+                            await _client
+                                .from('announcements')
+                                .update(data)
+                                .eq('id', item['id']);
+                            announcementId = (item['id'] as num).toInt();
                           }
                           if (sheetContext.mounted) Navigator.pop(sheetContext);
                           _refresh();
-                          _message(item == null ? 'Pengumuman berhasil dibuat.' : 'Pengumuman berhasil diperbarui.');
+                          _message(item == null
+                              ? 'Pengumuman berhasil dibuat.'
+                              : 'Pengumuman berhasil diperbarui.');
+
+                          if (published) {
+                            try {
+                              final sent = await _sendAnnouncementNotifications(
+                                announcementId,
+                                title.text.trim(),
+                                body.text.trim(),
+                                audience,
+                              );
+                              if (sent > 0) {
+                                _message('Notifikasi pengumuman dikirim ke $sent akun.');
+                              }
+                            } catch (notificationError) {
+                              _message(
+                                'Pengumuman tersimpan, tetapi notifikasi gagal dikirim: $notificationError',
+                              );
+                            }
+                          }
                         } catch (e) {
                           _message('Gagal menyimpan pengumuman: $e');
                         } finally {
@@ -151,6 +181,47 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
     );
     title.dispose();
     body.dispose();
+  }
+
+  Future<int> _sendAnnouncementNotifications(
+    int announcementId,
+    String title,
+    String body,
+    String audience,
+  ) async {
+    final profiles = await _client.from('profiles').select('id,role');
+    final recipients = List<Map<String, dynamic>>.from(profiles).where((profile) {
+      final role = profile['role']?.toString() ?? 'anggota';
+      if (audience == 'anggota') return role == 'anggota';
+      if (audience == 'admin') return role == 'pengurus' || role == 'pembina';
+      return true;
+    }).toList();
+
+    if (recipients.isEmpty) return 0;
+
+    final existingRows = await _client
+        .from('notifications')
+        .select('user_id')
+        .eq('related_type', 'announcement')
+        .eq('related_id', announcementId);
+    final alreadyNotified = List<Map<String, dynamic>>.from(existingRows)
+        .map((row) => row['user_id'].toString())
+        .toSet();
+
+    final newRows = recipients
+        .where((profile) => !alreadyNotified.contains(profile['id'].toString()))
+        .map((profile) => <String, dynamic>{
+              'user_id': profile['id'],
+              'title': 'Pengumuman: $title',
+              'body': body,
+              'related_type': 'announcement',
+              'related_id': announcementId,
+            })
+        .toList();
+
+    if (newRows.isEmpty) return 0;
+    await _client.from('notifications').insert(newRows);
+    return newRows.length;
   }
 
   Future<void> _delete(Map<String, dynamic> item) async {
