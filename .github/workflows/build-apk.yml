@@ -33,13 +33,13 @@ jobs:
 
           settings_path = Path("android/settings.gradle.kts")
           settings = settings_path.read_text()
-          pattern = r'(id\("com\\.android\\.application"\)\\s+version\\s+")([^"]+)("\\s+apply false)'
+          pattern = r'(id\("com\.android\.application"\)\s+version\s+")([^"]+)("\s+apply false)'
           match = re.search(pattern, settings)
           if match is None:
               raise SystemExit("Plugin com.android.application version was not found exactly once; refusing to guess.")
 
           version_text = match.group(2)
-          version_match = re.fullmatch(r"(\\d+)\\.(\\d+)\\.(\\d+)", version_text)
+          version_match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)", version_text)
           if version_match is None:
               raise SystemExit(f"Unexpected Android Gradle Plugin version format: {version_text}")
 
