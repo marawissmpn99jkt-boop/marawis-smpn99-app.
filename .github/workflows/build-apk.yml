@@ -25,6 +25,38 @@ jobs:
       - name: Generate Android platform files
         run: flutter create --platforms=android --project-name marawis_smpn99 .
 
+      - name: Pin Android Gradle Plugin to lint-fixed patch
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          settings_path = Path("android/settings.gradle.kts")
+          settings = settings_path.read_text()
+          pattern = r'(id\("com\\.android\\.application"\)\\s+version\\s+")([^"]+)("\\s+apply false)'
+          match = re.search(pattern, settings)
+          if match is None:
+              raise SystemExit("Plugin com.android.application version was not found exactly once; refusing to guess.")
+
+          version_text = match.group(2)
+          version_match = re.fullmatch(r"(\\d+)\\.(\\d+)\\.(\\d+)", version_text)
+          if version_match is None:
+              raise SystemExit(f"Unexpected Android Gradle Plugin version format: {version_text}")
+
+          version = tuple(map(int, version_match.groups()))
+          if version in ((9, 3, 0), (9, 3, 1)):
+              settings = settings[:match.start(2)] + "9.3.2" + settings[match.end(2):]
+              settings_path.write_text(settings)
+              print(f"Updated Android Gradle Plugin {version_text} -> 9.3.2 (fixes the AGP 9.3 lint crash).")
+          elif version >= (9, 3, 2):
+              print(f"Android Gradle Plugin {version_text} already includes the AGP 9.3 lint fix; no change needed.")
+          else:
+              raise SystemExit(
+                  f"Android Gradle Plugin {version_text} predates the known lint fix. "
+                  "Review Flutter/AGP compatibility before changing versions."
+              )
+          PY
+
       - name: Configure Supabase OAuth deep link
         run: |
           python3 - <<'PY'
