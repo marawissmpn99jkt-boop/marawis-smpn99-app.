@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'program_tasks_panel.dart';
 
 class WorkProgramsScreen extends StatefulWidget {
   const WorkProgramsScreen({super.key, required this.role});
@@ -80,6 +81,10 @@ class _WorkProgramsScreenState extends State<WorkProgramsScreen> {
           children: [
             if ((item['description'] ?? '').toString().isNotEmpty) Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 12), child: Text(item['description'].toString())),
             if (admin) OverflowBar(alignment: MainAxisAlignment.end, children: [TextButton(onPressed: () => edit(item: item), child: const Text('Edit')), TextButton(onPressed: () => remove(item), child: const Text('Hapus'))]),
+            ProgramTasksPanel(
+              programId: (item['id'] as num).toInt(),
+              admin: admin,
+            ),
           ],
         ));
       }));
