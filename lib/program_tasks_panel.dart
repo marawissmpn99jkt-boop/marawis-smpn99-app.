@@ -56,11 +56,7 @@ class _ProgramTasksPanelState extends State<ProgramTasksPanel> {
   String _dateLabel(dynamic raw) {
     final date = DateTime.tryParse(raw?.toString() ?? '');
     if (date == null) return 'Tanpa tenggat';
-    return date.day.toString().padLeft(2, '0') +
-        '/' +
-        date.month.toString().padLeft(2, '0') +
-        '/' +
-        date.year.toString();
+    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
   }
 
   String _statusLabel(String value) {
@@ -175,11 +171,7 @@ class _ProgramTasksPanelState extends State<ProgramTasksPanel> {
                         dueDate == null
                             ? 'Belum ditentukan'
                             : _dateLabel(
-                                dueDate!.year.toString() +
-                                    '-' +
-                                    dueDate!.month.toString().padLeft(2, '0') +
-                                    '-' +
-                                    dueDate!.day.toString().padLeft(2, '0'),
+                                '${dueDate!.year}-${dueDate!.month.toString().padLeft(2, '0')}-${dueDate!.day.toString().padLeft(2, '0')}',
                               ),
                       ),
                       trailing: Row(
@@ -236,11 +228,7 @@ class _ProgramTasksPanelState extends State<ProgramTasksPanel> {
                       try {
                         final dateValue = dueDate == null
                             ? null
-                            : dueDate!.year.toString() +
-                                '-' +
-                                dueDate!.month.toString().padLeft(2, '0') +
-                                '-' +
-                                dueDate!.day.toString().padLeft(2, '0');
+                            : '${dueDate!.year}-${dueDate!.month.toString().padLeft(2, '0')}-${dueDate!.day.toString().padLeft(2, '0')}';
                         final data = <String, dynamic>{
                           'title': title.text.trim(),
                           'assigned_to':
@@ -274,7 +262,7 @@ class _ProgramTasksPanelState extends State<ProgramTasksPanel> {
                               : 'Tugas berhasil diperbarui.',
                         );
                       } catch (error) {
-                        _message('Gagal menyimpan tugas: ' + error.toString());
+                        _message('Gagal menyimpan tugas: $error');
                       } finally {
                         if (mounted) setState(() => busy = false);
                       }
@@ -301,7 +289,7 @@ class _ProgramTasksPanelState extends State<ProgramTasksPanel> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Hapus tugas?'),
-        content: Text('Tugas "' + task['title'].toString() + '" akan dihapus.'),
+        content: Text('Tugas "${task['title']}" akan dihapus.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
@@ -325,7 +313,7 @@ class _ProgramTasksPanelState extends State<ProgramTasksPanel> {
       _refresh();
       _message('Tugas berhasil dihapus.');
     } catch (error) {
-      _message('Gagal menghapus tugas: ' + error.toString());
+      _message('Gagal menghapus tugas: $error');
     }
   }
 
@@ -345,7 +333,7 @@ class _ProgramTasksPanelState extends State<ProgramTasksPanel> {
       _refresh();
       _message('Status tugas diperbarui.');
     } catch (error) {
-      _message('Gagal memperbarui status tugas: ' + error.toString());
+      _message('Gagal memperbarui status tugas: $error');
     }
   }
 
@@ -396,7 +384,7 @@ class _ProgramTasksPanelState extends State<ProgramTasksPanel> {
                 children: [
                   Expanded(
                     child: Text(
-                      'Daftar tugas (' + tasks.length.toString() + ')',
+                      'Daftar tugas (${tasks.length})',
                       style: const TextStyle(
                         fontWeight: FontWeight.w900,
                         color: Color(0xFF167D68),
@@ -476,11 +464,7 @@ class _ProgramTasksPanelState extends State<ProgramTasksPanel> {
                             ),
                             const SizedBox(height: 3),
                             Text(
-                              _statusLabel(status) +
-                                  ' • ' +
-                                  assignee +
-                                  ' • ' +
-                                  _dateLabel(task['due_date']),
+                              '${_statusLabel(status)} • $assignee • ${_dateLabel(task['due_date'])}',
                               style: const TextStyle(
                                 color: Color(0xFF78877F),
                                 fontSize: 10,
