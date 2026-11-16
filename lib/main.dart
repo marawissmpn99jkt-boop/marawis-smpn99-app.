@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'auth_roles.dart';
 import 'profile_edit_screen.dart';
 import 'notifications_screen.dart';
 import 'announcements_screen.dart';
@@ -153,13 +154,12 @@ class _ProfileGateState extends State<_ProfileGate> {
           );
         }
         final pendingRole = profile['_pending_staff_role']?.toString();
-        if (pendingRole == 'pengurus' || pendingRole == 'pembina') {
-          return StaffAccessScreen(user: widget.user, role: pendingRole);
-        }
-        // A staff account must always pass the second-password gate, even if
-        // the user selected "Login Anggota" on the login screen.
-        if (role == 'pengurus' || role == 'pembina') {
-          return StaffAccessScreen(user: widget.user, role: role);
+        final staffRole = requiredStaffVerificationRole(
+          profileRole: role,
+          pendingRole: pendingRole,
+        );
+        if (staffRole != null) {
+          return StaffAccessScreen(user: widget.user, role: staffRole);
         }
         return HomeScreen(user: widget.user, role: role, profile: profile);
       },
