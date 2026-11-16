@@ -92,6 +92,7 @@ class _ProfileGateState extends State<_ProfileGate> {
         .select('full_name, email, avatar_url, role')
         .eq('id', widget.user.id)
         .maybeSingle();
+    if (response == null) return null;
     final prefs = await SharedPreferences.getInstance();
     final pendingRole = prefs.getString('marawis_pending_staff_role');
     if (pendingRole == 'pengurus' || pendingRole == 'pembina') {
@@ -153,7 +154,7 @@ class _ProfileGateState extends State<_ProfileGate> {
         }
         final pendingRole = profile['_pending_staff_role']?.toString();
         if (pendingRole == 'pengurus' || pendingRole == 'pembina') {
-          return StaffAccessScreen(user: widget.user, role: pendingRole);
+          return StaffAccessScreen(user: widget.user, role: pendingRole!);
         }
         return HomeScreen(user: widget.user, role: role, profile: profile);
       },
