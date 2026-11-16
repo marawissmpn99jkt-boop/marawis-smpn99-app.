@@ -1,4 +1,4 @@
-name: Build Marawis Smpn99 Web Preview
+name: Deploy Marawis Smpn99 Web
 
 on:
   push:
@@ -7,6 +7,8 @@ on:
 
 permissions:
   contents: read
+  pages: write
+  id-token: write
 
 concurrency:
   group: github-pages
@@ -14,7 +16,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build Flutter web preview
+    name: Build Flutter web
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -41,10 +43,19 @@ jobs:
       - name: Build release website
         run: flutter build web --release --base-href "/marawis-smpn99-app./"
 
-      - name: Upload web preview artifact
-        uses: actions/upload-artifact@v4
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          name: marawis-smpn99-web-preview
           path: build/web
-          if-no-files-found: error
-          retention-days: 7
+
+  deploy:
+    name: Publish GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
