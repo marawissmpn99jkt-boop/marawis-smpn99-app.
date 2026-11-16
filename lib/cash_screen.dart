@@ -1,6 +1,8 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'formatters.dart';
+
 class CashScreen extends StatefulWidget {
   const CashScreen({super.key, required this.role});
 
@@ -40,8 +42,28 @@ class _CashScreenState extends State<CashScreen> {
             .order('expense_date', ascending: false)
         : <Map<String, dynamic>>[];
 
+    final paymentRows = List<Map<String, dynamic>>.from(payments);
+    final memberRows = <Map<String, dynamic>>[];
+    if (admin) {
+      final rows = await db
+          .from('members')
+          .select('id,display_name,class_name');
+      memberRows.addAll(List<Map<String, dynamic>>.from(rows));
+    }
+    final membersById = {
+      for (final member in memberRows) member['id'].toString(): member,
+    };
+    final enrichedPayments = paymentRows.map((payment) {
+      final member = membersById[payment['member_id'].toString()];
+      return {
+        ...payment,
+        if (admin) 'member_name': member?['display_name'] ?? 'Anggota',
+        if (admin) 'member_class': member?['class_name'],
+      };
+    }).toList();
+
     return {
-      'payments': List<Map<String, dynamic>>.from(payments),
+      'payments': enrichedPayments,
       'expenses': List<Map<String, dynamic>>.from(expenses),
     };
   }
@@ -270,14 +292,6 @@ class _CashScreenState extends State<CashScreen> {
     notes.dispose();
   }
 
-  String money(dynamic value) {
-    final amount = (value as num?)?.toInt() ?? 0;
-    return 'Rp ${amount.toString().replaceAllMapped(
-      RegExp(r'(?=(\d{3})+(?!\d))'),
-      (match) => '.',
-    )}';
-  }
-
   String date(dynamic value) {
     final parsed = DateTime.tryParse(value?.toString() ?? '')?.toLocal();
     if (parsed == null) return '';
@@ -379,7 +393,7 @@ class _CashScreenState extends State<CashScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          money(admin ? balance : accepted),
+                          formatRupiah(admin ? balance : accepted),
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 25,
@@ -389,7 +403,7 @@ class _CashScreenState extends State<CashScreen> {
                         if (admin) ...[
                           const SizedBox(height: 8),
                           Text(
-                            'Pemasukan: ${money(accepted)}  •  Pengeluaran: ${money(totalExpenses)}',
+                            'Pemasukan: ${formatRupiah(accepted)}  •  Pengeluaran: ${formatRupiah(totalExpenses)}',
                             style: const TextStyle(
                               color: Colors.white70,
                               fontSize: 12,
@@ -437,11 +451,17 @@ class _CashScreenState extends State<CashScreen> {
                           ),
                         ),
                         title: Text(
-                          money(row['amount']),
+                          formatRupiah(row['amount']),
                           style: const TextStyle(fontWeight: FontWeight.w800),
                         ),
                         subtitle: Text(
-                          '${row['payment_period']} • ${row['payment_method']} • ${date(row['created_at'])}',
+                          [
+                            if (admin)
+                              '${row['member_name'] ?? 'Anggota'} • ${(row['member_class'] ?? '').toString().isEmpty ? 'Kelas belum diisi' : row['member_class']}',
+                            '${row['payment_period']} • ${row['payment_method']} • ${date(row['created_at'])}',
+                            if ((row['notes'] ?? '').toString().isNotEmpty)
+                              row['notes'].toString(),
+                          ].join('\n'),
                         ),
                         trailing: admin && row['status'] == 'menunggu'
                             ? PopupMenuButton<String>(
@@ -491,7 +511,7 @@ class _CashScreenState extends State<CashScreen> {
                             ),
                           ),
                           title: Text(
-                            money(expense['amount']),
+                            formatRupiah(expense['amount']),
                             style: const TextStyle(
                               fontWeight: FontWeight.w800,
                             ),

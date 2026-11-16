@@ -115,6 +115,9 @@ jobs:
       - name: Analyze app source
         run: flutter analyze lib
 
+      - name: Run tests
+        run: flutter test
+
       - name: Build APK
         run: flutter build apk --release
 

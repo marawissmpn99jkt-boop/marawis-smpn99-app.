@@ -160,19 +160,6 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   bool _loading = false;
-  String _selectedRole = 'anggota';
-
-  String get _selectedRoleLabel {
-    switch (_selectedRole) {
-      case 'pengurus':
-        return 'Pengurus';
-      case 'pembina':
-        return 'Pembina';
-      default:
-        return 'Anggota';
-    }
-  }
-
   Future<void> _signInWithGoogle() async {
     setState(() => _loading = true);
     try {
@@ -261,42 +248,14 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                       const SizedBox(height: 22),
-                      const Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Masuk sebagai',
-                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      DropdownButtonFormField<String>(
-                        initialValue: _selectedRole,
-                        decoration: InputDecoration(
-                          filled: true,
-                          fillColor: const Color(0xFFF7FAF8),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(14),
-                            borderSide: const BorderSide(color: Color(0xFFE8EEEA)),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(14),
-                            borderSide: const BorderSide(color: Color(0xFFE8EEEA)),
-                          ),
-                        ),
-                        items: const [
-                          DropdownMenuItem(value: 'anggota', child: Text('Anggota')),
-                          DropdownMenuItem(value: 'pengurus', child: Text('Pengurus')),
-                          DropdownMenuItem(value: 'pembina', child: Text('Pembina')),
-                        ],
-                        onChanged: _loading ? null : (value) {
-                          if (value != null) setState(() => _selectedRole = value);
-                        },
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Pilihan: $_selectedRoleLabel. Akses sebenarnya tetap mengikuti role yang terdaftar di database.',
-                        style: const TextStyle(color: Color(0xFF78877F), fontSize: 11, height: 1.4),
+                      const Text(
+                        'Akun baru otomatis terdaftar sebagai Anggota. Pengurus atau Pembina dapat menetapkan role setelah akun terdaftar.',
                         textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Color(0xFF78877F),
+                          fontSize: 12,
+                          height: 1.45,
+                        ),
                       ),
                       const SizedBox(height: 18),
                       SizedBox(
