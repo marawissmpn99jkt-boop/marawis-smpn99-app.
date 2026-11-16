@@ -154,7 +154,12 @@ class _ProfileGateState extends State<_ProfileGate> {
         }
         final pendingRole = profile['_pending_staff_role']?.toString();
         if (pendingRole == 'pengurus' || pendingRole == 'pembina') {
-          return StaffAccessScreen(user: widget.user, role: pendingRole!);
+          return StaffAccessScreen(user: widget.user, role: pendingRole);
+        }
+        // A staff account must always pass the second-password gate, even if
+        // the user selected "Login Anggota" on the login screen.
+        if (role == 'pengurus' || role == 'pembina') {
+          return StaffAccessScreen(user: widget.user, role: role);
         }
         return HomeScreen(user: widget.user, role: role, profile: profile);
       },
@@ -406,11 +411,29 @@ class _StaffAccessScreenState extends State<StaffAccessScreen> {
         final reason = data is Map ? data['error']?.toString() : null;
         throw Exception(reason ?? 'Verifikasi gagal. Coba lagi.');
       }
+      final profile = await Supabase.instance.client
+          .from('profiles')
+          .select('full_name, email, avatar_url, role')
+          .eq('id', widget.user.id)
+          .maybeSingle();
+      if (profile == null) {
+        throw Exception('Profil belum ditemukan setelah verifikasi.');
+      }
+      final verifiedRole = (profile['role'] ?? '').toString();
+      if (verifiedRole != 'pengurus' && verifiedRole != 'pembina') {
+        throw Exception('Role staf belum berhasil diperbarui. Coba lagi.');
+      }
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('marawis_pending_staff_role');
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => _ProfileGate(user: widget.user)),
+        MaterialPageRoute(
+          builder: (_) => HomeScreen(
+            user: widget.user,
+            role: verifiedRole,
+            profile: profile,
+          ),
+        ),
         (route) => false,
       );
     } catch (error) {
