@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'profile_edit_screen.dart';
 import 'notifications_screen.dart';
@@ -91,6 +92,11 @@ class _ProfileGateState extends State<_ProfileGate> {
         .select('full_name, email, avatar_url, role')
         .eq('id', widget.user.id)
         .maybeSingle();
+    final prefs = await SharedPreferences.getInstance();
+    final pendingRole = prefs.getString('marawis_pending_staff_role');
+    if (pendingRole == 'pengurus' || pendingRole == 'pembina') {
+      return {...response, '_pending_staff_role': pendingRole};
+    }
     return response;
   }
 
@@ -145,6 +151,10 @@ class _ProfileGateState extends State<_ProfileGate> {
             body: Center(child: Text('Role akun tidak dikenali. Hubungi admin.')),
           );
         }
+        final pendingRole = profile['_pending_staff_role']?.toString();
+        if (pendingRole == 'pengurus' || pendingRole == 'pembina') {
+          return StaffAccessScreen(user: widget.user, role: pendingRole);
+        }
         return HomeScreen(user: widget.user, role: role, profile: profile);
       },
     );
@@ -160,8 +170,14 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   bool _loading = false;
-  Future<void> _signInWithGoogle() async {
+  Future<void> _signInWithGoogle(String role) async {
     setState(() => _loading = true);
+    final prefs = await SharedPreferences.getInstance();
+    if (role == 'pengurus' || role == 'pembina') {
+      await prefs.setString('marawis_pending_staff_role', role);
+    } else {
+      await prefs.remove('marawis_pending_staff_role');
+    }
     try {
       final launched = await Supabase.instance.client.auth.signInWithOAuth(
         OAuthProvider.google,
@@ -172,6 +188,7 @@ class _LoginScreenState extends State<LoginScreen> {
         throw const AuthException('Halaman login Google gagal dibuka. Coba lagi.');
       }
     } catch (error) {
+      await prefs.remove('marawis_pending_staff_role');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -182,6 +199,56 @@ class _LoginScreenState extends State<LoginScreen> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Widget _loginChoice({
+    required String role,
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+  }) {
+    return SizedBox(
+      width: double.infinity,
+      height: 58,
+      child: FilledButton(
+        onPressed: _loading ? null : () => _signInWithGoogle(role),
+        style: FilledButton.styleFrom(
+          backgroundColor: color,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
+          alignment: Alignment.centerLeft,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 23),
+            const SizedBox(width: 13),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 2),
+                  Text(subtitle, style: const TextStyle(fontSize: 11, color: Colors.white70)),
+                ],
+              ),
+            ),
+            if (_loading)
+              const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              )
+            else
+              const Icon(Icons.arrow_forward_rounded, size: 19),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -249,7 +316,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 22),
                       const Text(
-                        'Akun baru otomatis terdaftar sebagai Anggota. Pengurus atau Pembina dapat menetapkan role setelah akun terdaftar.',
+                        'Pilih jenis akses. Semua akun masuk dengan Google. Pengurus dan Pembina wajib melewati verifikasi password kedua.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: Color(0xFF78877F),
@@ -258,41 +325,28 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                       const SizedBox(height: 18),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 52,
-                        child: FilledButton(
-                          onPressed: _loading ? null : _signInWithGoogle,
-                          style: FilledButton.styleFrom(
-                            backgroundColor: const Color(0xFF167D68),
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(15),
-                            ),
-                          ),
-                          child: _loading
-                              ? const SizedBox(
-                                  width: 21,
-                                  height: 21,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : const Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.login_rounded, size: 20),
-                                    SizedBox(width: 10),
-                                    Text(
-                                      'Masuk dengan Google',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                        ),
+                      _loginChoice(
+                        role: 'anggota',
+                        title: 'Login Anggota',
+                        subtitle: 'Akses anggota Marawis',
+                        icon: Icons.groups_rounded,
+                        color: const Color(0xFF167D68),
+                      ),
+                      const SizedBox(height: 10),
+                      _loginChoice(
+                        role: 'pengurus',
+                        title: 'Login Pengurus',
+                        subtitle: 'Google + password kedua',
+                        icon: Icons.admin_panel_settings_rounded,
+                        color: const Color(0xFF4268C5),
+                      ),
+                      const SizedBox(height: 10),
+                      _loginChoice(
+                        role: 'pembina',
+                        title: 'Login Pembina',
+                        subtitle: 'Google + password kedua',
+                        icon: Icons.school_rounded,
+                        color: const Color(0xFFC47A25),
                       ),
                     ],
                   ),
@@ -308,6 +362,146 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
               ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+class StaffAccessScreen extends StatefulWidget {
+  const StaffAccessScreen({super.key, required this.user, required this.role});
+
+  final User user;
+  final String role;
+
+  @override
+  State<StaffAccessScreen> createState() => _StaffAccessScreenState();
+}
+
+class _StaffAccessScreenState extends State<StaffAccessScreen> {
+  final _password = TextEditingController();
+  bool _busy = false;
+  bool _obscure = true;
+
+  @override
+  void dispose() {
+    _password.dispose();
+    super.dispose();
+  }
+
+  Future<void> _verify() async {
+    if (_password.text.isEmpty || _busy) return;
+    setState(() => _busy = true);
+    try {
+      final response = await Supabase.instance.client.functions.invoke(
+        'marawis-staff-access',
+        body: {'role': widget.role, 'password': _password.text},
+      );
+      if (response.status < 200 || response.status >= 300) {
+        final data = response.data;
+        final reason = data is Map ? data['error']?.toString() : null;
+        throw Exception(reason ?? 'Verifikasi gagal. Coba lagi.');
+      }
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('marawis_pending_staff_role');
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => _ProfileGate(user: widget.user)),
+        (route) => false,
+      );
+    } catch (error) {
+      if (!mounted) return;
+      final message = error.toString().replaceFirst('Exception: ', '');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _cancel() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('marawis_pending_staff_role');
+    await Supabase.instance.client.auth.signOut();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isPengurus = widget.role == 'pengurus';
+    final title = isPengurus ? 'Verifikasi Pengurus' : 'Verifikasi Pembina';
+    final color = isPengurus ? const Color(0xFF4268C5) : const Color(0xFFC47A25);
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+        automaticallyImplyLeading: false,
+        actions: [
+          TextButton(onPressed: _busy ? null : _cancel, child: const Text('Batal')),
+        ],
+      ),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircleAvatar(
+                    radius: 36,
+                    backgroundColor: color.withValues(alpha: 0.12),
+                    child: Icon(
+                      isPengurus ? Icons.admin_panel_settings_rounded : Icons.school_rounded,
+                      color: color,
+                      size: 34,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(title, style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w900)),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Masukkan password kedua yang hanya dibagikan kepada Pengurus dan Pembina Marawis.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Color(0xFF78877F), height: 1.5),
+                  ),
+                  const SizedBox(height: 24),
+                  TextField(
+                    controller: _password,
+                    obscureText: _obscure,
+                    enabled: !_busy,
+                    onSubmitted: (_) => _verify(),
+                    decoration: InputDecoration(
+                      labelText: 'Password kedua',
+                      prefixIcon: const Icon(Icons.lock_outline_rounded),
+                      suffixIcon: IconButton(
+                        onPressed: () => setState(() => _obscure = !_obscure),
+                        icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                      ),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: FilledButton(
+                      onPressed: _busy ? null : _verify,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: color,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                      ),
+                      child: _busy
+                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Text('Verifikasi dan masuk', style: TextStyle(fontWeight: FontWeight.w800)),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
