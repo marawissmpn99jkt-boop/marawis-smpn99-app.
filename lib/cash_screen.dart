@@ -273,7 +273,7 @@ class _CashScreenState extends State<CashScreen> {
   String money(dynamic value) {
     final amount = (value as num?)?.toInt() ?? 0;
     return 'Rp ${amount.toString().replaceAllMapped(
-      RegExp(r'(?=(\\d{3})+(?!\\d))'),
+      RegExp(r'(?=(\d{3})+(?!\d))'),
       (match) => '.',
     )}';
   }
@@ -498,7 +498,7 @@ class _CashScreenState extends State<CashScreen> {
                           ),
                           subtitle: Text(
                             '${expense['title']} • ${date(expense['expense_date'])}'
-                            '${(expense['notes'] ?? '').toString().isEmpty ? '' : '\\n${expense['notes']}'}',
+                            '${(expense['notes'] ?? '').toString().isEmpty ? '' : '\n${expense['notes']}'}',
                           ),
                         ),
                       ),
