@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:material_ui/material_ui.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -185,9 +186,10 @@ class _LoginScreenState extends State<LoginScreen> {
       await prefs.remove('marawis_pending_staff_role');
     }
     try {
+      final redirectUrl = kIsWeb ? Uri.base.toString() : authRedirectUrl;
       final launched = await Supabase.instance.client.auth.signInWithOAuth(
         OAuthProvider.google,
-        redirectTo: authRedirectUrl,
+        redirectTo: redirectUrl,
         authScreenLaunchMode: LaunchMode.externalApplication,
       );
       if (!launched) {
