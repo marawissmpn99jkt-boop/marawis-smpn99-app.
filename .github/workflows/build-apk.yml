@@ -141,6 +141,17 @@ jobs:
       - name: Build APK
         run: flutter build apk --release
 
+      - name: Verify APK signature and Android compatibility
+        run: |
+          APK=build/app/outputs/flutter-apk/app-release.apk
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)
+          AAPT=$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)
+          ZIPALIGN=$(find "$ANDROID_HOME/build-tools" -type f -name zipalign | sort -V | tail -n 1)
+          test -n "$APKSIGNER" && test -n "$AAPT" && test -n "$ZIPALIGN"
+          "$APKSIGNER" verify --verbose --print-certs "$APK"
+          "$AAPT" dump badging "$APK" | head -n 8
+          "$ZIPALIGN" -c -v 4 "$APK"
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
