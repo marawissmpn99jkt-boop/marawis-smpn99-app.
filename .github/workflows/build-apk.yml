@@ -118,6 +118,26 @@ jobs:
       - name: Run tests
         run: flutter test
 
+      - name: Configure APK signing
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("android/app/build.gradle.kts")
+          content = path.read_text()
+          release_block = "    release {"
+          if release_block not in content:
+              raise SystemExit("Blok buildTypes.release tidak ditemukan; APK tidak akan dibangun tanpa konfigurasi signing.")
+          if "signingConfig = signingConfigs.getByName(\"debug\")" not in content:
+              content = content.replace(
+                  release_block,
+                  release_block + '\n            signingConfig = signingConfigs.getByName("debug")',
+                  1,
+              )
+          path.write_text(content)
+          print("Release APK akan ditandatangani menggunakan debug keystore untuk pengujian.")
+          PY
+
       - name: Build APK
         run: flutter build apk --release
 
