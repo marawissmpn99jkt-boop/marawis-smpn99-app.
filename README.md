@@ -7,7 +7,7 @@ Aplikasi manajemen organisasi Marawis SMPN 99 Jakarta untuk periode 2026/2027.
 - Login Google melalui Supabase Auth.
 - Role Anggota, Pengurus, dan Pembina. Pengurus serta Pembina memiliki akses pengelolaan yang setara; akses staf memerlukan verifikasi password kedua di server.
 - Profil, foto, kelas, bio, dan direktori anggota.
-- Pengumuman dan pusat notifikasi dalam aplikasi.
+- Pengumuman, broadcast, dan notifikasi otomatis dalam aplikasi untuk penugasan tugas serta verifikasi kas.
 - Jadwal kegiatan yang dapat dibuat, diedit, dan dihapus.
 - Absensi dengan status yang harus dipilih secara eksplisit untuk setiap anggota aktif.
 - Uang kas, pengajuan pembayaran, bukti transfer privat, verifikasi, dan pencatatan pengeluaran.

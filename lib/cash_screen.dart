@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'formatters.dart';
 import 'cash_payment_rules.dart';
+import 'cash_payment_notifications.dart';
 
 class CashScreen extends StatefulWidget {
   const CashScreen({super.key, required this.role});
@@ -344,12 +345,30 @@ class _CashScreenState extends State<CashScreen> {
           .eq('status', 'menunggu')
           .select('id')
           .maybeSingle();
+      var notificationFailed = false;
+      if (updated != null) {
+        try {
+          await db.from('notifications').insert(
+                buildCashPaymentStatusNotification(
+                  memberId: row['member_id'].toString(),
+                  paymentId: (row['id'] as num).toInt(),
+                  amount: row['amount'] as num,
+                  paymentPeriod: row['payment_period'].toString(),
+                  status: status,
+                ),
+              );
+        } catch (_) {
+          notificationFailed = true;
+        }
+      }
       refresh();
       message(updated == null
           ? 'Pembayaran sudah diproses sebelumnya.'
-          : status == 'diterima'
-              ? 'Pembayaran diterima.'
-              : 'Pembayaran ditolak.');
+          : notificationFailed
+              ? 'Status pembayaran diperbarui, tetapi notifikasi gagal dikirim.'
+              : status == 'diterima'
+                  ? 'Pembayaran diterima.'
+                  : 'Pembayaran ditolak.');
     } catch (error) {
       message('Gagal memperbarui status: $error');
     }

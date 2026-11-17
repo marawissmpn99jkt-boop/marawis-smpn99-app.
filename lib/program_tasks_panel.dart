@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'task_permissions.dart';
+import 'task_assignee_notifications.dart';
 
 class ProgramTasksPanel extends StatefulWidget {
   const ProgramTasksPanel({
@@ -243,15 +244,39 @@ class _ProgramTasksPanelState extends State<ProgramTasksPanel> {
                           'updated_at': DateTime.now().toUtc().toIso8601String(),
                         };
 
+                        late final int taskId;
                         if (task == null) {
                           data['program_id'] = widget.programId;
-                          await db.from('program_tasks').insert(data);
+                          final saved = await db
+                              .from('program_tasks')
+                              .insert(data)
+                              .select('id')
+                              .single();
+                          taskId = (saved['id'] as num).toInt();
                         } else {
                           await db
                               .from('program_tasks')
                               .update(data)
                               .eq('id', task['id'])
                               .eq('program_id', widget.programId);
+                          taskId = (task['id'] as num).toInt();
+                        }
+
+                        var notificationFailed = false;
+                        final notifications = buildTaskAssigneeNotifications(
+                          isNewTask: task == null,
+                          previousAssigneeId: task?['assigned_to']?.toString(),
+                          nextAssigneeId: assignedTo.isEmpty ? null : assignedTo,
+                          taskId: taskId,
+                          taskTitle: title.text.trim(),
+                          dueDateLabel: _dateLabel(dateValue),
+                        );
+                        if (notifications.isNotEmpty) {
+                          try {
+                            await db.from('notifications').insert(notifications);
+                          } catch (_) {
+                            notificationFailed = true;
+                          }
                         }
 
                         if (dialogContext.mounted) {
@@ -259,9 +284,11 @@ class _ProgramTasksPanelState extends State<ProgramTasksPanel> {
                         }
                         _refresh();
                         _message(
-                          task == null
-                              ? 'Tugas berhasil ditambahkan.'
-                              : 'Tugas berhasil diperbarui.',
+                          notificationFailed
+                              ? 'Tugas tersimpan, tetapi notifikasi penanggung jawab gagal dikirim.'
+                              : task == null
+                                  ? 'Tugas berhasil ditambahkan.'
+                                  : 'Tugas berhasil diperbarui.',
                         );
                       } catch (error) {
                         _message('Gagal menyimpan tugas: $error');
