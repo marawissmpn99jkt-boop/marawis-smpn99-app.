@@ -157,7 +157,7 @@ jobs:
           subprocess.run(
               [
                   "keytool", "-list", "-keystore", str(keystore_path),
-                  "-storepass", os.environ["ANDROID_KEYSTORE_PASSWORD"],
+                  "-storepass:env", "ANDROID_KEYSTORE_PASSWORD",
                   "-alias", os.environ["ANDROID_KEY_ALIAS"],
               ],
               check=True,
@@ -168,16 +168,16 @@ jobs:
 
           gradle_path = Path("android/app/build.gradle.kts")
           content = gradle_path.read_text()
-          signing_block = '''    signingConfigs {
-                  create("release") {
-                      storeFile = file("upload-keystore.jks")
-                      storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
-                      keyAlias = System.getenv("ANDROID_KEY_ALIAS")
-                      keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
-                  }
-              }
-
-          '''
+          signing_block = (
+              "    signingConfigs {\n"
+              "        create(\"release\") {\n"
+              "            storeFile = file(\"upload-keystore.jks\")\n"
+              "            storePassword = System.getenv(\"ANDROID_KEYSTORE_PASSWORD\")\n"
+              "            keyAlias = System.getenv(\"ANDROID_KEY_ALIAS\")\n"
+              "            keyPassword = System.getenv(\"ANDROID_KEY_PASSWORD\")\n"
+              "        }\n"
+              "    }\n\n"
+          )
           if 'create("release")' not in content:
               marker = "    buildTypes {"
               if marker not in content:
