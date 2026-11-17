@@ -38,20 +38,33 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
     );
   }
 
-  Future<void> _createActivity() async {
-    final title = TextEditingController();
-    final description = TextEditingController();
-    final location = TextEditingController();
+  Future<void> _editActivity({Map<String, dynamic>? item}) async {
+    final title = TextEditingController(
+      text: item?['title']?.toString() ?? '',
+    );
+    final description = TextEditingController(
+      text: item?['description']?.toString() ?? '',
+    );
+    final location = TextEditingController(
+      text: item?['location']?.toString() ?? '',
+    );
+    var type = (item?['activity_type'] ?? 'latihan').toString();
+    if (!const {'latihan', 'rapat', 'penampilan', 'acara', 'lainnya'}.contains(type)) {
+      type = 'latihan';
+    }
+    var start = DateTime.tryParse(item?['starts_at']?.toString() ?? '')
+            ?.toLocal() ??
+        DateTime.now().add(const Duration(days: 1));
+    var end = DateTime.tryParse(item?['ends_at']?.toString() ?? '')
+            ?.toLocal() ??
+        start.add(const Duration(hours: 2));
     final formKey = GlobalKey<FormState>();
-    var type = 'latihan';
-    var start = DateTime.now().add(const Duration(days: 1));
-    var end = start.add(const Duration(hours: 2));
 
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Tambah kegiatan'),
+          title: Text(item == null ? 'Tambah kegiatan' : 'Edit kegiatan'),
           content: SizedBox(
             width: 420,
             child: Form(
@@ -64,7 +77,9 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
                       controller: title,
                       maxLength: 100,
                       decoration: const InputDecoration(labelText: 'Nama kegiatan'),
-                      validator: (v) => v == null || v.trim().isEmpty ? 'Nama wajib diisi.' : null,
+                      validator: (value) => value == null || value.trim().isEmpty
+                          ? 'Nama wajib diisi.'
+                          : null,
                     ),
                     DropdownButtonFormField<String>(
                       initialValue: type,
@@ -76,7 +91,9 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
                         DropdownMenuItem(value: 'acara', child: Text('Acara')),
                         DropdownMenuItem(value: 'lainnya', child: Text('Lainnya')),
                       ],
-                      onChanged: (v) { if (v != null) setDialogState(() => type = v); },
+                      onChanged: (value) {
+                        if (value != null) setDialogState(() => type = value);
+                      },
                     ),
                     ListTile(
                       contentPadding: EdgeInsets.zero,
@@ -96,7 +113,13 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
                           initialTime: TimeOfDay.fromDateTime(start),
                         );
                         if (time == null) return;
-                        setDialogState(() => start = DateTime(date.year, date.month, date.day, time.hour, time.minute));
+                        setDialogState(() => start = DateTime(
+                              date.year,
+                              date.month,
+                              date.day,
+                              time.hour,
+                              time.minute,
+                            ));
                       },
                     ),
                     ListTile(
@@ -117,7 +140,13 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
                           initialTime: TimeOfDay.fromDateTime(end),
                         );
                         if (time == null) return;
-                        setDialogState(() => end = DateTime(date.year, date.month, date.day, time.hour, time.minute));
+                        setDialogState(() => end = DateTime(
+                              date.year,
+                              date.month,
+                              date.day,
+                              time.hour,
+                              time.minute,
+                            ));
                       },
                     ),
                     TextFormField(
@@ -137,35 +166,63 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Batal')),
+            TextButton(
+              onPressed: _saving ? null : () => Navigator.pop(dialogContext),
+              child: const Text('Batal'),
+            ),
             FilledButton(
-              onPressed: _saving ? null : () async {
-                if (!formKey.currentState!.validate()) return;
-                if (end.isBefore(start)) {
-                  _message('Waktu selesai tidak boleh sebelum waktu mulai.');
-                  return;
-                }
-                setState(() => _saving = true);
-                try {
-                  await _client.from('activities').insert({
-                    'title': title.text.trim(),
-                    'description': description.text.trim().isEmpty ? null : description.text.trim(),
-                    'location': location.text.trim().isEmpty ? null : location.text.trim(),
-                    'activity_type': type,
-                    'starts_at': start.toUtc().toIso8601String(),
-                    'ends_at': end.toUtc().toIso8601String(),
-                    'created_by': _client.auth.currentUser!.id,
-                  });
-                  if (dialogContext.mounted) Navigator.pop(dialogContext);
-                  _refresh();
-                  _message('Kegiatan berhasil ditambahkan.');
-                } catch (error) {
-                  _message('Gagal menambahkan kegiatan: $error');
-                } finally {
-                  if (mounted) setState(() => _saving = false);
-                }
-              },
-              child: _saving ? const CircularProgressIndicator() : const Text('Simpan'),
+              onPressed: _saving
+                  ? null
+                  : () async {
+                      if (!formKey.currentState!.validate()) return;
+                      if (end.isBefore(start)) {
+                        _message('Waktu selesai tidak boleh sebelum waktu mulai.');
+                        return;
+                      }
+                      setState(() => _saving = true);
+                      try {
+                        final data = <String, dynamic>{
+                          'title': title.text.trim(),
+                          'description': description.text.trim().isEmpty
+                              ? null
+                              : description.text.trim(),
+                          'location': location.text.trim().isEmpty
+                              ? null
+                              : location.text.trim(),
+                          'activity_type': type,
+                          'starts_at': start.toUtc().toIso8601String(),
+                          'ends_at': end.toUtc().toIso8601String(),
+                          'updated_at': DateTime.now().toUtc().toIso8601String(),
+                        };
+                        if (item == null) {
+                          data['created_by'] = _client.auth.currentUser!.id;
+                          await _client.from('activities').insert(data);
+                        } else {
+                          await _client
+                              .from('activities')
+                              .update(data)
+                              .eq('id', item['id']);
+                        }
+                        if (dialogContext.mounted) Navigator.pop(dialogContext);
+                        _refresh();
+                        _message(
+                          item == null
+                              ? 'Kegiatan berhasil ditambahkan.'
+                              : 'Kegiatan berhasil diperbarui.',
+                        );
+                      } catch (error) {
+                        _message('Gagal menyimpan kegiatan: $error');
+                      } finally {
+                        if (mounted) setState(() => _saving = false);
+                      }
+                    },
+              child: _saving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Simpan'),
             ),
           ],
         ),
@@ -221,7 +278,7 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
         actions: [IconButton(onPressed: _refresh, icon: const Icon(Icons.refresh_rounded))],
       ),
       floatingActionButton: _isAdmin ? FloatingActionButton.extended(
-        onPressed: _createActivity,
+        onPressed: _editActivity,
         backgroundColor: const Color(0xFF167D68),
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add_rounded),
@@ -254,7 +311,7 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
                 Text(_isAdmin ? 'Tambahkan jadwal latihan, rapat, atau penampilan.' : 'Jadwal kegiatan Marawis akan muncul di sini.', textAlign: TextAlign.center),
                 if (_isAdmin) ...[
                   const SizedBox(height: 12),
-                  FilledButton.icon(onPressed: _createActivity, icon: const Icon(Icons.add), label: const Text('Tambah jadwal')),
+                  FilledButton.icon(onPressed: _editActivity, icon: const Icon(Icons.add), label: const Text('Tambah jadwal')),
                 ],
               ]),
             ));
@@ -279,8 +336,14 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
                         const SizedBox(width: 8),
                         Expanded(child: Text(_typeLabel(item['activity_type'].toString()), style: const TextStyle(color: Color(0xFF167D68), fontWeight: FontWeight.w800))),
                         if (_isAdmin) PopupMenuButton<String>(
-                          onSelected: (v) { if (v == 'delete') _delete(item); },
-                          itemBuilder: (_) => const [PopupMenuItem(value: 'delete', child: Text('Hapus'))],
+                          onSelected: (v) {
+                            if (v == 'edit') _editActivity(item: item);
+                            if (v == 'delete') _delete(item);
+                          },
+                          itemBuilder: (_) => const [
+                            PopupMenuItem(value: 'edit', child: Text('Edit')),
+                            PopupMenuItem(value: 'delete', child: Text('Hapus')),
+                          ],
                         ),
                       ]),
                       const SizedBox(height: 6),

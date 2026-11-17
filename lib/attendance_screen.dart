@@ -1,6 +1,8 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'attendance_rules.dart';
+
 class AttendanceScreen extends StatefulWidget {
   const AttendanceScreen({super.key, required this.role});
   final String role;
@@ -82,7 +84,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                     title: Text((member['display_name'] ?? 'Anggota').toString(), style: const TextStyle(fontWeight: FontWeight.w700)),
                     subtitle: (member['class_name'] ?? '').toString().isEmpty ? null : Text(member['class_name'].toString()),
                     trailing: DropdownButton<String>(
-                      value: statuses[memberId] ?? 'hadir',
+                      value: statuses[memberId],
+                      hint: const Text('Pilih status'),
+                      isExpanded: true,
                       items: const [
                         DropdownMenuItem(value: 'hadir', child: Text('Hadir')),
                         DropdownMenuItem(value: 'izin', child: Text('Izin')),
@@ -100,12 +104,21 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 width: double.infinity,
                 child: FilledButton(
                   onPressed: _saving ? null : () async {
+                    if (members.isEmpty) {
+                      _notify('Belum ada anggota aktif yang dapat dicatat.');
+                      return;
+                    }
+                    final memberIds = members.map((member) => member['id'].toString());
+                    if (!hasCompleteAttendance(memberIds, statuses)) {
+                      _notify('Pilih status untuk semua anggota sebelum menyimpan.');
+                      return;
+                    }
                     setState(() => _saving = true);
                     try {
                       final rows = members.map((member) => {
                         'activity_id': id,
                         'member_id': member['id'],
-                        'status': statuses[member['id'].toString()] ?? 'hadir',
+                        'status': statuses[member['id'].toString()]!,
                         'marked_by': _db.auth.currentUser!.id,
                       }).toList();
                       if (rows.isNotEmpty) {

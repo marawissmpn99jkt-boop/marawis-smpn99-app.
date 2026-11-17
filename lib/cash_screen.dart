@@ -1,7 +1,11 @@
+import 'dart:typed_data';
+
+import 'package:image_picker/image_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'formatters.dart';
+import 'cash_payment_rules.dart';
 
 class CashScreen extends StatefulWidget {
   const CashScreen({super.key, required this.role});
@@ -14,6 +18,7 @@ class CashScreen extends StatefulWidget {
 
 class _CashScreenState extends State<CashScreen> {
   final db = Supabase.instance.client;
+  final _picker = ImagePicker();
   bool busy = false;
 
   bool get admin => widget.role == 'pengurus' || widget.role == 'pembina';
@@ -29,7 +34,7 @@ class _CashScreenState extends State<CashScreen> {
   Future<Map<String, dynamic>> load() async {
     var paymentQuery = db
         .from('cash_payments')
-        .select('id,member_id,amount,payment_period,payment_method,status,notes,created_at');
+        .select('id,member_id,amount,payment_period,payment_method,proof_url,status,notes,created_at');
     if (!admin) {
       paymentQuery = paymentQuery.eq('member_id', db.auth.currentUser!.id);
     }
@@ -84,6 +89,9 @@ class _CashScreenState extends State<CashScreen> {
     final period = TextEditingController();
     final notes = TextEditingController();
     String method = 'tunai';
+    XFile? selectedProof;
+    Uint8List? proofBytes;
+    String? proofExtension;
     final key = GlobalKey<FormState>();
 
     await showDialog<void>(
@@ -126,9 +134,100 @@ class _CashScreenState extends State<CashScreen> {
                       DropdownMenuItem(value: 'lainnya', child: Text('Lainnya')),
                     ],
                     onChanged: (value) {
-                      if (value != null) setDialog(() => method = value);
+                      if (value == null) return;
+                      setDialog(() {
+                        method = value;
+                        if (method != 'transfer') {
+                          selectedProof = null;
+                          proofBytes = null;
+                          proofExtension = null;
+                        }
+                      });
                     },
                   ),
+                  if (method == 'transfer') ...[
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: busy
+                            ? null
+                            : () async {
+                                try {
+                                  final image = await _picker.pickImage(
+                                    source: ImageSource.gallery,
+                                    imageQuality: 80,
+                                    maxWidth: 1600,
+                                    maxHeight: 1600,
+                                  );
+                                  if (image == null) return;
+                                  final name = image.name.toLowerCase();
+                                  final extension = name.endsWith('.png')
+                                      ? 'png'
+                                      : name.endsWith('.webp')
+                                          ? 'webp'
+                                          : name.endsWith('.jpg') ||
+                                                  name.endsWith('.jpeg')
+                                              ? 'jpg'
+                                              : null;
+                                  if (extension == null) {
+                                    message('Pilih gambar JPG, PNG, atau WebP.');
+                                    return;
+                                  }
+                                  final bytes = await image.readAsBytes();
+                                  if (bytes.isEmpty || bytes.length > 5 * 1024 * 1024) {
+                                    message('Ukuran bukti transfer harus lebih dari 0 dan maksimal 5 MB.');
+                                    return;
+                                  }
+                                  setDialog(() {
+                                    selectedProof = image;
+                                    proofBytes = bytes;
+                                    proofExtension = extension;
+                                  });
+                                } catch (error) {
+                                  message('Gagal memilih bukti transfer: $error');
+                                }
+                              },
+                        icon: const Icon(Icons.upload_file_rounded),
+                        label: Text(
+                          selectedProof == null
+                              ? 'Pilih bukti transfer'
+                              : 'Ganti bukti transfer',
+                        ),
+                      ),
+                    ),
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'JPG, PNG, atau WebP • Maksimal 5 MB',
+                        style: TextStyle(
+                          color: Color(0xFF78877F),
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                    if (proofBytes != null) ...[
+                      const SizedBox(height: 8),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.memory(
+                          proofBytes!,
+                          height: 120,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: () => setDialog(() {
+                          selectedProof = null;
+                          proofBytes = null;
+                          proofExtension = null;
+                        }),
+                        icon: const Icon(Icons.close_rounded, size: 17),
+                        label: const Text('Hapus lampiran'),
+                      ),
+                    ],
+                  ],
                   TextFormField(
                     controller: notes,
                     maxLines: 2,
@@ -142,7 +241,7 @@ class _CashScreenState extends State<CashScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(ctx),
+              onPressed: busy ? null : () => Navigator.pop(ctx),
               child: const Text('Batal'),
             ),
             FilledButton(
@@ -150,13 +249,45 @@ class _CashScreenState extends State<CashScreen> {
                   ? null
                   : () async {
                       if (!key.currentState!.validate()) return;
+                      if (cashPaymentProofIsRequired(method) && proofBytes == null) {
+                        message('Bukti transfer wajib dilampirkan.');
+                        return;
+                      }
                       setState(() => busy = true);
+                      String? proofPath;
                       try {
+                        final userId = db.auth.currentUser!.id;
+                        if (proofBytes != null && proofExtension != null) {
+                          proofPath =
+                              '$userId/${DateTime.now().microsecondsSinceEpoch}.$proofExtension';
+                          final contentType = proofExtension == 'png'
+                              ? 'image/png'
+                              : proofExtension == 'webp'
+                                  ? 'image/webp'
+                                  : 'image/jpeg';
+                          await db.storage.from('cash-payment-proofs').uploadBinary(
+                            proofPath,
+                            proofBytes!,
+                            fileOptions: FileOptions(
+                              contentType: contentType,
+                              upsert: false,
+                            ),
+                          );
+                        }
+
+                        if (!cashPaymentCanBeSubmitted(
+                          method: method,
+                          proofPath: proofPath,
+                        )) {
+                          throw StateError('Metode transfer membutuhkan bukti pembayaran.');
+                        }
+
                         await db.from('cash_payments').insert({
-                          'member_id': db.auth.currentUser!.id,
+                          'member_id': userId,
                           'amount': int.parse(amount.text),
                           'payment_period': period.text.trim(),
                           'payment_method': method,
+                          'proof_url': proofPath,
                           'notes': notes.text.trim().isEmpty
                               ? null
                               : notes.text.trim(),
@@ -168,12 +299,27 @@ class _CashScreenState extends State<CashScreen> {
                           'Pembayaran tercatat dan menunggu verifikasi pengurus.',
                         );
                       } catch (error) {
+                        if (proofPath != null) {
+                          try {
+                            await db.storage
+                                .from('cash-payment-proofs')
+                                .remove([proofPath]);
+                          } catch (_) {
+                            // Jangan menutupi error utama jika pembersihan gagal.
+                          }
+                        }
                         message('Gagal mencatat pembayaran: $error');
                       } finally {
                         if (mounted) setState(() => busy = false);
                       }
                     },
-              child: const Text('Kirim'),
+              child: busy
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Kirim'),
             ),
           ],
         ),
@@ -187,7 +333,7 @@ class _CashScreenState extends State<CashScreen> {
 
   Future<void> verify(Map<String, dynamic> row, String status) async {
     try {
-      await db
+      final updated = await db
           .from('cash_payments')
           .update({
             'status': status,
@@ -195,13 +341,70 @@ class _CashScreenState extends State<CashScreen> {
             'verified_at': DateTime.now().toUtc().toIso8601String(),
           })
           .eq('id', row['id'])
-          .eq('status', 'menunggu');
+          .eq('status', 'menunggu')
+          .select('id')
+          .maybeSingle();
       refresh();
-      message(status == 'diterima'
-          ? 'Pembayaran diterima.'
-          : 'Pembayaran ditolak.');
+      message(updated == null
+          ? 'Pembayaran sudah diproses sebelumnya.'
+          : status == 'diterima'
+              ? 'Pembayaran diterima.'
+              : 'Pembayaran ditolak.');
     } catch (error) {
       message('Gagal memperbarui status: $error');
+    }
+  }
+
+  Future<void> viewProof(String path) async {
+    try {
+      final signedUrl = await db.storage
+          .from('cash-payment-proofs')
+          .createSignedUrl(path, 300);
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => Dialog(
+          child: SizedBox(
+            width: 420,
+            height: 520,
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+                  child: Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Bukti transfer',
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(dialogContext),
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+                Expanded(
+                  child: InteractiveViewer(
+                    child: Image.network(
+                      signedUrl,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => const Center(
+                        child: Text('Gambar bukti tidak dapat ditampilkan.'),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    } catch (error) {
+      message('Bukti transfer tidak dapat dibuka: $error');
     }
   }
 
@@ -463,8 +666,17 @@ class _CashScreenState extends State<CashScreen> {
                               row['notes'].toString(),
                           ].join('\n'),
                         ),
-                        trailing: admin && row['status'] == 'menunggu'
-                            ? PopupMenuButton<String>(
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if ((row['proof_url'] ?? '').toString().isNotEmpty)
+                              IconButton(
+                                tooltip: 'Lihat bukti transfer',
+                                onPressed: () => viewProof(row['proof_url'].toString()),
+                                icon: const Icon(Icons.receipt_long_rounded),
+                              ),
+                            if (admin && row['status'] == 'menunggu')
+                              PopupMenuButton<String>(
                                 onSelected: (value) => verify(row, value),
                                 itemBuilder: (_) => const [
                                   PopupMenuItem(
@@ -477,7 +689,10 @@ class _CashScreenState extends State<CashScreen> {
                                   ),
                                 ],
                               )
-                            : Chip(label: Text(row['status'].toString())),
+                            else
+                              Chip(label: Text(row['status'].toString())),
+                          ],
+                        ),
                       ),
                     ),
                   ),
