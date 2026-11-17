@@ -4,6 +4,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'avatar_upload_rules.dart';
+
 class ProfileEditScreen extends StatefulWidget {
   const ProfileEditScreen({
     super.key,
@@ -66,12 +68,16 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
         maxWidth: 1200,
       );
       if (image == null) return;
+      final extension = avatarExtensionForFileName(image.name);
+      if (extension == null) {
+        _showMessage('Pilih foto dalam format JPG, PNG, atau WebP.');
+        return;
+      }
       final bytes = await image.readAsBytes();
-      final extension = image.name.toLowerCase().endsWith('.png')
-          ? 'png'
-          : image.name.toLowerCase().endsWith('.webp')
-              ? 'webp'
-              : 'jpg';
+      if (!isAvatarFileSizeValid(bytes.length)) {
+        _showMessage('Ukuran foto harus lebih dari 0 dan maksimal 5 MB.');
+        return;
+      }
       if (!mounted) return;
       setState(() {
         _newAvatarBytes = bytes;
