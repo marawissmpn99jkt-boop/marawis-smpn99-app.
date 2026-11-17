@@ -42,7 +42,7 @@ Deno.serve(async (request: Request) => {
   }
 
   const authorization = request.headers.get("Authorization") ?? "";
-  const token = authorization.replace(/^Bearer\s+/i, "");
+  const token = authorization.replace(/^Bearer\\s+/i, "");
   if (!token) return json(401, { error: "Silakan login terlebih dahulu." });
 
   const userClient = createClient(supabaseUrl, anonKey, {
@@ -120,6 +120,7 @@ Deno.serve(async (request: Request) => {
     details: { role },
   });
 
+  // Keep only recent attempts; this is best-effort housekeeping.
   await admin
     .from("staff_access_attempts")
     .delete()

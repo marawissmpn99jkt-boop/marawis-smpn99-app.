@@ -11,7 +11,7 @@ Aplikasi manajemen organisasi Marawis SMPN 99 Jakarta untuk periode 2026/2027.
 - Jadwal kegiatan yang dapat dibuat, diedit, dan dihapus.
 - Absensi dengan status yang harus dipilih secara eksplisit untuk setiap anggota aktif.
 - Uang kas, pengajuan pembayaran, bukti transfer privat, verifikasi, dan pencatatan pengeluaran.
-- Program kerja, penanggung jawab, tanggal mulai/tenggat, tugas, dan leaderboard.
+- Program kerja, penanggung jawab, tanggal mulai/tenggat, tugas yang dapat diperbarui statusnya oleh penanggung jawab, dan leaderboard.
 
 ## Supabase
 
@@ -28,6 +28,9 @@ Migration keamanan yang tercatat di project produksi:
 - `20261116122211_secure_shared_staff_password_access.sql`
 - `20261116122659_grant_staff_access_function_privileges.sql`
 - `20261117062422_cash_payment_proofs.sql`
+- `20261117063834_assigned_task_status_updates.sql`
+
+Migration `20261117063834_assigned_task_status_updates` sudah tercatat diterapkan pada database produksi; file sumbernya kini ikut disimpan di repository. Migration ini membatasi anggota yang ditugaskan agar hanya dapat mengubah status tugasnya sendiri.
 
 Migration bukti transfer membuat bucket **private** `cash-payment-proofs` dengan batas 5 MB. Path objek disimpan di `cash_payments.proof_url`; aplikasi membuat signed URL sementara untuk pemilik pembayaran atau admin. Policy upload/delete membatasi anggota pada folder dengan user ID mereka sendiri, sedangkan Pengurus/Pembina dapat membaca bukti untuk verifikasi.
 
@@ -43,7 +46,7 @@ Migration bukti transfer membuat bucket **private** `cash-payment-proofs` dengan
 
 ### Password kedua Pengurus dan Pembina
 
-1. Deploy Edge Function `supabase/functions/marawis-staff-access/index.ts` dengan nama `marawis-staff-access` dan JWT verification tetap aktif.
+1. Source Edge Function tersedia di `supabase/functions/marawis-staff-access/index.ts`. Deploy dengan nama `marawis-staff-access` dan JWT verification tetap aktif. Source tersebut disinkronkan dari versi aktif yang terpasang pada project.
 2. Di Supabase Dashboard, tambahkan secret bernama `MARAWIS_STAFF_PASSWORD` pada Edge Function Secrets. Nilainya hanya boleh disimpan di dashboard Supabase.
 3. Gunakan password kuat yang hanya dibagikan kepada Pengurus dan Pembina. Keduanya memakai password kedua yang sama.
 4. Server membatasi lima percobaan per akun dalam sepuluh menit sebelum memperbarui role.
@@ -66,5 +69,6 @@ Akun Anggota tidak memerlukan password kedua. Semua akun tetap harus login melal
 - Notifikasi saat ini adalah notifikasi dalam aplikasi, bukan push notification Android.
 - Project sudah memiliki identitas Google, tetapi alur login baru tetap perlu diuji pada perangkat/browser setelah redirect URL diverifikasi.
 - Secret `MARAWIS_STAFF_PASSWORD` tidak dapat dibaca kembali melalui pemeriksaan project; pastikan secret sudah diatur di dashboard sebelum menguji akses Pengurus/Pembina.
+- Status Google OAuth provider dan redirect allowlist belum dapat diverifikasi melalui pemeriksaan metadata project; lakukan uji login nyata pada perangkat/browser setelah konfigurasi dashboard dipastikan.
 - Data produksi tidak digunakan sebagai data uji. Alur tulis setiap modul tetap perlu diuji dengan akun uji dan data uji terkontrol sebelum rilis.
 - Jangan pernah memasukkan service-role key, Google OAuth Client Secret, password, atau keystore ke source code maupun log GitHub Actions.

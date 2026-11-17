@@ -1,6 +1,8 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'task_permissions.dart';
+
 class ProgramTasksPanel extends StatefulWidget {
   const ProgramTasksPanel({
     super.key,
@@ -484,9 +486,15 @@ class _ProgramTasksPanelState extends State<ProgramTasksPanel> {
                           ],
                         ),
                       ),
-                      if (widget.admin)
+                      if (canUpdateAssignedTaskStatus(
+                        isAdmin: widget.admin,
+                        assignedTo: assigned,
+                        currentUserId: db.auth.currentUser?.id,
+                      ))
                         PopupMenuButton<String>(
-                          tooltip: 'Aksi tugas',
+                          tooltip: widget.admin
+                              ? 'Aksi tugas'
+                              : 'Perbarui status tugas',
                           onSelected: (value) {
                             if (value == 'edit') {
                               _editTask(members: members, task: task);
@@ -496,28 +504,30 @@ class _ProgramTasksPanelState extends State<ProgramTasksPanel> {
                               _setTaskStatus(task, value.substring(7));
                             }
                           },
-                          itemBuilder: (_) => const [
-                            PopupMenuItem(
+                          itemBuilder: (_) => [
+                            const PopupMenuItem(
                               value: 'status:belum',
                               child: Text('Tandai belum dikerjakan'),
                             ),
-                            PopupMenuItem(
+                            const PopupMenuItem(
                               value: 'status:proses',
                               child: Text('Tandai sedang dikerjakan'),
                             ),
-                            PopupMenuItem(
+                            const PopupMenuItem(
                               value: 'status:selesai',
                               child: Text('Tandai selesai'),
                             ),
-                            PopupMenuDivider(),
-                            PopupMenuItem(
-                              value: 'edit',
-                              child: Text('Edit tugas'),
-                            ),
-                            PopupMenuItem(
-                              value: 'delete',
-                              child: Text('Hapus tugas'),
-                            ),
+                            if (widget.admin) ...[
+                              const PopupMenuDivider(),
+                              const PopupMenuItem(
+                                value: 'edit',
+                                child: Text('Edit tugas'),
+                              ),
+                              const PopupMenuItem(
+                                value: 'delete',
+                                child: Text('Hapus tugas'),
+                              ),
+                            ],
                           ],
                         ),
                     ],
