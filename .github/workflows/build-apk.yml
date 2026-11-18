@@ -1,6 +1,8 @@
 name: Build Marawis Smpn99 APK
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
   release:
     types: [published]
