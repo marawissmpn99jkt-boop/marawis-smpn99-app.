@@ -15,7 +15,7 @@ import 'work_programs_screen.dart';
 
 const supabaseUrl = 'https://yatbnzczricrwrqhzsqr.supabase.co';
 const supabasePublishableKey = 'sb_publishable_Uz6EYSbI3Nhj28uP3lEFsw_nCbEYMHS';
-const authRedirectUrl = 'marawissmpn99://login-callback';
+const authRedirectUrl = 'marawissmpn99://login-callback/';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
