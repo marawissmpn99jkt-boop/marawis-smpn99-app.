@@ -86,11 +86,10 @@ class _CommunityHubScreenState extends State<CommunityHubScreen> with SingleTick
         ],
       )));
       if(answers==null)return;
-      final keys=await db.from('marawis_quiz_answers').select('question_id,correct_index').inFilter('question_id',qs.map((e)=>e['id']).toList());
-      final keyMap={for(final k in keys)k['question_id'].toString():(k['correct_index'] as num).toInt()};
-      var score=0;for(var i=0;i<qs.length;i++){if(answers[i]!=null&&answers[i]==keyMap[qs[i]['id'].toString()])score++;}
-      final percent=(score*100/qs.length).round();
-      await db.from('marawis_quiz_attempts').insert({'quiz_id':quiz['id'],'user_id':db.auth.currentUser!.id,'answers':answers,'score':percent,'total_questions':qs.length});
+      final result=await db.rpc('submit_marawis_quiz',params:{'p_quiz_id':quiz['id'],'p_answers':answers});
+      final row=(result as List).first;
+      final percent=(row['score'] as num).toInt();
+      final score=(percent*qs.length/100).round();
       msg('Nilai Quiz: '+percent.toString()+'/100 ('+score.toString()+'/'+qs.length.toString()+')');setState((){});
     }catch(e){msg('Quiz gagal dibuka/dikirim: '+e.toString());}
   }
