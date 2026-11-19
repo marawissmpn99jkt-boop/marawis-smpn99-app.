@@ -38,11 +38,10 @@ Migration bukti transfer membuat bucket **private** `cash-payment-proofs` dengan
 
 1. Aktifkan Google sebagai provider pada Supabase Authentication.
 2. Masukkan Google OAuth Client ID dan Client Secret langsung melalui dashboard Supabase. Jangan simpan Client Secret atau service-role key di repository.
-3. Tambahkan redirect berikut ke daftar Redirect URLs Supabase Auth:
-   - `marawissmpn99://login-callback` untuk Android.
-   - `https://marawissmpn99jkt-boop.github.io/marawis-smpn99-app./` untuk web GitHub Pages.
+3. Untuk deployment web aktif, tambahkan URL berikut ke daftar Redirect URLs Supabase Auth:
+   - `https://marawissmpn99jkt.github.io/marawis-smpn99-app./`
 4. OAuth redirect URI yang digunakan pada Google Cloud harus mengikuti callback URL yang ditampilkan oleh konfigurasi provider Supabase.
-5. Workflow Android memasang intent filter untuk `marawissmpn99://login-callback`.
+5. URI `marawissmpn99://login-callback` hanya diperlukan bila dukungan native Android diaktifkan kembali; workflow APK saat ini sudah dipensiunkan.
 
 ### Password kedua Pengurus dan Pembina
 
@@ -53,22 +52,18 @@ Migration bukti transfer membuat bucket **private** `cash-payment-proofs` dengan
 
 Akun Anggota tidak memerlukan password kedua. Semua akun tetap harus login melalui Google.
 
-## CI, web, dan APK rilis
+## CI dan deployment web
 
-- Workflow web berjalan pada setiap push ke `main`; workflow ini menjalankan `flutter analyze lib`, `flutter test`, membangun Flutter Web, lalu deploy ke GitHub Pages.
-- Workflow APK tidak berjalan pada setiap commit. Jalankan secara manual atau melalui GitHub Release setelah fitur utama dan pengujian siap.
-- APK rilis wajib menggunakan keystore rilis yang stabil, bukan debug keystore. Siapkan GitHub Actions secrets berikut sebelum menjalankan workflow APK:
-  - `ANDROID_KEYSTORE_BASE64`
-  - `ANDROID_KEYSTORE_PASSWORD`
-  - `ANDROID_KEY_ALIAS`
-  - `ANDROID_KEY_PASSWORD`
-- Simpan cadangan keystore secara aman. Keystore yang sama harus dipakai untuk pembaruan aplikasi berikutnya.
+- Workflow web aktif pada setiap push ke `main` dan dapat dijalankan manual.
+- Workflow menjalankan `flutter analyze lib`, `flutter test`, membangun Flutter Web dalam mode release, mengunggah Pages artifact, lalu menerbitkan website ke GitHub Pages.
+- Workflow Android APK telah dipensiunkan pada 19 November 2026 karena website menjadi platform aktif. Push ke `main` saat ini tidak membangun APK.
+- Jangan menyiapkan atau memasukkan kredensial signing Android ke repository. Jika rilis native Android direncanakan kembali setelah fitur utama dan pengujian siap, workflow khusus perlu dipulihkan dan empat GitHub Actions secrets signing perlu disiapkan melalui pengaturan GitHub yang aman: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, dan `ANDROID_KEY_PASSWORD`. Keystore harus dicadangkan dengan aman dan digunakan konsisten untuk pembaruan aplikasi.
 
 ## Batasan yang perlu diketahui
 
 - Notifikasi saat ini adalah notifikasi dalam aplikasi, bukan push notification Android.
-- Project sudah memiliki identitas Google, tetapi alur login baru tetap perlu diuji pada perangkat/browser setelah redirect URL diverifikasi.
+- Project sudah memiliki identitas Google, tetapi alur login baru tetap perlu diuji pada browser setelah redirect URL diverifikasi.
 - Secret `MARAWIS_STAFF_PASSWORD` tidak dapat dibaca kembali melalui pemeriksaan project; pastikan secret sudah diatur di dashboard sebelum menguji akses Pengurus/Pembina.
-- Status Google OAuth provider dan redirect allowlist belum dapat diverifikasi melalui pemeriksaan metadata project; lakukan uji login nyata pada perangkat/browser setelah konfigurasi dashboard dipastikan.
+- Status Google OAuth provider dan redirect allowlist belum dapat diverifikasi melalui pemeriksaan metadata project; lakukan uji login nyata pada browser setelah konfigurasi dashboard dipastikan.
 - Data produksi tidak digunakan sebagai data uji. Alur tulis setiap modul tetap perlu diuji dengan akun uji dan data uji terkontrol sebelum rilis.
 - Jangan pernah memasukkan service-role key, Google OAuth Client Secret, password, atau keystore ke source code maupun log GitHub Actions.
