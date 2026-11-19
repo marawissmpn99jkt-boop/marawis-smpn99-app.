@@ -384,7 +384,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         builder: (ctx, setDialog) {
           final scores = List<Map<String, dynamic>>.from(member['scores'] as List);
           return AlertDialog(
-            title: Text('Penilaian \${member['display_name']}'),
+            title: Text('Penilaian ${member['display_name']}'),
             content: SizedBox(width: 420, child: scores.isEmpty
               ? const Text('Belum ada penilaian.')
               : ListView.separated(
@@ -395,7 +395,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                   final type = score['score_type'].toString();
                   return ListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: Text('\${type[0].toUpperCase()}\${type.substring(1)} • \${score['points']} poin'),
+                    title: Text('${type[0].toUpperCase()}${type.substring(1)} • ${score['points']} poin'),
                     subtitle: Text((score['notes'] ?? 'Tanpa catatan').toString()),
                     trailing: admin ? PopupMenuButton<String>(
                       onSelected: (action) async {
