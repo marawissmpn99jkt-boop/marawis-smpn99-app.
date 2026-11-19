@@ -197,6 +197,41 @@ class _CommunityHubScreenState extends State<CommunityHubScreen> with SingleTick
       msg('Koreksi esai selesai disimpan.');if(mounted)setState((){});
     }catch(e){msg('Gagal memuat koreksi esai: '+e.toString());}
   }
+  Future<void> showQuizResults(Map<String,dynamic> quiz) async {
+    try {
+      final attempts = List<Map<String,dynamic>>.from(await db.from('marawis_quiz_attempts').select('id,user_id,score,total_questions,final_score,review_status,submitted_at,manual_score').eq('quiz_id', quiz['id']).order('submitted_at', ascending: false));
+      final ids = attempts.map((a) => a['user_id'].toString()).toSet().toList();
+      final profiles = ids.isEmpty ? <Map<String,dynamic>>[] : List<Map<String,dynamic>>.from(await db.from('profiles').select('id,full_name,email').inFilter('id', ids));
+      final members = ids.isEmpty ? <Map<String,dynamic>>[] : List<Map<String,dynamic>>.from(await db.from('members').select('id,display_name,class_name,position').inFilter('id', ids));
+      final profileById = {for (final p in profiles) p['id'].toString(): p};
+      final memberById = {for (final m in members) m['id'].toString(): m};
+      if (!mounted) return;
+      await showDialog<void>(context: context, builder: (ctx) => AlertDialog(
+        title: Text('Hasil peserta • ' + quiz['title'].toString()),
+        content: SizedBox(width: 620, child: attempts.isEmpty
+          ? const Padding(padding: EdgeInsets.all(18), child: Text('Belum ada anggota yang mengerjakan Quiz ini.'))
+          : SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Row(children: [Expanded(child: _resultStat('Sudah mengerjakan', attempts.length.toString())), Expanded(child: _resultStat('Menunggu koreksi', attempts.where((a) => a['review_status'] == 'pending').length.toString())), Expanded(child: _resultStat('Selesai dinilai', attempts.where((a) => a['review_status'] != 'pending').length.toString()))]),
+            const Divider(),
+            for (final a in attempts) Builder(builder: (context) {
+              final id = a['user_id'].toString(); final p = profileById[id] ?? {}; final m = memberById[id] ?? {};
+              final name = (m['display_name'] ?? p['full_name'] ?? p['email'] ?? 'Anggota').toString();
+              final pending = a['review_status'] == 'pending'; final value = a['final_score'] ?? a['score'];
+              final date = a['submitted_at'] == null ? '-' : (DateTime.tryParse(a['submitted_at'].toString())?.toLocal().toString().substring(0, 16) ?? '-');
+              return Card(margin: const EdgeInsets.symmetric(vertical: 5), child: ListTile(
+                leading: CircleAvatar(child: Text(name.isEmpty ? '?' : name[0].toUpperCase())),
+                title: Text(name, style: const TextStyle(fontWeight: FontWeight.w700)),
+                subtitle: Text((m['class_name'] ?? 'Kelas tidak tercatat').toString() + ' • ' + (pending ? 'Menunggu koreksi esai' : 'Dikumpulkan: ' + date)),
+                trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [Text(pending ? 'Pending' : value.toString() + '/100', style: TextStyle(fontWeight: FontWeight.w900, color: pending ? Colors.orange : Colors.green)), Text(pending ? 'PG: ' + (a['score'] ?? 0).toString() + '/100' : 'Nilai akhir', style: const TextStyle(fontSize: 10))]),
+              ));
+            }),
+          ]))),
+        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Tutup')), FilledButton(onPressed: () { Navigator.pop(ctx); showQuizResults(quiz); }, child: const Text('Muat ulang'))],
+      ));
+    } catch (e) { msg('Gagal memuat hasil peserta: ' + e.toString()); }
+  }
+
+  Widget _resultStat(String label, String value) => Padding(padding: const EdgeInsets.all(6), child: Column(children: [Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)), Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11))]));
   Future<void> updateSuggestion(Map<String,dynamic> item) async {
     final reply = TextEditingController(text: item['admin_reply']?.toString() ?? '');
     String status = (item['status'] ?? 'baru').toString();
@@ -263,7 +298,7 @@ class _CommunityHubScreenState extends State<CommunityHubScreen> with SingleTick
 
   Widget quizzes()=>Column(children:[
     if(admin)Padding(padding:const EdgeInsets.all(14),child:SizedBox(width:double.infinity,child:FilledButton.icon(onPressed:createQuiz,icon:const Icon(Icons.add),label:const Text('Buat Quiz')))),
-    Expanded(child:FutureBuilder<List<Map<String,dynamic>>>(future:db.from('marawis_quizzes').select('id,title,description,duration_minutes,published,created_at').order('created_at',ascending:false).then((v)=>List<Map<String,dynamic>>.from(v)),builder:(c,s){if(s.hasError)return Center(child:TextButton(onPressed:()=>setState((){}),child:const Text('Gagal memuat Quiz')));if(!s.hasData)return const Center(child:CircularProgressIndicator());if(s.data!.isEmpty)return const Center(child:Text('Belum ada Quiz.'));return ListView.builder(itemCount:s.data!.length,itemBuilder:(c,i){final q=s.data![i];return Card(color:Colors.white,child:ListTile(leading:const Icon(Icons.quiz,color:Color(0xFF167D68)),title:Text(q['title'].toString(),style:const TextStyle(fontWeight:FontWeight.w800)),subtitle:Text(q['duration_minutes'].toString()+' menit • '+(q['published']==true?'Dipublikasikan':'Draft')+'\n'+(q['description']??'Quiz Marawis').toString()),isThreeLine:true,onTap:q['published']==true?()=>takeQuiz(q):null,trailing:admin?PopupMenuButton<String>(onSelected:(v)async{if(v=='publish')await db.from('marawis_quizzes').update({'published':true}).eq('id',q['id']);if(v=='review')await reviewEssays(q);if(v=='delete')await db.from('marawis_quizzes').delete().eq('id',q['id']);setState((){});},itemBuilder:(_)=>[const PopupMenuItem(value:'publish',child:Text('Publikasikan')),const PopupMenuItem(value:'review',child:Text('Koreksi esai')),const PopupMenuItem(value:'delete',child:Text('Hapus'))]):null));});}))
+    Expanded(child:FutureBuilder<List<Map<String,dynamic>>>(future:db.from('marawis_quizzes').select('id,title,description,duration_minutes,published,created_at').order('created_at',ascending:false).then((v)=>List<Map<String,dynamic>>.from(v)),builder:(c,s){if(s.hasError)return Center(child:TextButton(onPressed:()=>setState((){}),child:const Text('Gagal memuat Quiz')));if(!s.hasData)return const Center(child:CircularProgressIndicator());if(s.data!.isEmpty)return const Center(child:Text('Belum ada Quiz.'));return ListView.builder(itemCount:s.data!.length,itemBuilder:(c,i){final q=s.data![i];return Card(color:Colors.white,child:ListTile(leading:const Icon(Icons.quiz,color:Color(0xFF167D68)),title:Text(q['title'].toString(),style:const TextStyle(fontWeight:FontWeight.w800)),subtitle:Text(q['duration_minutes'].toString()+' menit • '+(q['published']==true?'Dipublikasikan':'Draft')+'\n'+(q['description']??'Quiz Marawis').toString()),isThreeLine:true,onTap:q['published']==true?()=>takeQuiz(q):null,trailing:admin?PopupMenuButton<String>(onSelected:(v)async{if(v=='publish')await db.from('marawis_quizzes').update({'published':true}).eq('id',q['id']);if(v=='review')await reviewEssays(q);if(v=='results')await showQuizResults(q);if(v=='delete')await db.from('marawis_quizzes').delete().eq('id',q['id']);setState((){});},itemBuilder:(_)=>[const PopupMenuItem(value:'publish',child:Text('Publikasikan')),const PopupMenuItem(value:'results',child:Text('Lihat hasil peserta')),const PopupMenuItem(value:'review',child:Text('Koreksi esai')),const PopupMenuItem(value:'delete',child:Text('Hapus'))]):null));});}))
   ]);
 
   Widget games()=>_Games(db:db);
