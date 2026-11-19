@@ -98,7 +98,7 @@ class _CommunityHubScreenState extends State<CommunityHubScreen> with SingleTick
         if(questionType=='mcq')...[
           for(var i=0;i<4;i++)TextField(controller:options[i],decoration:InputDecoration(labelText:'Pilihan '+String.fromCharCode(65+i))),
           DropdownButtonFormField<int>(value:correct,decoration:const InputDecoration(labelText:'Jawaban benar'),items:List.generate(4,(i)=>DropdownMenuItem(value:i,child:Text('Pilihan '+String.fromCharCode(65+i)))),onChanged:(v)=>setD(()=>correct=v??0)),
-        ]else...[
+        ] else ...[
           TextField(controller:sampleAnswer,maxLines:2,decoration:const InputDecoration(labelText:'Jawaban acuan (opsional)')),
           TextField(controller:rubric,maxLines:2,decoration:const InputDecoration(labelText:'Rubrik penilaian')),
         ],
@@ -111,7 +111,7 @@ class _CommunityHubScreenState extends State<CommunityHubScreen> with SingleTick
             'correct_index':correct,'sample_answer':sampleAnswer.text.trim(),'rubric':rubric.text.trim(),
             'points':points,'sort_order':qs.length});
           question.clear();sampleAnswer.clear();rubric.clear();for(final e in options){e.clear();}
-          setD(()=>{correct=0;points=1;});
+          setD((){correct=0;points=1;});
         },icon:const Icon(Icons.add),label:Text('Tambah soal ('+qs.length.toString()+')')),
       ]))),
       actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('Batal')),FilledButton(onPressed:()async{
