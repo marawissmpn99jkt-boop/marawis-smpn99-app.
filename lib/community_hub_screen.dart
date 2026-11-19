@@ -1,4 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:html' as html;
+import 'package:csv/csv.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -45,6 +50,33 @@ class _CommunityHubScreenState extends State<CommunityHubScreen> with SingleTick
         DropdownButtonFormField<int>(value:duration,decoration:const InputDecoration(labelText:'Batas waktu'),items:[5,10,15,20,30,45,60,90,120].map((v)=>DropdownMenuItem(value:v,child:Text('$v menit'))).toList(),onChanged:(v)=>setD(()=>duration=v??10)),
         SwitchListTile(value:publish,onChanged:(v)=>setD(()=>publish=v),title:const Text('Langsung publikasikan')),
         const Divider(),
+        OutlinedButton.icon(
+          onPressed: () async {
+            try {
+              final file = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['csv', 'txt'], withData: true);
+              if (file == null || file.files.single.bytes == null) return;
+              final raw = utf8.decode(file.files.single.bytes!);
+              final rows = const CsvToListConverter(shouldParseNumbers: false).convert(raw);
+              var count = 0;
+              for (final row in rows) {
+                if (row.length < 6) continue;
+                final cells = row.map((e) => e.toString().trim()).toList();
+                if (cells[0].toLowerCase() == 'pertanyaan' || cells[0].toLowerCase() == 'question') continue;
+                final key = cells[5].toUpperCase().replaceAll('PILIHAN ', '').trim();
+                final answer = key.length == 1 ? key.codeUnitAt(0) - 65 : int.tryParse(key) ?? -1;
+                if (cells[0].isEmpty || cells.sublist(1,5).any((e) => e.isEmpty) || answer < 0 || answer > 3) continue;
+                qs.add({'question_text':cells[0], 'options':cells.sublist(1,5), 'correct_index':answer, 'sort_order':qs.length});
+                count++;
+              }
+              setD(() {});
+              msg(count > 0 ? '$count soal berhasil diimpor.' : 'Tidak ada soal valid. Periksa format CSV.');
+            } catch (e) { msg('Gagal membaca file: $e'); }
+          },
+          icon: const Icon(Icons.upload_file),
+          label: const Text('Impor soal dari CSV'),
+        ),
+        const Text('Format CSV: Pertanyaan, Pilihan A, Pilihan B, Pilihan C, Pilihan D, Kunci (A/B/C/D). Satu baris per soal.', style: TextStyle(fontSize: 11)),
+        const SizedBox(height: 8),
         Text('Pertanyaan '+(qs.length+1).toString(),style:const TextStyle(fontWeight:FontWeight.w800)),
         TextField(controller:question,maxLines:2,decoration:const InputDecoration(labelText:'Pertanyaan')),
         for(var i=0;i<4;i++)TextField(controller:options[i],decoration:InputDecoration(labelText:'Pilihan '+String.fromCharCode(65+i))),
@@ -64,37 +96,20 @@ class _CommunityHubScreenState extends State<CommunityHubScreen> with SingleTick
   }
 
   Future<void> takeQuiz(Map<String,dynamic> quiz) async {
-    try{
+    try {
       final prior=await db.from('marawis_quiz_attempts').select('id').eq('quiz_id',quiz['id']).eq('user_id',db.auth.currentUser!.id).maybeSingle();
       if(prior!=null){msg('Kamu sudah mengerjakan Quiz ini.');return;}
       final qs=List<Map<String,dynamic>>.from(await db.from('marawis_quiz_questions').select('id,question_text,options,sort_order').eq('quiz_id',quiz['id']).order('sort_order'));
       if(qs.isEmpty){msg('Quiz belum memiliki soal.');return;}
-      final chosen=List<int?>.filled(qs.length,null);
-      int index=0; int secondsLeft=(quiz['duration_minutes'] as num).toInt()*60; Timer? quizTimer;
-      final answers=await showDialog<List<int?>>(context:context,barrierDismissible:false,builder:(ctx)=>StatefulBuilder(builder:(ctx,setD){
-        quizTimer ??= Timer.periodic(const Duration(seconds:1),(t){if(!ctx.mounted){t.cancel();return;}if(secondsLeft<=1){t.cancel();Navigator.pop(ctx,chosen);}else{setD(()=>secondsLeft--);}});
-        return AlertDialog(
-        title:Text(quiz['title'].toString()),
-        content:SizedBox(width:500,child:Column(mainAxisSize:MainAxisSize.min,crossAxisAlignment:CrossAxisAlignment.start,children:[
-          Text('Sisa waktu: '+(secondsLeft~/60).toString().padLeft(2,'0')+':'+(secondsLeft%60).toString().padLeft(2,'0'),style:TextStyle(fontWeight:FontWeight.w800,color:secondsLeft<60?Colors.red:const Color(0xFF167D68))),
-          Text('Soal '+(index+1).toString()+' dari '+qs.length.toString()),
-          const SizedBox(height:12),
-          Text(qs[index]['question_text'].toString(),style:const TextStyle(fontWeight:FontWeight.w800)),
-          for(var i=0;i<4;i++)RadioListTile<int>(dense:true,value:i,groupValue:chosen[index],title:Text((qs[index]['options'] as List)[i].toString()),onChanged:(v)=>setD(()=>chosen[index]=v)),
-        ])),
-        actions:[
-          if(index>0)TextButton(onPressed:()=>setD(()=>index--),child:const Text('Sebelumnya')),
-          if(index<qs.length-1)FilledButton(onPressed:()=>setD(()=>index++),child:const Text('Berikutnya')),
-          if(index==qs.length-1)FilledButton(onPressed:()=>Navigator.pop(ctx,chosen),child:const Text('Kirim jawaban')),
-        ],
-      );}));
-      quizTimer?.cancel();
-      if(answers==null)return;
-      final result=await db.rpc('submit_marawis_quiz',params:{'p_quiz_id':quiz['id'],'p_answers':answers});
-      final row=(result as List).first;
+      final result=await showDialog<Map<String,dynamic>>(context:context,barrierDismissible:false,builder:(ctx)=>_QuizExamDialog(title:quiz['title'].toString(),questions:qs,duration:(quiz['duration_minutes'] as num).toInt()));
+      if(result==null)return;
+      final answers=result['answers'] as List<int?>;
+      final response=await db.rpc('submit_marawis_quiz',params:{'p_quiz_id':quiz['id'],'p_answers':answers});
+      final row=(response as List).first;
       final percent=(row['score'] as num).toInt();
       final score=(percent*qs.length/100).round();
-      msg('Nilai Quiz: '+percent.toString()+'/100 ('+score.toString()+'/'+qs.length.toString()+')');setState((){});
+      msg('Nilai: '+percent.toString()+'/100 ('+score.toString()+'/'+qs.length.toString()+') • Pelanggaran terdeteksi: '+result['violations'].toString());
+      setState((){});
     }catch(e){msg('Quiz gagal dibuka/dikirim: '+e.toString());}
   }
 
@@ -168,6 +183,88 @@ class _CommunityHubScreenState extends State<CommunityHubScreen> with SingleTick
   ]);
 
   Widget games()=>_Games(db:db);
+}
+
+class _QuizExamDialog extends StatefulWidget {
+  const _QuizExamDialog({required this.title,required this.questions,required this.duration});
+  final String title;
+  final List<Map<String,dynamic>> questions;
+  final int duration;
+  @override State<_QuizExamDialog> createState()=>_QuizExamDialogState();
+}
+
+class _QuizExamDialogState extends State<_QuizExamDialog> {
+  late final List<int?> answers;
+  late int seconds;
+  int index=0,violations=0;
+  bool sending=false,warning=false;
+  Timer? clock;
+  StreamSubscription<html.Event>? visibility;
+  @override void initState(){
+    super.initState();
+    answers=List<int?>.filled(widget.questions.length,null);
+    seconds=widget.duration*60;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      try { await html.document.documentElement?.requestFullscreen(); } catch (_) {}
+      try { await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky); } catch (_) {}
+    });
+    clock=Timer.periodic(const Duration(seconds:1),(t){
+      if(!mounted||sending)return;
+      if(seconds<=1){_submit(true);}else{setState(()=>seconds--);}
+    });
+    visibility=html.document.onVisibilityChange.listen((_){
+      if(html.document.visibilityState=='hidden')_violation();
+    });
+  }
+  void _violation(){
+    if(!mounted||sending||warning)return;
+    violations++;warning=true;
+    showDialog<void>(context:context,barrierDismissible:false,builder:(ctx)=>AlertDialog(
+      title:const Text('Peringatan ujian'),
+      content:Text('Kamu terdeteksi berpindah tab/aplikasi. Pelanggaran: '+violations.toString()+'/3. Tetap fokus pada Quiz.'),
+      actions:[FilledButton(onPressed:(){Navigator.pop(ctx);warning=false;if(violations>=3)_submit(true);},child:const Text('Kembali ke Quiz'))],
+    ));
+  }
+  Future<void> _submit(bool automatic) async {
+    if(sending||!mounted)return;
+    sending=true;clock?.cancel();
+    try{if(html.document.fullscreenElement!=null)await html.document.exitFullscreen();}catch(_){}
+    try{await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);}catch(_){}
+    if(mounted)Navigator.of(context).pop({'answers':answers,'violations':violations,'automatic':automatic});
+  }
+  @override void dispose(){clock?.cancel();visibility?.cancel();try{if(html.document.fullscreenElement!=null)html.document.exitFullscreen();}catch(_){};try{SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);}catch(_){};super.dispose();}
+  String get time => (seconds~/60).toString().padLeft(2,'0')+':'+(seconds%60).toString().padLeft(2,'0');
+  @override Widget build(BuildContext context){
+    final q=widget.questions[index];
+    final opts=List<String>.from(q['options'] as List);
+    return PopScope(canPop:false,child:Dialog.fullscreen(backgroundColor:const Color(0xFFF4F7F6),child:SafeArea(child:Column(children:[
+      Container(color:const Color(0xFF123C35),padding:const EdgeInsets.all(16),child:Row(children:[
+        const Icon(Icons.shield_outlined,color:Colors.white),const SizedBox(width:10),
+        Expanded(child:Text(widget.title,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:Colors.white,fontWeight:FontWeight.bold))),
+        Text(time,style:TextStyle(color:seconds<60?Colors.orangeAccent:Colors.white,fontSize:20,fontWeight:FontWeight.w900))
+      ])),
+      LinearProgressIndicator(value:(index+1)/widget.questions.length,minHeight:5),
+      Expanded(child:Center(child:ConstrainedBox(constraints:const BoxConstraints(maxWidth:760),child:ListView(padding:const EdgeInsets.all(22),children:[
+        Row(children:[Chip(label:Text('SOAL '+(index+1).toString()+' / '+widget.questions.length.toString())),const Spacer(),Text('Pelanggaran: '+violations.toString(),style:const TextStyle(color:Colors.deepOrange))]),
+        const SizedBox(height:18),
+        Text(q['question_text'].toString(),style:const TextStyle(fontSize:22,fontWeight:FontWeight.w800)),
+        const SizedBox(height:16),
+        for(var i=0;i<opts.length;i++)Card(color:answers[index]==i?const Color(0xFFDCEFE9):Colors.white,child:RadioListTile<int>(value:i,groupValue:answers[index],onChanged:(v)=>setState(()=>answers[index]=v),title:Text(String.fromCharCode(65+i)+'. '+opts[i]))),
+        const Text('Tetap di halaman ujian. Perpindahan tab/aplikasi dapat tercatat sebagai pelanggaran.',style:TextStyle(color:Colors.black54,fontSize:12))
+      ])))),
+      Container(color:Colors.white,padding:const EdgeInsets.all(14),child:Row(children:[
+        OutlinedButton(onPressed:index==0?null:()=>setState(()=>index--),child:const Text('Sebelumnya')),
+        const Spacer(),Text(answers.where((e)=>e!=null).length.toString()+'/'+answers.length.toString()+' terjawab'),const Spacer(),
+        FilledButton(onPressed:(){
+          if(index<widget.questions.length-1){setState(()=>index++);}
+          else{showDialog<void>(context:context,builder:(ctx)=>AlertDialog(title:const Text('Kumpulkan Quiz?'),content:const Text('Setelah dikumpulkan, jawaban tidak dapat diubah.'),actions:[
+            TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('Periksa lagi')),
+            FilledButton(onPressed:(){Navigator.pop(ctx);_submit(false);},child:const Text('Kumpulkan'))
+          ]));}
+        },child:Text(index==widget.questions.length-1?'Selesai':'Berikutnya'))
+      ]))
+    ]))));
+  }
 }
 
 class _Games extends StatefulWidget{const _Games({required this.db});final SupabaseClient db;@override State<_Games> createState()=>_GamesState();}
