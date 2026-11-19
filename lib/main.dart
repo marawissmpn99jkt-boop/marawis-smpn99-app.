@@ -1216,7 +1216,7 @@ class _LatestAnnouncementBannerState
     try {
       final rows = await Supabase.instance.client
           .from('announcements')
-          .select('id,title,body,audience,is_published,created_at,updated_at')
+          .select('id,title,body,audience,is_published,created_at,updated_at,media_url,media_type')
           .eq('is_published', true)
           .order('updated_at', ascending: false)
           .limit(30);
@@ -1334,6 +1334,34 @@ class _LatestAnnouncementBannerState
                   height: 1.5,
                 ),
               ),
+              if (item['media_url'] != null) ...[
+                const SizedBox(height: 10),
+                if ((item['media_type'] ?? 'image') == 'video')
+                  const Row(
+                    children: [
+                      Icon(Icons.play_circle_outline_rounded,
+                          color: Color(0xFF167D68), size: 18),
+                      SizedBox(width: 6),
+                      Text('Video terlampir — buka informasi untuk menonton',
+                          style: TextStyle(
+                            color: Color(0xFF167D68),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          )),
+                    ],
+                  )
+                else
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.network(
+                      item['media_url'].toString(),
+                      height: 150,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                    ),
+                  ),
+              ],
               const SizedBox(height: 8),
               const Row(
                 mainAxisAlignment: MainAxisAlignment.end,
