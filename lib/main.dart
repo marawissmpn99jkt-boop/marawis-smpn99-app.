@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:material_ui/material_ui.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -892,6 +894,8 @@ class HomeScreen extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
           children: [
+            _LatestAnnouncementBanner(role: role),
+            const SizedBox(height: 14),
             Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
@@ -1166,6 +1170,189 @@ class HomeScreen extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+
+class _LatestAnnouncementBanner extends StatefulWidget {
+  const _LatestAnnouncementBanner({required this.role});
+
+  final String role;
+
+  @override
+  State<_LatestAnnouncementBanner> createState() =>
+      _LatestAnnouncementBannerState();
+}
+
+class _LatestAnnouncementBannerState
+    extends State<_LatestAnnouncementBanner> {
+  Timer? _refreshTimer;
+  Map<String, dynamic>? _announcement;
+
+  bool get _isAdmin =>
+      widget.role == 'pengurus' || widget.role == 'pembina';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLatestAnnouncement();
+    // Poll so updates appear even if Supabase Realtime is not enabled.
+    _refreshTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => _loadLatestAnnouncement(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadLatestAnnouncement() async {
+    try {
+      final rows = await Supabase.instance.client
+          .from('announcements')
+          .select('id,title,body,audience,is_published,created_at,updated_at')
+          .eq('is_published', true)
+          .order('updated_at', ascending: false)
+          .limit(30);
+
+      final now = DateTime.now().toUtc();
+      final cutoff = now.subtract(const Duration(hours: 24));
+      Map<String, dynamic>? latest;
+
+      for (final raw in rows) {
+        final item = Map<String, dynamic>.from(raw);
+        final audience = (item['audience'] ?? 'all').toString();
+        final visibleToRole = audience == 'all' ||
+            (audience == 'anggota' && widget.role == 'anggota') ||
+            (audience == 'admin' && _isAdmin);
+        if (!visibleToRole) continue;
+
+        final timestamp = DateTime.tryParse(
+          (item['updated_at'] ?? item['created_at'] ?? '').toString(),
+        )?.toUtc();
+        if (timestamp == null ||
+            timestamp.isBefore(cutoff) ||
+            timestamp.isAfter(now.add(const Duration(minutes: 1)))) {
+          continue;
+        }
+        latest = item;
+        break;
+      }
+
+      if (!mounted) return;
+      setState(() => _announcement = latest);
+    } catch (_) {
+      // Keep the current banner visible if a temporary refresh fails.
+    }
+  }
+
+  String _timeLabel(dynamic raw) {
+    final date = DateTime.tryParse(raw?.toString() ?? '')?.toLocal();
+    if (date == null) return 'Baru saja';
+    final difference = DateTime.now().difference(date);
+    if (difference.inMinutes < 1) return 'Baru saja';
+    if (difference.inHours < 1) return '${difference.inMinutes} menit lalu';
+    if (difference.inHours < 24) return '${difference.inHours} jam lalu';
+    return 'Hari ini';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final item = _announcement;
+    if (item == null) return const SizedBox.shrink();
+
+    final timestamp = item['updated_at'] ?? item['created_at'];
+    return Material(
+      color: const Color(0xFFEAF5EF),
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => AnnouncementsScreen(role: widget.role),
+          ),
+        ),
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFCFE5D8)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.campaign_rounded,
+                      color: Color(0xFF167D68), size: 20),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'INFORMASI TERBARU',
+                      style: TextStyle(
+                        color: Color(0xFF167D68),
+                        fontSize: 10,
+                        letterSpacing: 1,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    _timeLabel(timestamp),
+                    style: const TextStyle(
+                      color: Color(0xFF718078),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                (item['title'] ?? 'Pengumuman').toString(),
+                style: const TextStyle(
+                  color: Color(0xFF193B30),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                (item['body'] ?? '').toString(),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFF52665B),
+                  fontSize: 12,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Text(
+                    'Lihat informasi',
+                    style: TextStyle(
+                      color: Color(0xFF167D68),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  SizedBox(width: 5),
+                  Icon(Icons.arrow_forward_rounded,
+                      color: Color(0xFF167D68), size: 15),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
