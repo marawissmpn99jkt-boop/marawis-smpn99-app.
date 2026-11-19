@@ -41,7 +41,8 @@ class _CommunityHubScreenState extends State<CommunityHubScreen> with SingleTick
   Future<void> createQuiz() async {
     final title=TextEditingController(),desc=TextEditingController(),question=TextEditingController();
     final options=List.generate(4,(_)=>TextEditingController());
-    final qs=<Map<String,dynamic>>[]; int correct=0,duration=10; bool publish=true;
+    final sampleAnswer=TextEditingController(), rubric=TextEditingController();
+    final qs=<Map<String,dynamic>>[]; int correct=0,duration=10,points=1; String questionType='mcq'; bool publish=true;
     await showDialog(context:context,builder:(ctx)=>StatefulBuilder(builder:(ctx,setD)=>AlertDialog(
       title:const Text('Buat Quiz'),
       content:SizedBox(width:480,child:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,children:[
@@ -59,14 +60,28 @@ class _CommunityHubScreenState extends State<CommunityHubScreen> with SingleTick
               final rows = const CsvToListConverter(shouldParseNumbers: false).convert(raw);
               var count = 0;
               for (final row in rows) {
-                if (row.length < 6) continue;
                 final cells = row.map((e) => e.toString().trim()).toList();
-                if (cells[0].toLowerCase() == 'pertanyaan' || cells[0].toLowerCase() == 'question') continue;
-                final key = cells[5].toUpperCase().replaceAll('PILIHAN ', '').trim();
-                final answer = key.length == 1 ? key.codeUnitAt(0) - 65 : int.tryParse(key) ?? -1;
-                if (cells[0].isEmpty || cells.sublist(1,5).any((e) => e.isEmpty) || answer < 0 || answer > 3) continue;
-                qs.add({'question_text':cells[0], 'options':cells.sublist(1,5), 'correct_index':answer, 'sort_order':qs.length});
-                count++;
+                if (cells.isEmpty) continue;
+                if (['pertanyaan','question','jenis'].contains(cells[0].toLowerCase())) continue;
+                final extended = cells.length >= 10;
+                final type = extended ? cells[0].toLowerCase() : 'mcq';
+                if (type == 'essay' || type == 'esai') {
+                  if (cells[1].isEmpty) continue;
+                  qs.add({'question_text':cells[1],'question_type':'essay','options':<String>[],
+                    'sample_answer':cells[7],'rubric':cells[8],
+                    'points':(int.tryParse(cells[9])??5).clamp(1,100),'sort_order':qs.length});
+                  count++;
+                } else {
+                  final offset = extended ? 1 : 0;
+                  if (cells.length < offset + 6) continue;
+                  final text = cells[offset], choices = cells.sublist(offset+1,offset+5);
+                  final key = cells[offset+5].toUpperCase().replaceAll('PILIHAN ','').trim();
+                  final answer = key.length==1 ? key.codeUnitAt(0)-65 : int.tryParse(key)??-1;
+                  if(text.isEmpty||choices.any((e)=>e.isEmpty)||answer<0||answer>3)continue;
+                  qs.add({'question_text':text,'question_type':'mcq','options':choices,'correct_index':answer,
+                    'points':extended?(int.tryParse(cells[9])??1).clamp(1,100):1,'sort_order':qs.length});
+                  count++;
+                }
               }
               setD(() {});
               msg(count > 0 ? '$count soal berhasil diimpor.' : 'Tidak ada soal valid. Periksa format CSV.');
@@ -75,44 +90,113 @@ class _CommunityHubScreenState extends State<CommunityHubScreen> with SingleTick
           icon: const Icon(Icons.upload_file),
           label: const Text('Impor soal dari CSV'),
         ),
-        const Text('Format CSV: Pertanyaan, Pilihan A, Pilihan B, Pilihan C, Pilihan D, Kunci (A/B/C/D). Satu baris per soal.', style: TextStyle(fontSize: 11)),
+        const Text('Format CSV: Jenis,Pertanyaan,Pilihan A,Pilihan B,Pilihan C,Pilihan D,Kunci,Jawaban Acuan,Rubrik,Bobot. Jenis MCQ atau ESSAY. Format CSV lama 6 kolom tetap didukung.', style: TextStyle(fontSize: 11)),
         const SizedBox(height: 8),
         Text('Pertanyaan '+(qs.length+1).toString(),style:const TextStyle(fontWeight:FontWeight.w800)),
+        DropdownButtonFormField<String>(value:questionType,decoration:const InputDecoration(labelText:'Jenis soal'),items:const [DropdownMenuItem(value:'mcq',child:Text('Pilihan ganda')),DropdownMenuItem(value:'essay',child:Text('Esai'))],onChanged:(v)=>setD(()=>questionType=v??'mcq')),
         TextField(controller:question,maxLines:2,decoration:const InputDecoration(labelText:'Pertanyaan')),
-        for(var i=0;i<4;i++)TextField(controller:options[i],decoration:InputDecoration(labelText:'Pilihan '+String.fromCharCode(65+i))),
-        DropdownButtonFormField<int>(value:correct,decoration:const InputDecoration(labelText:'Jawaban benar'),items:List.generate(4,(i)=>DropdownMenuItem(value:i,child:Text('Pilihan '+String.fromCharCode(65+i)))),onChanged:(v)=>setD(()=>correct=v??0)),
-        OutlinedButton.icon(onPressed:(){if(question.text.trim().isEmpty||options.any((e)=>e.text.trim().isEmpty)){msg('Lengkapi pertanyaan dan empat pilihan.');return;}qs.add({'question_text':question.text.trim(),'options':options.map((e)=>e.text.trim()).toList(),'correct_index':correct,'sort_order':qs.length});question.clear();for(final e in options){e.clear();}setD(()=>correct=0);},icon:const Icon(Icons.add),label:Text('Tambah pertanyaan ('+qs.length.toString()+')')),
+        if(questionType=='mcq')...[
+          for(var i=0;i<4;i++)TextField(controller:options[i],decoration:InputDecoration(labelText:'Pilihan '+String.fromCharCode(65+i))),
+          DropdownButtonFormField<int>(value:correct,decoration:const InputDecoration(labelText:'Jawaban benar'),items:List.generate(4,(i)=>DropdownMenuItem(value:i,child:Text('Pilihan '+String.fromCharCode(65+i)))),onChanged:(v)=>setD(()=>correct=v??0)),
+        ]else...[
+          TextField(controller:sampleAnswer,maxLines:2,decoration:const InputDecoration(labelText:'Jawaban acuan (opsional)')),
+          TextField(controller:rubric,maxLines:2,decoration:const InputDecoration(labelText:'Rubrik penilaian')),
+        ],
+        DropdownButtonFormField<int>(value:points,decoration:const InputDecoration(labelText:'Bobot nilai'),items:[1,2,3,5,10,15,20].map((v)=>DropdownMenuItem(value:v,child:Text('$v poin'))).toList(),onChanged:(v)=>setD(()=>points=v??1)),
+        OutlinedButton.icon(onPressed:(){
+          if(question.text.trim().isEmpty){msg('Tulis pertanyaan terlebih dahulu.');return;}
+          if(questionType=='mcq'&&options.any((e)=>e.text.trim().isEmpty)){msg('Lengkapi empat pilihan jawaban.');return;}
+          qs.add({'question_text':question.text.trim(),'question_type':questionType,
+            'options':questionType=='mcq'?options.map((e)=>e.text.trim()).toList():<String>[],
+            'correct_index':correct,'sample_answer':sampleAnswer.text.trim(),'rubric':rubric.text.trim(),
+            'points':points,'sort_order':qs.length});
+          question.clear();sampleAnswer.clear();rubric.clear();for(final e in options){e.clear();}
+          setD(()=>{correct=0;points=1;});
+        },icon:const Icon(Icons.add),label:Text('Tambah soal ('+qs.length.toString()+')')),
       ]))),
       actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('Batal')),FilledButton(onPressed:()async{
         if(title.text.trim().length<3||qs.isEmpty){msg('Isi judul dan minimal satu pertanyaan.');return;}
         try{
           final q=await db.from('marawis_quizzes').insert({'title':title.text.trim(),'description':desc.text.trim(),'duration_minutes':duration,'published':publish,'created_by':db.auth.currentUser!.id}).select('id').single();
-          for(final item in qs){final row=await db.from('marawis_quiz_questions').insert({'quiz_id':q['id'],'question_text':item['question_text'],'options':item['options'],'sort_order':item['sort_order']}).select('id').single();await db.from('marawis_quiz_answers').insert({'question_id':row['id'],'correct_index':item['correct_index']});}
+          for(final item in qs){
+            final row=await db.from('marawis_quiz_questions').insert({
+              'quiz_id':q['id'],'question_text':item['question_text'],'question_type':item['question_type']??'mcq',
+              'options':item['options'],'sort_order':item['sort_order'],'points':item['points']??1,
+              'sample_answer':item['sample_answer'],'rubric':item['rubric']
+            }).select('id').single();
+            if((item['question_type']??'mcq')=='mcq'){
+              await db.from('marawis_quiz_answers').insert({'question_id':row['id'],'correct_index':item['correct_index']});
+            }
+          }
           if(ctx.mounted)Navigator.pop(ctx);msg('Quiz berhasil dibuat.');setState((){});
         }catch(e){msg('Gagal membuat Quiz: '+e.toString());}
       },child:const Text('Simpan Quiz'))],
     )));
-    title.dispose();desc.dispose();question.dispose();for(final e in options){e.dispose();}
+    title.dispose();desc.dispose();question.dispose();sampleAnswer.dispose();rubric.dispose();for(final e in options){e.dispose();}
   }
 
   Future<void> takeQuiz(Map<String,dynamic> quiz) async {
     try {
       final prior=await db.from('marawis_quiz_attempts').select('id').eq('quiz_id',quiz['id']).eq('user_id',db.auth.currentUser!.id).maybeSingle();
       if(prior!=null){msg('Kamu sudah mengerjakan Quiz ini.');return;}
-      final qs=List<Map<String,dynamic>>.from(await db.from('marawis_quiz_questions').select('id,question_text,options,sort_order').eq('quiz_id',quiz['id']).order('sort_order'));
+      final qs=List<Map<String,dynamic>>.from(await db.from('marawis_quiz_questions').select('id,question_text,options,sort_order,question_type,points,sample_answer,rubric').eq('quiz_id',quiz['id']).order('sort_order'));
       if(qs.isEmpty){msg('Quiz belum memiliki soal.');return;}
       final result=await showDialog<Map<String,dynamic>>(context:context,barrierDismissible:false,builder:(ctx)=>_QuizExamDialog(title:quiz['title'].toString(),questions:qs,duration:(quiz['duration_minutes'] as num).toInt()));
       if(result==null)return;
-      final answers=result['answers'] as List<int?>;
+      final answers=result['answers'] as List<dynamic>;
       final response=await db.rpc('submit_marawis_quiz',params:{'p_quiz_id':quiz['id'],'p_answers':answers});
       final row=(response as List).first;
       final percent=(row['score'] as num).toInt();
       final score=(percent*qs.length/100).round();
-      msg('Nilai: '+percent.toString()+'/100 ('+score.toString()+'/'+qs.length.toString()+') • Pelanggaran terdeteksi: '+result['violations'].toString());
+      msg((result['review_pending']==true?'Pilihan ganda: ':'Nilai: ')+percent.toString()+'/100'+(result['review_pending']==true?' • Esai menunggu koreksi Pengurus/Pembina.':' ('+score.toString()+'/'+qs.length.toString()+')')+' • Pelanggaran: '+result['violations'].toString());
       setState((){});
     }catch(e){msg('Quiz gagal dibuka/dikirim: '+e.toString());}
   }
 
+  Future<void> reviewEssays(Map<String,dynamic> quiz) async {
+    try {
+      final questions=List<Map<String,dynamic>>.from(await db.from('marawis_quiz_questions').select('id,question_text,question_type,points,sample_answer,rubric,sort_order').eq('quiz_id',quiz['id']).order('sort_order'));
+      final essays=questions.where((q)=>q['question_type']=='essay').toList();
+      if(essays.isEmpty){msg('Quiz ini belum memiliki soal esai.');return;}
+      final attempts=List<Map<String,dynamic>>.from(await db.from('marawis_quiz_attempts').select('id,user_id,answers,score,review_status').eq('quiz_id',quiz['id']).eq('review_status','pending'));
+      if(attempts.isEmpty){msg('Tidak ada jawaban esai yang menunggu koreksi.');return;}
+      for(final attempt in attempts){
+        final answers=List<dynamic>.from(attempt['answers'] as List);
+        final essayControllers=<TextEditingController>[];
+        final essayTexts=<String>[];
+        for(var i=0;i<questions.length;i++){if(questions[i]['question_type']=='essay'){final saved=i<answers.length?answers[i]:null;essayTexts.add(saved is Map?saved['essay']?.toString()??'':'');essayControllers.add(TextEditingController());}}
+        final awarded=await showDialog<List<int>>(context:context,barrierDismissible:false,builder:(ctx)=>AlertDialog(
+          title:Text('Koreksi esai • '+quiz['title'].toString()),
+          content:SizedBox(width:560,child:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,crossAxisAlignment:CrossAxisAlignment.start,children:[
+            for(var i=0;i<essays.length;i++)... [
+              Text('Esai '+(i+1).toString()+' • Maks. '+(essays[i]['points']??1).toString()+' poin',style:const TextStyle(fontWeight:FontWeight.bold)),
+              Text(essays[i]['question_text'].toString()),
+              Container(width:double.infinity,padding:const EdgeInsets.all(10),margin:const EdgeInsets.symmetric(vertical:8),decoration:BoxDecoration(color:Colors.black.withOpacity(.05),borderRadius:BorderRadius.circular(8)),child:Text(essayTexts[i].isEmpty?'Tidak dijawab':essayTexts[i])),
+              if((essays[i]['sample_answer']??'').toString().isNotEmpty)Text('Jawaban acuan: '+essays[i]['sample_answer'].toString()),
+              if((essays[i]['rubric']??'').toString().isNotEmpty)Text('Rubrik: '+essays[i]['rubric'].toString()),
+              TextField(controller:essayControllers[i],keyboardType:TextInputType.number,decoration:InputDecoration(labelText:'Nilai 0 sampai '+(essays[i]['points']??1).toString())),
+              const Divider(),
+            ]
+          ]))),
+          actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('Nanti')),FilledButton(onPressed:(){
+            final values=<int>[];
+            for(var i=0;i<essayControllers.length;i++){final n=int.tryParse(essayControllers[i].text.trim());final max=(essays[i]['points'] as num?)?.toInt()??1;if(n==null||n<0||n>max){ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('Nilai esai '+(i+1).toString()+' harus 0 sampai '+max.toString())));return;}values.add(n);}
+            Navigator.pop(ctx,values);
+          },child:const Text('Simpan nilai'))],
+        ));
+        if(awarded!=null){
+          var totalPoints=0.0,objectivePoints=0.0,essayMax=0.0,essayEarned=0.0;var essayIndex=0;
+          for(final q in questions){final pts=(q['points'] as num?)?.toDouble()??1;totalPoints+=pts;if(q['question_type']=='essay'){essayMax+=pts;essayEarned+=awarded[essayIndex++];}else{objectivePoints+=pts;}}
+          final autoPct=(attempt['score'] as num?)?.toDouble()??0;
+          final finalScore=totalPoints==0?0:(((autoPct/100*objectivePoints)+essayEarned)/totalPoints*100).round();
+          final manualPct=essayMax==0?0:(essayEarned/essayMax*100).round();
+          await db.from('marawis_quiz_attempts').update({'manual_score':manualPct,'final_score':finalScore,'review_status':'reviewed','reviewed_by':db.auth.currentUser!.id,'reviewed_at':DateTime.now().toUtc().toIso8601String()}).eq('id',attempt['id']);
+        }
+        for(final ctrl in essayControllers){ctrl.dispose();}
+      }
+      msg('Koreksi esai selesai disimpan.');if(mounted)setState((){});
+    }catch(e){msg('Gagal memuat koreksi esai: '+e.toString());}
+  }
   Future<void> updateSuggestion(Map<String,dynamic> item) async {
     final reply = TextEditingController(text: item['admin_reply']?.toString() ?? '');
     String status = (item['status'] ?? 'baru').toString();
@@ -179,7 +263,7 @@ class _CommunityHubScreenState extends State<CommunityHubScreen> with SingleTick
 
   Widget quizzes()=>Column(children:[
     if(admin)Padding(padding:const EdgeInsets.all(14),child:SizedBox(width:double.infinity,child:FilledButton.icon(onPressed:createQuiz,icon:const Icon(Icons.add),label:const Text('Buat Quiz')))),
-    Expanded(child:FutureBuilder<List<Map<String,dynamic>>>(future:db.from('marawis_quizzes').select('id,title,description,duration_minutes,published,created_at').order('created_at',ascending:false).then((v)=>List<Map<String,dynamic>>.from(v)),builder:(c,s){if(s.hasError)return Center(child:TextButton(onPressed:()=>setState((){}),child:const Text('Gagal memuat Quiz')));if(!s.hasData)return const Center(child:CircularProgressIndicator());if(s.data!.isEmpty)return const Center(child:Text('Belum ada Quiz.'));return ListView.builder(itemCount:s.data!.length,itemBuilder:(c,i){final q=s.data![i];return Card(color:Colors.white,child:ListTile(leading:const Icon(Icons.quiz,color:Color(0xFF167D68)),title:Text(q['title'].toString(),style:const TextStyle(fontWeight:FontWeight.w800)),subtitle:Text(q['duration_minutes'].toString()+' menit • '+(q['published']==true?'Dipublikasikan':'Draft')+'\n'+(q['description']??'Quiz Marawis').toString()),isThreeLine:true,onTap:q['published']==true?()=>takeQuiz(q):null,trailing:admin?PopupMenuButton<String>(onSelected:(v)async{if(v=='publish')await db.from('marawis_quizzes').update({'published':true}).eq('id',q['id']);if(v=='delete')await db.from('marawis_quizzes').delete().eq('id',q['id']);setState((){});},itemBuilder:(_)=>[const PopupMenuItem(value:'publish',child:Text('Publikasikan')),const PopupMenuItem(value:'delete',child:Text('Hapus'))]):null));});}))
+    Expanded(child:FutureBuilder<List<Map<String,dynamic>>>(future:db.from('marawis_quizzes').select('id,title,description,duration_minutes,published,created_at').order('created_at',ascending:false).then((v)=>List<Map<String,dynamic>>.from(v)),builder:(c,s){if(s.hasError)return Center(child:TextButton(onPressed:()=>setState((){}),child:const Text('Gagal memuat Quiz')));if(!s.hasData)return const Center(child:CircularProgressIndicator());if(s.data!.isEmpty)return const Center(child:Text('Belum ada Quiz.'));return ListView.builder(itemCount:s.data!.length,itemBuilder:(c,i){final q=s.data![i];return Card(color:Colors.white,child:ListTile(leading:const Icon(Icons.quiz,color:Color(0xFF167D68)),title:Text(q['title'].toString(),style:const TextStyle(fontWeight:FontWeight.w800)),subtitle:Text(q['duration_minutes'].toString()+' menit • '+(q['published']==true?'Dipublikasikan':'Draft')+'\n'+(q['description']??'Quiz Marawis').toString()),isThreeLine:true,onTap:q['published']==true?()=>takeQuiz(q):null,trailing:admin?PopupMenuButton<String>(onSelected:(v)async{if(v=='publish')await db.from('marawis_quizzes').update({'published':true}).eq('id',q['id']);if(v=='review')await reviewEssays(q);if(v=='delete')await db.from('marawis_quizzes').delete().eq('id',q['id']);setState((){});},itemBuilder:(_)=>[const PopupMenuItem(value:'publish',child:Text('Publikasikan')),const PopupMenuItem(value:'review',child:Text('Koreksi esai')),const PopupMenuItem(value:'delete',child:Text('Hapus'))]):null));});}))
   ]);
 
   Widget games()=>_Games(db:db);
@@ -195,6 +279,7 @@ class _QuizExamDialog extends StatefulWidget {
 
 class _QuizExamDialogState extends State<_QuizExamDialog> {
   late final List<int?> answers;
+  late final List<TextEditingController> essayControllers;
   late int seconds;
   int index=0,violations=0;
   bool sending=false,warning=false;
@@ -203,6 +288,7 @@ class _QuizExamDialogState extends State<_QuizExamDialog> {
   @override void initState(){
     super.initState();
     answers=List<int?>.filled(widget.questions.length,null);
+    essayControllers=List.generate(widget.questions.length,(_)=>TextEditingController());
     seconds=widget.duration*60;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       try { await html.document.documentElement?.requestFullscreen(); } catch (_) {}
@@ -230,9 +316,9 @@ class _QuizExamDialogState extends State<_QuizExamDialog> {
     sending=true;clock?.cancel();
     try{if(html.document.fullscreenElement!=null)await html.document.exitFullscreen();}catch(_){}
     try{await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);}catch(_){}
-    if(mounted)Navigator.of(context).pop({'answers':answers,'violations':violations,'automatic':automatic});
+    if(mounted)Navigator.of(context).pop({'answers':List.generate(widget.questions.length,(i)=>widget.questions[i]['question_type']=='essay'?{'type':'essay','essay':essayControllers[i].text.trim()}:{'type':'mcq','choice':answers[i]}),'violations':violations,'automatic':automatic,'review_pending':widget.questions.any((q)=>q['question_type']=='essay')});
   }
-  @override void dispose(){clock?.cancel();visibility?.cancel();try{if(html.document.fullscreenElement!=null)html.document.exitFullscreen();}catch(_){};try{SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);}catch(_){};super.dispose();}
+  @override void dispose(){clock?.cancel();visibility?.cancel();for(final ctrl in essayControllers){ctrl.dispose();}try{if(html.document.fullscreenElement!=null)html.document.exitFullscreen();}catch(_){};try{SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);}catch(_){};super.dispose();}
   String get time => (seconds~/60).toString().padLeft(2,'0')+':'+(seconds%60).toString().padLeft(2,'0');
   @override Widget build(BuildContext context){
     final q=widget.questions[index];
@@ -249,7 +335,7 @@ class _QuizExamDialogState extends State<_QuizExamDialog> {
         const SizedBox(height:18),
         Text(q['question_text'].toString(),style:const TextStyle(fontSize:22,fontWeight:FontWeight.w800)),
         const SizedBox(height:16),
-        for(var i=0;i<opts.length;i++)Card(color:answers[index]==i?const Color(0xFFDCEFE9):Colors.white,child:RadioListTile<int>(value:i,groupValue:answers[index],onChanged:(v)=>setState(()=>answers[index]=v),title:Text(String.fromCharCode(65+i)+'. '+opts[i]))),
+        if(q['question_type']=='essay') TextField(controller:essayControllers[index],minLines:5,maxLines:10,maxLength:5000,decoration:const InputDecoration(border:OutlineInputBorder(),hintText:'Tulis jawaban esai di sini...',alignLabelWithHint:true)) else for(var i=0;i<opts.length;i++)Card(color:answers[index]==i?const Color(0xFFDCEFE9):Colors.white,child:RadioListTile<int>(value:i,groupValue:answers[index],onChanged:(v)=>setState(()=>answers[index]=v),title:Text(String.fromCharCode(65+i)+'. '+opts[i])),),
         const Text('Tetap di halaman ujian. Perpindahan tab/aplikasi dapat tercatat sebagai pelanggaran.',style:TextStyle(color:Colors.black54,fontSize:12))
       ])))),
       Container(color:Colors.white,padding:const EdgeInsets.all(14),child:Row(children:[
