@@ -40,14 +40,49 @@ class MarawisApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(
           seedColor: seed,
           brightness: Brightness.light,
-          surface: const Color(0xFFF7FAF8),
+          surface: const Color(0xFFF7F9F7),
         ),
-        scaffoldBackgroundColor: const Color(0xFFF7FAF8),
+        scaffoldBackgroundColor: const Color(0xFFF7F9F7),
         fontFamily: 'Roboto',
         appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFFF7FAF8),
+          backgroundColor: Colors.white,
           surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          centerTitle: false,
+          titleTextStyle: TextStyle(
+            color: Color(0xFF172A25),
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+          ),
+          iconTheme: IconThemeData(color: Color(0xFF263B34)),
         ),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: Colors.white,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(15)),
+            borderSide: BorderSide(color: Color(0xFFE4EBE7)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(15)),
+            borderSide: BorderSide(color: Color(0xFFE4EBE7)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(15)),
+            borderSide: BorderSide(color: seed, width: 1.6),
+          ),
+        ),
+        filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+            backgroundColor: seed,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+            textStyle: const TextStyle(fontWeight: FontWeight.w800),
+          ),
+        ),
+        dividerColor: const Color(0xFFE8EEEA),
       ),
       home: const AuthGate(),
     );
@@ -64,7 +99,7 @@ class AuthGate extends StatelessWidget {
       stream: client.auth.onAuthStateChange,
       builder: (context, snapshot) {
         final user = client.auth.currentUser;
-        if (user == null) return const LoginScreen();
+        if (user == null) return const GuestHomeScreen();
         return _ProfileGate(user: user);
       },
     );
@@ -168,6 +203,212 @@ class _ProfileGateState extends State<_ProfileGate> {
   }
 }
 
+class GuestHomeScreen extends StatelessWidget {
+  const GuestHomeScreen({super.key});
+
+  void _openLogin(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final features = <({IconData icon, String title, String detail, Color tint})>[
+      (icon: Icons.calendar_month_rounded, title: 'Jadwal kegiatan', detail: 'Latihan, rapat, dan penampilan', tint: Color(0xFFE8F3EE)),
+      (icon: Icons.fact_check_rounded, title: 'Absensi', detail: 'Pantau kehadiran latihan', tint: Color(0xFFEAF0FF)),
+      (icon: Icons.account_balance_wallet_rounded, title: 'Uang kas', detail: 'Pembayaran dan transparansi kas', tint: Color(0xFFFFF1E4)),
+      (icon: Icons.groups_rounded, title: 'Direktori anggota', detail: 'Kenali anggota dan pengurus', tint: Color(0xFFF1EAFE)),
+      (icon: Icons.assignment_rounded, title: 'Program kerja', detail: 'Rencana, tugas, dan progres', tint: Color(0xFFE6F4F1)),
+      (icon: Icons.campaign_rounded, title: 'Pengumuman', detail: 'Informasi resmi organisasi', tint: Color(0xFFFFF0F0)),
+    ];
+
+    return Scaffold(
+      appBar: AppBar(
+        titleSpacing: 18,
+        title: const Row(
+          children: [
+            CircleAvatar(
+              radius: 18,
+              backgroundColor: Color(0xFFE3F2EC),
+              child: Icon(Icons.music_note_rounded, color: Color(0xFF167D68)),
+            ),
+            SizedBox(width: 10),
+            Text('Marawis SMPN 99'),
+          ],
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: IconButton.filledTonal(
+              tooltip: 'Masuk / akun',
+              onPressed: () => _openLogin(context),
+              icon: const Icon(Icons.person_outline_rounded),
+            ),
+          ),
+        ],
+      ),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1080),
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(18, 20, 18, 36),
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(26),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(28),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF123F35), Color(0xFF167D68), Color(0xFF259B7C)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                  child: Stack(
+                    children: [
+                      Positioned(
+                        right: -16,
+                        top: -22,
+                        child: Icon(Icons.graphic_eq_rounded, size: 150, color: Colors.white.withValues(alpha: 0.08)),
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.14),
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                            child: const Text(
+                              'RUANG DIGITAL ORGANISASI',
+                              style: TextStyle(color: Colors.white, fontSize: 10, letterSpacing: 1.2, fontWeight: FontWeight.w800),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          const Text(
+                            'Satu irama.\nSatu tujuan.\nSatu keluarga.',
+                            style: TextStyle(color: Colors.white, fontSize: 32, height: 1.12, fontWeight: FontWeight.w900),
+                          ),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'Selamat datang di pusat informasi dan kegiatan Marawis SMPN 99 Jakarta.',
+                            style: TextStyle(color: Colors.white70, height: 1.55, fontSize: 13),
+                          ),
+                          const SizedBox(height: 22),
+                          FilledButton.icon(
+                            onPressed: () => _openLogin(context),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: const Color(0xFF145B49),
+                            ),
+                            icon: const Icon(Icons.login_rounded, size: 18),
+                            label: const Text('Masuk ke akun'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 30),
+                const Text('Semua kebutuhan Marawis, dalam satu tempat',
+                  style: TextStyle(fontSize: 21, fontWeight: FontWeight.w900, color: Color(0xFF1B3029))),
+                const SizedBox(height: 7),
+                const Text('Pilih menu setelah masuk untuk melihat data dan aktivitas organisasi.',
+                  style: TextStyle(color: Color(0xFF74837B), height: 1.5, fontSize: 13)),
+                const SizedBox(height: 16),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final columns = constraints.maxWidth >= 760 ? 3 : constraints.maxWidth >= 500 ? 2 : 1;
+                    return GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: features.length,
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: columns,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                        mainAxisExtent: 112,
+                      ),
+                      itemBuilder: (context, index) {
+                        final item = features[index];
+                        return Material(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          child: InkWell(
+                            onTap: () => _openLogin(context),
+                            borderRadius: BorderRadius.circular(20),
+                            child: Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: const Color(0xFFE6ECE8)),
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 46,
+                                    height: 46,
+                                    decoration: BoxDecoration(color: item.tint, borderRadius: BorderRadius.circular(15)),
+                                    child: Icon(item.icon, color: const Color(0xFF167D68)),
+                                  ),
+                                  const SizedBox(width: 13),
+                                  Expanded(
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(item.title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                                        const SizedBox(height: 5),
+                                        Text(item.detail, style: const TextStyle(color: Color(0xFF7B8982), fontSize: 11)),
+                                      ],
+                                    ),
+                                  ),
+                                  const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Color(0xFF9AA69F)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+                const SizedBox(height: 26),
+                Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEAF4EF),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.shield_outlined, color: Color(0xFF167D68), size: 25),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Akses data organisasi dilindungi. Silakan masuk menggunakan akun Google yang terdaftar.',
+                          style: TextStyle(color: Color(0xFF345B4D), fontSize: 12, height: 1.5),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 28),
+                const Center(
+                  child: Text('MARAWIS SMPN 99 JAKARTA • 2026/2027',
+                    style: TextStyle(color: Color(0xFF9AA69F), fontSize: 10, letterSpacing: 1, fontWeight: FontWeight.w700)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -262,6 +503,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(title: const Text('Masuk ke akun Marawis')),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
