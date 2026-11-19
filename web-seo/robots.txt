@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://marawissmpn99jkt-boop.github.io/marawis-smpn99-app./sitemap.xml
