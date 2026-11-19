@@ -13,6 +13,7 @@ import 'cash_screen.dart';
 import 'members_screen.dart';
 import 'work_programs_screen.dart';
 import 'community_hub_screen.dart';
+import 'management_hub_screen.dart';
 
 const supabaseUrl = 'https://yatbnzczricrwrqhzsqr.supabase.co';
 const supabasePublishableKey = 'sb_publishable_Uz6EYSbI3Nhj28uP3lEFsw_nCbEYMHS';
@@ -1085,6 +1086,17 @@ class HomeScreen extends StatelessWidget {
               iconColor: const Color(0xFF167D68),
               onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => CommunityHubScreen(role: role))),
             ),
+            if (isAdmin) ...[
+              const SizedBox(height: 12),
+              _MenuCard(
+                icon: Icons.admin_panel_settings_rounded,
+                title: 'Pusat Pengurus',
+                subtitle: 'Kelola kegiatan, tugas & anggota',
+                color: const Color(0xFFEAF0FF),
+                iconColor: const Color(0xFF4268C5),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ManagementHubScreen(role: role))),
+              ),
+            ],
             const SizedBox(height: 26),
             const _SectionHeading(
               title: 'Informasi',
