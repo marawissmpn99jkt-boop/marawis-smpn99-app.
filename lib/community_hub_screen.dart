@@ -318,7 +318,9 @@ class _QuizExamDialogState extends State<_QuizExamDialog> {
     try{await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);}catch(_){}
     if(mounted)Navigator.of(context).pop({'answers':List.generate(widget.questions.length,(i)=>widget.questions[i]['question_type']=='essay'?{'type':'essay','essay':essayControllers[i].text.trim()}:{'type':'mcq','choice':answers[i]}),'violations':violations,'automatic':automatic,'review_pending':widget.questions.any((q)=>q['question_type']=='essay')});
   }
-  @override void dispose(){clock?.cancel();visibility?.cancel();for(final ctrl in essayControllers){ctrl.dispose();}try{if(html.document.fullscreenElement!=null)html.document.exitFullscreen();}catch(_){}\n    try{SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);}catch(_){}\n    super.dispose();}
+  @override void dispose(){clock?.cancel();visibility?.cancel();for(final ctrl in essayControllers){ctrl.dispose();}try{if(html.document.fullscreenElement!=null)html.document.exitFullscreen();}catch(_){}
+    try{SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);}catch(_){}
+    super.dispose();}
   String get time => (seconds~/60).toString().padLeft(2,'0')+':'+(seconds%60).toString().padLeft(2,'0');
   @override Widget build(BuildContext context){
     final q=widget.questions[index];
