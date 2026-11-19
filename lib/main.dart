@@ -1062,6 +1062,14 @@ class HomeScreen extends StatelessWidget {
                   iconColor: const Color(0xFFC47A25),
                   onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => MembersScreen(role: role))),
                 ),
+                _MenuCard(
+                  icon: Icons.leaderboard_rounded,
+                  title: 'Peringkat',
+                  subtitle: 'Keaktifan & kedisiplinan',
+                  color: const Color(0xFFF2EAFE),
+                  iconColor: const Color(0xFF8458BD),
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => LeaderboardScreen(role: role))),
+                ),
 
               ],
             ),
