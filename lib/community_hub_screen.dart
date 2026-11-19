@@ -98,9 +98,60 @@ class _CommunityHubScreenState extends State<CommunityHubScreen> with SingleTick
     }catch(e){msg('Quiz gagal dibuka/dikirim: '+e.toString());}
   }
 
-  Future<void> updateSuggestion(Map<String,dynamic> item)async{
-    final reply=TextEditingController(text:item['admin_reply']?.toString()??'');String status=(item['status']??'baru').toString();
-    await showDialog(context:context,builder:(ctx)=>StatefulBuilder(builder:(ctx,setD)=>AlertDialog(title:const Text('Tindak lanjut saran'),content:Column(mainAxisSize:MainAxisSize.min,children:[Text(item['message'].toString()),DropdownButtonFormField<String>(value:status,items:const [DropdownMenuItem(value:'baru',child:Text('Baru')),DropdownMenuItem(value:'diproses',child:Text('Diproses')),DropdownMenuItem(value:'selesai',child:Text('Selesai'))],onChanged:(v)=>setD(()=>status=v??'baru')),TextField(controller:reply,maxLines:3,decoration:const InputDecoration(labelText:'Tanggapan'))]),actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('Batal')),FilledButton(onPressed:()async{try{await db.from('member_suggestions').update({'status':status,'admin_reply':reply.text.trim()}).eq('id',item['id']);if(ctx.mounted)Navigator.pop(ctx);setState((){});msg('Saran diperbarui.');}catch(e){msg(e.toString());}},child:const Text('Simpan'))]})));
+  Future<void> updateSuggestion(Map<String,dynamic> item) async {
+    final reply = TextEditingController(text: item['admin_reply']?.toString() ?? '');
+    String status = (item['status'] ?? 'baru').toString();
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          title: const Text('Tindak lanjut saran'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(item['message'].toString()),
+              DropdownButtonFormField<String>(
+                value: status,
+                items: const [
+                  DropdownMenuItem(value: 'baru', child: Text('Baru')),
+                  DropdownMenuItem(value: 'diproses', child: Text('Diproses')),
+                  DropdownMenuItem(value: 'selesai', child: Text('Selesai')),
+                ],
+                onChanged: (v) => setD(() => status = v ?? 'baru'),
+              ),
+              TextField(
+                controller: reply,
+                maxLines: 3,
+                decoration: const InputDecoration(labelText: 'Tanggapan'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Batal'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                try {
+                  await db.from('member_suggestions').update({
+                    'status': status,
+                    'admin_reply': reply.text.trim(),
+                  }).eq('id', item['id']);
+                  if (ctx.mounted) Navigator.pop(ctx);
+                  if (!mounted) return;
+                  setState(() {});
+                  msg('Saran diperbarui.');
+                } catch (e) {
+                  msg(e.toString());
+                }
+              },
+              child: const Text('Simpan'),
+            ),
+          ],
+        ),
+      ),
+    );
     reply.dispose();
   }
 
