@@ -48,6 +48,13 @@ class _CashScreenState extends State<CashScreen> {
             .order('expense_date', ascending: false)
         : <Map<String, dynamic>>[];
 
+    final incomes = admin
+        ? await db
+            .from('cash_income')
+            .select('id,title,amount,income_date,notes,created_at')
+            .order('income_date', ascending: false)
+        : <Map<String, dynamic>>[];
+
     final paymentRows = List<Map<String, dynamic>>.from(payments);
     final memberRows = <Map<String, dynamic>>[];
     if (admin) {
@@ -71,6 +78,7 @@ class _CashScreenState extends State<CashScreen> {
     return {
       'payments': enrichedPayments,
       'expenses': List<Map<String, dynamic>>.from(expenses),
+      'incomes': List<Map<String, dynamic>>.from(incomes),
     };
   }
 
@@ -427,6 +435,90 @@ class _CashScreenState extends State<CashScreen> {
     }
   }
 
+  Future<void> addIncome() async {
+    final title = TextEditingController();
+    final amount = TextEditingController();
+    final notes = TextEditingController();
+    final key = GlobalKey<FormState>();
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Catat pemasukan'),
+        content: Form(
+          key: key,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: title,
+                  maxLength: 120,
+                  decoration: const InputDecoration(labelText: 'Sumber pemasukan'),
+                  validator: (value) => value == null || value.trim().isEmpty
+                      ? 'Wajib diisi.'
+                      : null,
+                ),
+                TextFormField(
+                  controller: amount,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Nominal (Rp)'),
+                  validator: (value) {
+                    final parsed = int.tryParse(value ?? '');
+                    return parsed == null || parsed <= 0
+                        ? 'Nominal tidak valid.'
+                        : null;
+                  },
+                ),
+                TextFormField(
+                  controller: notes,
+                  maxLines: 2,
+                  decoration: const InputDecoration(labelText: 'Catatan (opsional)'),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: busy
+                ? null
+                : () async {
+                    if (!key.currentState!.validate()) return;
+                    setState(() => busy = true);
+                    try {
+                      await db.from('cash_income').insert({
+                        'title': title.text.trim(),
+                        'amount': int.parse(amount.text),
+                        'notes': notes.text.trim().isEmpty
+                            ? null
+                            : notes.text.trim(),
+                        'recorded_by': db.auth.currentUser!.id,
+                      });
+                      if (ctx.mounted) Navigator.pop(ctx);
+                      refresh();
+                      message('Pemasukan tersimpan.');
+                    } catch (error) {
+                      message('Gagal menyimpan pemasukan: $error');
+                    } finally {
+                      if (mounted) setState(() => busy = false);
+                    }
+                  },
+            child: const Text('Simpan'),
+          ),
+        ],
+      ),
+    );
+
+    title.dispose();
+    amount.dispose();
+    notes.dispose();
+  }
+
   Future<void> addExpense() async {
     final title = TextEditingController();
     final amount = TextEditingController();
@@ -536,10 +628,23 @@ class _CashScreenState extends State<CashScreen> {
           ],
         ),
         floatingActionButton: admin
-            ? FloatingActionButton.extended(
-                onPressed: busy ? null : addExpense,
-                icon: const Icon(Icons.remove_circle_outline),
-                label: const Text('Pengeluaran'),
+            ? Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  FloatingActionButton.extended(
+                    heroTag: 'cash-income',
+                    onPressed: busy ? null : addIncome,
+                    icon: const Icon(Icons.add_circle_outline),
+                    label: const Text('Pemasukan'),
+                  ),
+                  const SizedBox(width: 10),
+                  FloatingActionButton.extended(
+                    heroTag: 'cash-expense',
+                    onPressed: busy ? null : addExpense,
+                    icon: const Icon(Icons.remove_circle_outline),
+                    label: const Text('Pengeluaran'),
+                  ),
+                ],
               )
             : FloatingActionButton.extended(
                 onPressed: busy ? null : submitPayment,
@@ -575,6 +680,8 @@ class _CashScreenState extends State<CashScreen> {
                 <Map<String, dynamic>>[];
             final expenses = data['expenses'] as List<Map<String, dynamic>>? ??
                 <Map<String, dynamic>>[];
+            final incomes = data['incomes'] as List<Map<String, dynamic>>? ??
+                <Map<String, dynamic>>[];
             final accepted = payments
                 .where((row) => row['status'] == 'diterima')
                 .fold<int>(
@@ -583,11 +690,16 @@ class _CashScreenState extends State<CashScreen> {
                 );
             final pending =
                 payments.where((row) => row['status'] == 'menunggu').length;
+            final totalIncomes = incomes.fold<int>(
+              0,
+              (sum, row) => sum + (row['amount'] as num).toInt(),
+            );
             final totalExpenses = expenses.fold<int>(
               0,
               (sum, row) => sum + (row['amount'] as num).toInt(),
             );
-            final balance = accepted - totalExpenses;
+            final totalIncome = accepted + totalIncomes;
+            final balance = totalIncome - totalExpenses;
 
             return RefreshIndicator(
               onRefresh: () async => refresh(),
@@ -625,7 +737,7 @@ class _CashScreenState extends State<CashScreen> {
                         if (admin) ...[
                           const SizedBox(height: 8),
                           Text(
-                            'Pemasukan: ${formatRupiah(accepted)}  •  Pengeluaran: ${formatRupiah(totalExpenses)}',
+                            'Iuran diterima: ${formatRupiah(accepted)}  •  Pemasukan lain: ${formatRupiah(totalIncomes)}\\nPengeluaran: ${formatRupiah(totalExpenses)}',
                             style: const TextStyle(
                               color: Colors.white70,
                               fontSize: 12,
@@ -715,6 +827,41 @@ class _CashScreenState extends State<CashScreen> {
                       ),
                     ),
                   ),
+                  if (admin) ...[
+                    const SizedBox(height: 20),
+                    const Text(
+                      'Riwayat pemasukan',
+                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
+                    ),
+                    const SizedBox(height: 10),
+                    if (incomes.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Text(
+                          'Belum ada pemasukan manual.',
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ...incomes.map(
+                      (income) => Card(
+                        color: Colors.white,
+                        child: ListTile(
+                          leading: const CircleAvatar(
+                            backgroundColor: Color(0xFFE7F4EE),
+                            child: Icon(Icons.add_circle_outline, color: Color(0xFF167D68)),
+                          ),
+                          title: Text(
+                            formatRupiah(income['amount']),
+                            style: const TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                          subtitle: Text(
+                            '${income['title']} • ${date(income['income_date'])}'
+                            '${(income['notes'] ?? '').toString().isEmpty ? '' : '\\n${income['notes']}'}',
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                   if (admin) ...[
                     const SizedBox(height: 20),
                     const Text(
