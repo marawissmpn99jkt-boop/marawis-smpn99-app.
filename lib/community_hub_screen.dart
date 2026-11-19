@@ -314,11 +314,11 @@ class _QuizExamDialogState extends State<_QuizExamDialog> {
   Future<void> _submit(bool automatic) async {
     if(sending||!mounted)return;
     sending=true;clock?.cancel();
-    try{if(html.document.fullscreenElement!=null)await html.document.exitFullscreen();}catch(_){}
+    try{if(html.document.fullscreenElement!=null)html.document.exitFullscreen();}catch(_){}
     try{await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);}catch(_){}
     if(mounted)Navigator.of(context).pop({'answers':List.generate(widget.questions.length,(i)=>widget.questions[i]['question_type']=='essay'?{'type':'essay','essay':essayControllers[i].text.trim()}:{'type':'mcq','choice':answers[i]}),'violations':violations,'automatic':automatic,'review_pending':widget.questions.any((q)=>q['question_type']=='essay')});
   }
-  @override void dispose(){clock?.cancel();visibility?.cancel();for(final ctrl in essayControllers){ctrl.dispose();}try{if(html.document.fullscreenElement!=null)html.document.exitFullscreen();}catch(_){};try{SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);}catch(_){};super.dispose();}
+  @override void dispose(){clock?.cancel();visibility?.cancel();for(final ctrl in essayControllers){ctrl.dispose();}try{if(html.document.fullscreenElement!=null)html.document.exitFullscreen();}catch(_){}\n    try{SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);}catch(_){}\n    super.dispose();}
   String get time => (seconds~/60).toString().padLeft(2,'0')+':'+(seconds%60).toString().padLeft(2,'0');
   @override Widget build(BuildContext context){
     final q=widget.questions[index];
@@ -340,7 +340,7 @@ class _QuizExamDialogState extends State<_QuizExamDialog> {
       ])))),
       Container(color:Colors.white,padding:const EdgeInsets.all(14),child:Row(children:[
         OutlinedButton(onPressed:index==0?null:()=>setState(()=>index--),child:const Text('Sebelumnya')),
-        const Spacer(),Text(answers.where((e)=>e!=null).length.toString()+'/'+answers.length.toString()+' terjawab'),const Spacer(),
+        const Spacer(),Text(List.generate(answers.length,(i)=>widget.questions[i]['question_type']=='essay'?essayControllers[i].text.trim().isNotEmpty:answers[i]!=null).where((e)=>e).length.toString()+'/'+answers.length.toString()+' terjawab'),const Spacer(),
         FilledButton(onPressed:(){
           if(index<widget.questions.length-1){setState(()=>index++);}
           else{showDialog<void>(context:context,builder:(ctx)=>AlertDialog(title:const Text('Kumpulkan Quiz?'),content:const Text('Setelah dikumpulkan, jawaban tidak dapat diubah.'),actions:[
