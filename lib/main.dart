@@ -12,6 +12,7 @@ import 'attendance_screen.dart';
 import 'cash_screen.dart';
 import 'members_screen.dart';
 import 'work_programs_screen.dart';
+import 'community_hub_screen.dart';
 
 const supabaseUrl = 'https://yatbnzczricrwrqhzsqr.supabase.co';
 const supabasePublishableKey = 'sb_publishable_Uz6EYSbI3Nhj28uP3lEFsw_nCbEYMHS';
@@ -1074,6 +1075,15 @@ class HomeScreen extends StatelessWidget {
               color: const Color(0xFFE7F4EE),
               iconColor: const Color(0xFF167D68),
               onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => WorkProgramsScreen(role: role))),
+            ),
+            const SizedBox(height: 14),
+            _MenuCard(
+              icon: Icons.forum_rounded,
+              title: 'Komunitas',
+              subtitle: 'Kotak saran, Quiz & Game',
+              color: const Color(0xFFEAF4EF),
+              iconColor: const Color(0xFF167D68),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => CommunityHubScreen(role: role))),
             ),
             const SizedBox(height: 26),
             const _SectionHeading(
