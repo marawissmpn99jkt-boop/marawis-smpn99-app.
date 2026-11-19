@@ -81,9 +81,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   final memberId = member['id'].toString();
                   return ListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: Text((member['display_name'] ?? 'Anggota').toString(), style: const TextStyle(fontWeight: FontWeight.w700)),
+                    title: Text((member['display_name'] ?? 'Anggota').toString(), maxLines: 1, softWrap: false, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700)),
                     subtitle: (member['class_name'] ?? '').toString().isEmpty ? null : Text(member['class_name'].toString()),
-                    trailing: DropdownButton<String>(
+                    trailing: SizedBox(
+                      width: 132,
+                      child: DropdownButton<String>(
                       value: statuses[memberId],
                       hint: const Text('Pilih status'),
                       isExpanded: true,
@@ -96,6 +98,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                       onChanged: (value) { if (value != null) {
                         setSheetState(() => statuses[memberId] = value);
                       } },
+                    ),
                     ),
                   );
                 },
