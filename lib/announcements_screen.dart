@@ -1,4 +1,6 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:video_player/video_player.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AnnouncementsScreen extends StatefulWidget {
@@ -25,7 +27,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
   Future<List<Map<String, dynamic>>> _load() async {
     final rows = await _client
         .from('announcements')
-        .select('id,title,body,audience,is_published,created_at,created_by')
+        .select('id,title,body,audience,is_published,created_at,created_by,media_url,media_type')
         .order('created_at', ascending: false);
     return List<Map<String, dynamic>>.from(rows);
   }
@@ -44,6 +46,8 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
     final body = TextEditingController(text: item?['body']?.toString() ?? '');
     String audience = (item?['audience'] ?? 'all').toString();
     bool published = (item?['is_published'] ?? true) == true;
+    PlatformFile? selectedMedia;
+    bool removeMedia = false;
     final formKey = GlobalKey<FormState>();
 
     await showModalBottomSheet<void>(
@@ -87,6 +91,83 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                     decoration: _decoration('Tulis informasi dengan jelas...'),
                     validator: (v) => v == null || v.trim().isEmpty ? 'Isi pengumuman wajib diisi.' : null,
                   ),
+                  const SizedBox(height: 10),
+                  const Text('Foto / video (opsional)', style: TextStyle(fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 7),
+                  if (selectedMedia != null)
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEAF5EF),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Row(children: [
+                        Icon(
+                          (selectedMedia!.extension ?? '').toLowerCase() == 'mp4' ||
+                                  (selectedMedia!.extension ?? '').toLowerCase() == 'mov' ||
+                                  (selectedMedia!.extension ?? '').toLowerCase() == 'webm'
+                              ? Icons.videocam_rounded
+                              : Icons.image_rounded,
+                          color: const Color(0xFF167D68),
+                        ),
+                        const SizedBox(width: 9),
+                        Expanded(child: Text(selectedMedia!.name, maxLines: 1, overflow: TextOverflow.ellipsis)),
+                        IconButton(
+                          onPressed: () => setSheetState(() => selectedMedia = null),
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                      ]),
+                    )
+                  else if (!removeMedia && (item?['media_url'] != null))
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _AnnouncementMedia(
+                          url: item!['media_url'].toString(),
+                          type: (item['media_type'] ?? 'image').toString(),
+                        ),
+                        TextButton.icon(
+                          onPressed: () => setSheetState(() => removeMedia = true),
+                          icon: const Icon(Icons.delete_outline_rounded),
+                          label: const Text('Hapus media saat disimpan'),
+                        ),
+                      ],
+                    )
+                  else
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        try {
+                          final result = await FilePicker.platform.pickFiles(
+                            type: FileType.media,
+                            allowMultiple: false,
+                            withData: true,
+                          );
+                          if (result == null || result.files.isEmpty) return;
+                          final file = result.files.single;
+                          if (file.size > 50 * 1024 * 1024) {
+                            _message('Ukuran media maksimal 50 MB.');
+                            return;
+                          }
+                          if (file.bytes == null) {
+                            _message('File tidak dapat dibaca. Coba pilih ulang.');
+                            return;
+                          }
+                          setSheetState(() {
+                            selectedMedia = file;
+                            removeMedia = false;
+                          });
+                        } catch (e) {
+                          _message('Gagal memilih media: $e');
+                        }
+                      },
+                      icon: const Icon(Icons.add_photo_alternate_outlined),
+                      label: const Text('Pilih foto atau video'),
+                    ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Format foto JPG, PNG, WEBP, GIF; video MP4, MOV, WEBM. Maksimal 50 MB.',
+                    style: TextStyle(color: Color(0xFF78877F), fontSize: 11),
+                  ),
                   const SizedBox(height: 8),
                   const Text('Ditujukan kepada', style: TextStyle(fontWeight: FontWeight.w800)),
                   const SizedBox(height: 7),
@@ -116,11 +197,45 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                         if (!formKey.currentState!.validate()) return;
                         setState(() => _busy = true);
                         try {
-                          final data = {
+                          String? mediaUrl = item?['media_url']?.toString();
+                          String? mediaType = item?['media_type']?.toString();
+                          if (removeMedia) {
+                            mediaUrl = null;
+                            mediaType = null;
+                          }
+                          if (selectedMedia != null) {
+                            final extension = (selectedMedia!.extension ?? '').toLowerCase();
+                            const imageExtensions = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+                            const videoExtensions = ['mp4', 'mov', 'webm'];
+                            if (!imageExtensions.contains(extension) && !videoExtensions.contains(extension)) {
+                              throw Exception('Format file tidak didukung.');
+                            }
+                            mediaType = videoExtensions.contains(extension) ? 'video' : 'image';
+                            final contentType = switch (extension) {
+                              'jpg' || 'jpeg' => 'image/jpeg',
+                              'png' => 'image/png',
+                              'webp' => 'image/webp',
+                              'gif' => 'image/gif',
+                              'mp4' => 'video/mp4',
+                              'mov' => 'video/quicktime',
+                              'webm' => 'video/webm',
+                              _ => 'application/octet-stream',
+                            };
+                            final path = 'announcements/${DateTime.now().microsecondsSinceEpoch}.$extension';
+                            await _client.storage.from('announcement-media').uploadBinary(
+                              path,
+                              selectedMedia!.bytes!,
+                              fileOptions: FileOptions(contentType: contentType, upsert: false),
+                            );
+                            mediaUrl = _client.storage.from('announcement-media').getPublicUrl(path);
+                          }
+                          final data = <String, dynamic>{
                             'title': title.text.trim(),
                             'body': body.text.trim(),
                             'audience': audience,
                             'is_published': published,
+                            'media_url': mediaUrl,
+                            'media_type': mediaType,
                             'updated_at': DateTime.now().toUtc().toIso8601String(),
                           };
                           late final int announcementId;
@@ -354,6 +469,13 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                       Text(item['title'].toString(), style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
                       const SizedBox(height: 8),
                       Text(item['body'].toString(), style: const TextStyle(color: Color(0xFF56645C), fontSize: 13, height: 1.55)),
+                      if (item['media_url'] != null) ...[
+                        const SizedBox(height: 12),
+                        _AnnouncementMedia(
+                          url: item['media_url'].toString(),
+                          type: (item['media_type'] ?? 'image').toString(),
+                        ),
+                      ],
                     ],
                   ),
                 );
@@ -361,6 +483,126 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _AnnouncementMedia extends StatefulWidget {
+  const _AnnouncementMedia({required this.url, required this.type});
+  final String url;
+  final String type;
+
+  @override
+  State<_AnnouncementMedia> createState() => _AnnouncementMediaState();
+}
+
+class _AnnouncementMediaState extends State<_AnnouncementMedia> {
+  VideoPlayerController? _controller;
+  bool _videoError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initVideo();
+  }
+
+  @override
+  void didUpdateWidget(covariant _AnnouncementMedia oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.url != widget.url || oldWidget.type != widget.type) {
+      _controller?.dispose();
+      _controller = null;
+      _videoError = false;
+      _initVideo();
+    }
+  }
+
+  Future<void> _initVideo() async {
+    if (widget.type != 'video') return;
+    final controller = VideoPlayerController.networkUrl(Uri.parse(widget.url));
+    _controller = controller;
+    try {
+      await controller.initialize();
+      if (mounted) setState(() {});
+    } catch (_) {
+      if (mounted) setState(() => _videoError = true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.type != 'video') {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: Image.network(
+          widget.url,
+          width: double.infinity,
+          fit: BoxFit.cover,
+          loadingBuilder: (context, child, progress) => progress == null
+              ? child
+              : const SizedBox(height: 170, child: Center(child: CircularProgressIndicator())),
+          errorBuilder: (_, __, ___) => const SizedBox(
+            height: 120,
+            child: Center(child: Icon(Icons.broken_image_outlined, size: 36)),
+          ),
+        ),
+      );
+    }
+    final controller = _controller;
+    if (_videoError) {
+      return const SizedBox(
+        height: 130,
+        child: Center(child: Text('Video tidak dapat diputar.')),
+      );
+    }
+    if (controller == null || !controller.value.isInitialized) {
+      return const SizedBox(
+        height: 180,
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: AspectRatio(
+        aspectRatio: controller.value.aspectRatio,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            VideoPlayer(controller),
+            IconButton.filled(
+              onPressed: () {
+                setState(() {
+                  controller.value.isPlaying ? controller.pause() : controller.play();
+                });
+              },
+              icon: Icon(
+                controller.value.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                size: 34,
+              ),
+            ),
+            Positioned(
+              left: 8,
+              right: 8,
+              bottom: 4,
+              child: VideoProgressIndicator(
+                controller,
+                allowScrubbing: true,
+                colors: const VideoProgressColors(
+                  playedColor: Color(0xFF167D68),
+                  bufferedColor: Colors.white54,
+                  backgroundColor: Colors.white24,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
