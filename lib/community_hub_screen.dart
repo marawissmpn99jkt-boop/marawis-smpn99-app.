@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -69,11 +70,13 @@ class _CommunityHubScreenState extends State<CommunityHubScreen> with SingleTick
       final qs=List<Map<String,dynamic>>.from(await db.from('marawis_quiz_questions').select('id,question_text,options,sort_order').eq('quiz_id',quiz['id']).order('sort_order'));
       if(qs.isEmpty){msg('Quiz belum memiliki soal.');return;}
       final chosen=List<int?>.filled(qs.length,null);
-      int index=0;
-      final answers=await showDialog<List<int?>>(context:context,barrierDismissible:false,builder:(ctx)=>StatefulBuilder(builder:(ctx,setD)=>AlertDialog(
+      int index=0; int secondsLeft=(quiz['duration_minutes'] as num).toInt()*60; Timer? quizTimer;
+      final answers=await showDialog<List<int?>>(context:context,barrierDismissible:false,builder:(ctx)=>StatefulBuilder(builder:(ctx,setD){
+        quizTimer ??= Timer.periodic(const Duration(seconds:1),(t){if(!ctx.mounted){t.cancel();return;}if(secondsLeft<=1){t.cancel();Navigator.pop(ctx,chosen);}else{setD(()=>secondsLeft--);}});
+        return AlertDialog(
         title:Text(quiz['title'].toString()),
         content:SizedBox(width:500,child:Column(mainAxisSize:MainAxisSize.min,crossAxisAlignment:CrossAxisAlignment.start,children:[
-          Text('Batas waktu: '+quiz['duration_minutes'].toString()+' menit'),
+          Text('Sisa waktu: '+(secondsLeft~/60).toString().padLeft(2,'0')+':'+(secondsLeft%60).toString().padLeft(2,'0'),style:TextStyle(fontWeight:FontWeight.w800,color:secondsLeft<60?Colors.red:const Color(0xFF167D68))),
           Text('Soal '+(index+1).toString()+' dari '+qs.length.toString()),
           const SizedBox(height:12),
           Text(qs[index]['question_text'].toString(),style:const TextStyle(fontWeight:FontWeight.w800)),
@@ -84,7 +87,8 @@ class _CommunityHubScreenState extends State<CommunityHubScreen> with SingleTick
           if(index<qs.length-1)FilledButton(onPressed:()=>setD(()=>index++),child:const Text('Berikutnya')),
           if(index==qs.length-1)FilledButton(onPressed:()=>Navigator.pop(ctx,chosen),child:const Text('Kirim jawaban')),
         ],
-      )));
+      );}));
+      quizTimer?.cancel();
       if(answers==null)return;
       final result=await db.rpc('submit_marawis_quiz',params:{'p_quiz_id':quiz['id'],'p_answers':answers});
       final row=(result as List).first;
