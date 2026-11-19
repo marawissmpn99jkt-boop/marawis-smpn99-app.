@@ -791,12 +791,27 @@ class HomeScreen extends StatelessWidget {
   final Map<String, dynamic> profile;
 
   Future<void> _signOut(BuildContext context) async {
+    final client = Supabase.instance.client;
     try {
-      await Supabase.instance.client.auth.signOut();
+      // Clear the pending staff-verification choice so it cannot affect
+      // the next sign-in after this account has been logged out.
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('marawis_pending_staff_role');
+
+      // Explicitly end the local Supabase session (also works for web).
+      await client.auth.signOut(scope: SignOutScope.local);
+
+      if (!context.mounted) return;
+      if (client.auth.currentSession != null) {
+        throw const AuthException('Sesi akun masih aktif. Coba keluar sekali lagi.');
+      }
     } catch (error) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal keluar: $error')),
+        SnackBar(
+          content: Text('Gagal keluar: $error'),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
     }
   }
