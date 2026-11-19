@@ -31,6 +31,9 @@ jobs:
       - name: Generate web platform files
         run: flutter create --platforms=web --project-name marawis_smpn99 .
 
+      - name: Apply SEO metadata and crawler files
+        run: cp -R web-seo/. web/
+
       - name: Install dependencies
         run: flutter pub get
 
