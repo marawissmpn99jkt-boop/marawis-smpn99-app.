@@ -39,7 +39,7 @@ Migration bukti transfer membuat bucket **private** `cash-payment-proofs` dengan
 1. Aktifkan Google sebagai provider pada Supabase Authentication.
 2. Masukkan Google OAuth Client ID dan Client Secret langsung melalui dashboard Supabase. Jangan simpan Client Secret atau service-role key di repository.
 3. Untuk deployment web aktif, tambahkan URL berikut ke daftar Redirect URLs Supabase Auth:
-   - `https://marawissmpn99jkt.github.io/marawis-smpn99-app./`
+   - `https://marawissmpn99jkt-boop.github.io/marawis-smpn99-app./`
 4. OAuth redirect URI yang digunakan pada Google Cloud harus mengikuti callback URL yang ditampilkan oleh konfigurasi provider Supabase.
 5. URI `marawissmpn99://login-callback` hanya diperlukan bila dukungan native Android diaktifkan kembali; workflow APK saat ini sudah dipensiunkan.
 
