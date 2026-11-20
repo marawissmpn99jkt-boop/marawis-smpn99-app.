@@ -42,17 +42,26 @@ class _AiAssistantTab extends StatefulWidget {
 class _AiAssistantTabState extends State<_AiAssistantTab> {
   final db = Supabase.instance.client;
   final input = TextEditingController();
+  final chatScroll = ScrollController();
   final messages = <Map<String, String>>[
     {'role': 'assistant', 'text': 'Halo! Aku Asisten Marawis. Tanya seputar organisasi, kegiatan, program kerja, latihan, atau materi dasar Marawis.'}
   ];
   bool sending = false;
   @override
-  void dispose() { input.dispose(); super.dispose(); }
+  void dispose() { input.dispose(); chatScroll.dispose(); super.dispose(); }
+  void scrollToLatest() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !chatScroll.hasClients) return;
+      chatScroll.animateTo(chatScroll.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 260), curve: Curves.easeOutCubic);
+    });
+  }
   Future<void> send([String? preset]) async {
     final text = (preset ?? input.text).trim();
     if (text.isEmpty || sending) return;
     input.clear();
     setState(() { messages.add({'role': 'user', 'text': text}); sending = true; });
+    scrollToLatest();
     try {
       final res = await db.functions.invoke('marawis-ai', body: {
         'message': text,
@@ -63,7 +72,7 @@ class _AiAssistantTabState extends State<_AiAssistantTab> {
       final data = res.data;
       final reply = data is Map ? data['reply']?.toString() : null;
       if (reply == null || reply.trim().isEmpty) throw Exception('empty');
-      if (mounted) setState(() => messages.add({'role': 'assistant', 'text': reply}));
+      if (mounted) { setState(() => messages.add({'role': 'assistant', 'text': reply})); scrollToLatest(); }
     } catch (_) {
       if (mounted) setState(() => messages.add({
         'role': 'assistant',
@@ -81,8 +90,13 @@ class _AiAssistantTabState extends State<_AiAssistantTab> {
         Expanded(child: Text('Asisten khusus Marawis SMPN 99. Jangan masukkan kata sandi, OTP, atau data pribadi.')),
       ]),
     ),
-    Expanded(child: ListView.builder(
-      padding: const EdgeInsets.all(12), itemCount: messages.length + (sending ? 1 : 0),
+    Expanded(child: Container(
+      width: double.infinity,
+      color: const Color(0xFFF6F9F7),
+      child: ListView.builder(
+      controller: chatScroll,
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 16), itemCount: messages.length + (sending ? 1 : 0),
       itemBuilder: (context, i) {
         if (sending && i == messages.length) return const Padding(
           padding: EdgeInsets.all(12), child: Text('Asisten sedang berpikir...'),
@@ -91,6 +105,7 @@ class _AiAssistantTabState extends State<_AiAssistantTab> {
         return Align(
           alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
           child: Container(
+            width: mine ? null : double.infinity,
             constraints: const BoxConstraints(maxWidth: 620),
             margin: const EdgeInsets.symmetric(vertical: 5), padding: const EdgeInsets.all(13),
             decoration: BoxDecoration(
@@ -100,6 +115,7 @@ class _AiAssistantTabState extends State<_AiAssistantTab> {
             child: mine
                 ? Text(m['text'] ?? '', style: const TextStyle(color: Colors.white, height: 1.45))
                 : MarkdownBody(
+                    fitContent: false,
                     data: m['text'] ?? '',
                     selectable: true,
                     extensionSet: md.ExtensionSet.gitHubFlavored,
@@ -121,6 +137,7 @@ class _AiAssistantTabState extends State<_AiAssistantTab> {
           ),
         );
       },
+    )),
     )),
     if (messages.length == 1) Wrap(spacing: 6, children: [
       ActionChip(label: const Text('Tugas pengurus'), onPressed: () => send('Apa tugas pengurus Marawis?')),
