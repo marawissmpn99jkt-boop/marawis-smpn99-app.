@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "482698289502",
+    "project_id": "marawis-smpn-99",
+    "storage_bucket": "marawis-smpn-99.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:482698289502:android:f8945418b24674398eefcf",
+        "android_client_info": {
+          "package_name": "com.marawissmpn99.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCKT66e8SVfE3zY54MNSSiOv1621p-6LYY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
