@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/material.dart' as flutter;
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -102,7 +103,7 @@ class _AiAssistantTabState extends State<_AiAssistantTab> {
                     data: m['text'] ?? '',
                     selectable: true,
                     extensionSet: md.ExtensionSet.gitHubFlavored,
-                    styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+                    styleSheet: MarkdownStyleSheet.fromTheme(flutter.ThemeData()).copyWith(
                       p: const TextStyle(color: Color(0xFF20332D), fontSize: 14, height: 1.6),
                       h1: const TextStyle(color: Color(0xFF173D32), fontSize: 21, fontWeight: FontWeight.w900, height: 1.3),
                       h2: const TextStyle(color: Color(0xFF173D32), fontSize: 18, fontWeight: FontWeight.w800, height: 1.3),
