@@ -3,6 +3,7 @@ import 'package:flutter/material.dart' as flutter;
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'marawis_challenge.dart';
 
 class MarawisSmartScreen extends StatefulWidget {
   const MarawisSmartScreen({super.key, required this.role});
@@ -166,25 +167,26 @@ class _WeeklyChallengeTab extends StatefulWidget {
 }
 class _WeeklyChallengeTabState extends State<_WeeklyChallengeTab> {
   final db = Supabase.instance.client;
-  final questions = <Map<String, dynamic>>[
-    {'q':'Apa fungsi utama latihan bersama?','a':['Menyamakan tempo dan kekompakan','Membuat anggota bersaing','Menghindari evaluasi','Mempercepat selesai'],'c':0},
-    {'q':'Sikap yang tepat saat pemimpin memberi aba-aba adalah...','a':['Mengabaikan','Mendengarkan dan mengikuti','Bermain lebih cepat','Berbicara sendiri'],'c':1},
-    {'q':'Jika alat musik selesai digunakan, kita sebaiknya...','a':['Meninggalkannya','Menyimpannya dengan baik','Meminjamkan tanpa izin','Membiarkannya di lantai'],'c':1},
-    {'q':'Apa yang perlu diperhatikan saat tampil bersama?','a':['Tempo, formasi, dan koordinasi','Hanya penampilan sendiri','Bermain sekeras mungkin','Mengubah susunan mendadak'],'c':0},
-    {'q':'Jika teman belum menguasai bagian lagu, tindakan terbaik adalah...','a':['Mengejeknya','Membiarkan saja','Membantu latihan dengan sabar','Mengeluarkannya'],'c':2},
-  ];
+  late final List<Map<String, dynamic>> questions;
   int index = 0, score = 0;
   bool loading = true, already = false, done = false, saving = false;
   late String gameKey;
   @override
-  void initState() { super.initState(); load(); }
+  void initState() {
+    super.initState();
+    gameKey = makeWeekKey();
+    final userId = db.auth.currentUser!.id;
+    questions = createRandomMarawisChallenge(
+      seed: marawisChallengeSeed(userId, gameKey),
+    );
+    load();
+  }
   String makeWeekKey() {
     final now = DateTime.now();
     final week = now.difference(DateTime(now.year, 1, 1)).inDays ~/ 7 + 1;
     return 'weekly-challenge-' + now.year.toString() + '-' + week.toString();
   }
   Future<void> load() async {
-    gameKey = makeWeekKey();
     try {
       final rows = await db.from('marawis_game_scores').select('id')
         .eq('user_id', db.auth.currentUser!.id).eq('game_key', gameKey).limit(1);
