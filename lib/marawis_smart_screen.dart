@@ -115,11 +115,9 @@ class _AiAssistantTabState extends State<_AiAssistantTab> {
             child: mine
                 ? Text(m['text'] ?? '', style: const TextStyle(color: Colors.white, height: 1.45))
                 : MarkdownBody(
-                    fitContent: true,
                     data: m['text'] ?? '',
                     selectable: true,
-                    extensionSet: md.ExtensionSet.gitHubFlavored,
-                    styleSheet: MarkdownStyleSheet.fromTheme(flutter.ThemeData()).copyWith(
+                    styleSheet: MarkdownStyleSheet(
                       p: const TextStyle(color: Color(0xFF20332D), fontSize: 14, height: 1.6),
                       h1: const TextStyle(color: Color(0xFF173D32), fontSize: 21, fontWeight: FontWeight.w900, height: 1.3),
                       h2: const TextStyle(color: Color(0xFF173D32), fontSize: 18, fontWeight: FontWeight.w800, height: 1.3),
@@ -127,11 +125,6 @@ class _AiAssistantTabState extends State<_AiAssistantTab> {
                       strong: const TextStyle(color: Color(0xFF173D32), fontWeight: FontWeight.w900),
                       em: const TextStyle(color: Color(0xFF42574F), fontStyle: FontStyle.italic),
                       listBullet: const TextStyle(color: Color(0xFF167D68), fontSize: 14, height: 1.5),
-                      code: const TextStyle(backgroundColor: Color(0xFFF0F3F1), color: Color(0xFF145B49), fontSize: 12),
-                      blockquote: const TextStyle(color: Color(0xFF52645C), fontStyle: FontStyle.italic, height: 1.5),
-                      tableHead: const TextStyle(color: Color(0xFF173D32), fontWeight: FontWeight.w900),
-                      tableBody: const TextStyle(color: Color(0xFF20332D), fontSize: 12, height: 1.4),
-                      horizontalRuleDecoration: const BoxDecoration(color: Color(0xFFE3EAE5)),
                     ),
                   ),
           ),
