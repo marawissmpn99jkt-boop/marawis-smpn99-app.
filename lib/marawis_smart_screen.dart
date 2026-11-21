@@ -106,7 +106,6 @@ class _AiAssistantTabState extends State<_AiAssistantTab> {
         return Align(
           alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
           child: Container(
-            width: mine ? null : double.infinity,
             constraints: const BoxConstraints(maxWidth: 620),
             margin: const EdgeInsets.symmetric(vertical: 5), padding: const EdgeInsets.all(13),
             decoration: BoxDecoration(
@@ -116,7 +115,7 @@ class _AiAssistantTabState extends State<_AiAssistantTab> {
             child: mine
                 ? Text(m['text'] ?? '', style: const TextStyle(color: Colors.white, height: 1.45))
                 : MarkdownBody(
-                    fitContent: false,
+                    fitContent: true,
                     data: m['text'] ?? '',
                     selectable: true,
                     extensionSet: md.ExtensionSet.gitHubFlavored,
