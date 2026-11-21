@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:material_ui/material_ui.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 import 'auth_roles.dart';
 import 'profile_edit_screen.dart';
@@ -28,6 +30,26 @@ Future<void> main() async {
     url: supabaseUrl,
     publishableKey: supabasePublishableKey,
   );
+  if (kIsWeb) {
+    try {
+      await Firebase.initializeApp(
+        options: const FirebaseOptions(
+          apiKey: 'AIzaSyDhheS0I6mMsOmQJalwCMMfQtw1Tf48TmY',
+          authDomain: 'marawis-smpn-99.firebaseapp.com',
+          projectId: 'marawis-smpn-99',
+          storageBucket: 'marawis-smpn-99.firebasestorage.app',
+          messagingSenderId: '482698289502',
+          appId: '1:482698289502:web:32bc392bbdd0aa278eefcf',
+          measurementId: 'G-RZQTDNW4PH',
+        ),
+      );
+      FirebaseMessaging.onMessage.listen((message) {
+        // Foreground push events can be handled by the active app UI.
+      });
+    } catch (error) {
+      debugPrint('Firebase Messaging initialization failed: $error');
+    }
+  }
   runApp(const MarawisApp());
 }
 
