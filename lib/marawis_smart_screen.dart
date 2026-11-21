@@ -138,7 +138,7 @@ class _AiAssistantTabState extends State<_AiAssistantTab> {
         );
       },
     )),
-    )),
+    ),
     if (messages.length == 1) Wrap(spacing: 6, children: [
       ActionChip(label: const Text('Tugas pengurus'), onPressed: () => send('Apa tugas pengurus Marawis?')),
       ActionChip(label: const Text('Tips latihan'), onPressed: () => send('Berikan tips latihan Marawis yang efektif.')),
