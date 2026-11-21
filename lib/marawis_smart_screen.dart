@@ -72,10 +72,14 @@ class _AiAssistantTabState extends State<_AiAssistantTab> {
       final reply = data is Map ? data['reply']?.toString() : null;
       if (reply == null || reply.trim().isEmpty) throw Exception('empty');
       if (mounted) { setState(() => messages.add({'role': 'assistant', 'text': reply})); scrollToLatest(); }
-    } catch (_) {
+    } catch (error) {
+      final diagnostic = error.toString();
+      final detail = diagnostic.length > 420 ? diagnostic.substring(0, 420) + '…' : diagnostic;
       if (mounted) setState(() => messages.add({
         'role': 'assistant',
-        'text': 'Layanan AI belum aktif atau sedang tidak tersedia. Pastikan GROQ_API_KEY sudah dipasang pada Supabase Edge Function Secrets, lalu coba lagi.',
+        'text': diagnostic.contains('FunctionException')
+            ? 'AI belum bisa membalas. Detail dari server: $detail'
+            : 'Koneksi ke layanan AI gagal. Periksa koneksi internet lalu coba lagi. Detail: $detail',
       }));
     } finally { if (mounted) setState(() => sending = false); }
   }
