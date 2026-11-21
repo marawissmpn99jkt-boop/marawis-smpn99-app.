@@ -1,7 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'marawis_challenge.dart';
 
 class MarawisSmartScreen extends StatefulWidget {
   const MarawisSmartScreen({super.key, required this.role});
@@ -329,19 +328,30 @@ class _SmartReminderTabState extends State<_SmartReminderTab> {
         .gte('starts_at', now.toUtc().toIso8601String()).order('starts_at').limit(20),
       db.from('program_tasks').select('id,title,due_date,status')
         .eq('assigned_to', id).neq('status', 'selesai').order('due_date').limit(20),
+      db.from('marawis_reminder_queue').select('id,title,body,scheduled_for')
+        .eq('user_id', id).isFilter('sent_at', null)
+        .gte('scheduled_for', now.toUtc().toIso8601String())
+        .order('scheduled_for').limit(30),
     ]);
     final items = <Map<String, dynamic>>[];
     for (final row in List<Map<String, dynamic>>.from(res[0] as List)) { items.add({...row, '_kind':'activity'}); }
     for (final row in List<Map<String, dynamic>>.from(res[1] as List)) {
       if (row['due_date'] != null) items.add({...row, '_kind':'task'});
     }
+    for (final row in List<Map<String, dynamic>>.from(res[2] as List)) {
+      items.add({...row, '_kind':'reminder'});
+    }
     items.sort((a,b) {
       final ad = a['_kind'] == 'activity'
         ? DateTime.tryParse(a['starts_at'].toString()) ?? DateTime(2100)
-        : DateTime.tryParse(a['due_date'].toString() + 'T00:00:00') ?? DateTime(2100);
+        : a['_kind'] == 'reminder'
+          ? DateTime.tryParse(a['scheduled_for'].toString()) ?? DateTime(2100)
+          : DateTime.tryParse(a['due_date'].toString() + 'T00:00:00') ?? DateTime(2100);
       final bd = b['_kind'] == 'activity'
         ? DateTime.tryParse(b['starts_at'].toString()) ?? DateTime(2100)
-        : DateTime.tryParse(b['due_date'].toString() + 'T00:00:00') ?? DateTime(2100);
+        : b['_kind'] == 'reminder'
+          ? DateTime.tryParse(b['scheduled_for'].toString()) ?? DateTime(2100)
+          : DateTime.tryParse(b['due_date'].toString() + 'T00:00:00') ?? DateTime(2100);
       return ad.compareTo(bd);
     });
     return items;
@@ -349,11 +359,13 @@ class _SmartReminderTabState extends State<_SmartReminderTab> {
   String dateLabel(Map<String, dynamic> item) {
     final date = item['_kind'] == 'activity'
       ? DateTime.tryParse(item['starts_at'].toString())?.toLocal()
-      : DateTime.tryParse(item['due_date'].toString() + 'T00:00:00');
+      : item['_kind'] == 'reminder'
+        ? DateTime.tryParse(item['scheduled_for'].toString())?.toLocal()
+        : DateTime.tryParse(item['due_date'].toString() + 'T00:00:00');
     if (date == null) return 'Waktu belum tersedia';
     final day = date.day.toString().padLeft(2,'0');
     final month = date.month.toString().padLeft(2,'0');
-    final time = item['_kind'] == 'activity'
+    final time = item['_kind'] == 'activity' || item['_kind'] == 'reminder'
       ? ' • ' + date.hour.toString().padLeft(2,'0') + ':' + date.minute.toString().padLeft(2,'0')
       : '';
     return day + '/' + month + '/' + date.year.toString() + time;
@@ -376,15 +388,19 @@ class _SmartReminderTabState extends State<_SmartReminderTab> {
         return ListView.builder(
           padding: const EdgeInsets.fromLTRB(14,0,14,18), itemCount: items.length,
           itemBuilder: (context,i) {
-            final item = items[i]; final activity = item['_kind'] == 'activity';
+            final item = items[i];
+            final activity = item['_kind'] == 'activity';
+            final reminder = item['_kind'] == 'reminder';
             final location = item['location'];
+            final category = reminder ? 'Pengingat otomatis' : activity ? 'Kegiatan' : 'Tugas';
             return Card(child: ListTile(
               leading: CircleAvatar(
-                backgroundColor: activity ? const Color(0xFFE8F4EF) : const Color(0xFFFFF1DF),
-                child: Icon(activity ? Icons.event_available : Icons.assignment_late_outlined, color: activity ? const Color(0xFF167D68) : const Color(0xFFB87921)),
+                backgroundColor: reminder ? const Color(0xFFEAF0FF) : activity ? const Color(0xFFE8F4EF) : const Color(0xFFFFF1DF),
+                child: Icon(reminder ? Icons.notifications_active : activity ? Icons.event_available : Icons.assignment_late_outlined,
+                  color: reminder ? const Color(0xFF4268C5) : activity ? const Color(0xFF167D68) : const Color(0xFFB87921)),
               ),
               title: Text(item['title']?.toString() ?? 'Tanpa judul', style: const TextStyle(fontWeight: FontWeight.w800)),
-              subtitle: Text((activity ? 'Kegiatan' : 'Tugas') + ' • ' + dateLabel(item) + (location == null ? '' : '\nLokasi: ' + location.toString())),
+              subtitle: Text(category + ' • ' + dateLabel(item) + (location == null ? '' : '\nLokasi: ' + location.toString())),
               isThreeLine: location != null,
             ));
           },
@@ -393,7 +409,7 @@ class _SmartReminderTabState extends State<_SmartReminderTab> {
     )),
     const Padding(
       padding: EdgeInsets.fromLTRB(16,0,16,12),
-      child: Text('Ini pengingat di dalam aplikasi. Notifikasi otomatis saat aplikasi tertutup memerlukan integrasi push notification terpisah.', style: TextStyle(fontSize: 11, color: Colors.black54), textAlign: TextAlign.center),
+      child: Text('Pengingat kegiatan dan tenggat dijadwalkan oleh server dan masuk ke kotak Notifikasi aplikasi. Push notification ke layar HP saat aplikasi tertutup masih memerlukan konfigurasi Firebase Web/Android.', style: TextStyle(fontSize: 11, color: Colors.black54), textAlign: TextAlign.center),
     ),
   ]);
 }
