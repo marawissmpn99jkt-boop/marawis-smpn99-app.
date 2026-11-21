@@ -161,99 +161,153 @@ class _WeeklyChallengeTab extends StatefulWidget {
 }
 class _WeeklyChallengeTabState extends State<_WeeklyChallengeTab> {
   final db = Supabase.instance.client;
-  late final List<Map<String, dynamic>> questions;
+  List<Map<String, dynamic>> questions = [];
+  List<int> answers = [];
+  List<Map<String, dynamic>> leaderboard = [];
   int index = 0, score = 0;
   bool loading = true, already = false, done = false, saving = false;
-  late String gameKey;
+  String? error;
+
   @override
-  void initState() {
-    super.initState();
-    gameKey = makeWeekKey();
-    final userId = db.auth.currentUser!.id;
-    questions = createRandomMarawisChallenge(
-      seed: marawisChallengeSeed(userId, gameKey),
-    );
-    load();
-  }
-  String makeWeekKey() {
-    final now = DateTime.now();
-    final week = now.difference(DateTime(now.year, 1, 1)).inDays ~/ 7 + 1;
-    return 'weekly-challenge-' + now.year.toString() + '-' + week.toString();
-  }
+  void initState() { super.initState(); load(); }
+
   Future<void> load() async {
+    setState(() { loading = true; error = null; });
     try {
-      final rows = await db.from('marawis_game_scores').select('id')
-        .eq('user_id', db.auth.currentUser!.id).eq('game_key', gameKey).limit(1);
-      already = (rows as List).isNotEmpty;
-    } catch (_) {}
-    if (mounted) setState(() => loading = false);
+      final result = await db.rpc('get_weekly_marawis_challenge');
+      final data = Map<String, dynamic>.from(result as Map);
+      questions = List<Map<String, dynamic>>.from(
+        (data['questions'] as List? ?? []).map((q) => Map<String, dynamic>.from(q as Map)),
+      );
+      already = data['completed'] == true;
+      score = (data['score'] as num?)?.toInt() ?? 0;
+      answers = List<int>.filled(questions.length, -1);
+      if (questions.length != 5) throw Exception('Bank challenge belum lengkap.');
+      if (already) await loadLeaderboard();
+    } catch (e) {
+      error = 'Gagal memuat challenge: $e';
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
   }
+
+  Future<void> loadLeaderboard() async {
+    try {
+      final rows = await db.rpc('get_weekly_marawis_leaderboard');
+      leaderboard = List<Map<String, dynamic>>.from(
+        (rows as List).map((r) => Map<String, dynamic>.from(r as Map)),
+      );
+    } catch (_) { leaderboard = []; }
+  }
+
   Future<void> answer(int choice) async {
-    if (saving || done) return;
-    if (choice == questions[index]['c']) score += 20;
-    if (index < questions.length - 1) { setState(() => index++); return; }
+    if (saving || done || index >= questions.length) return;
+    answers[index] = choice;
+    if (index < questions.length - 1) {
+      setState(() => index++);
+      return;
+    }
+    if (answers.any((a) => a < 0)) return;
     setState(() => saving = true);
     try {
-      await db.from('marawis_game_scores').insert({
-        'user_id': db.auth.currentUser!.id, 'game_key': gameKey, 'score': score,
+      final result = await db.rpc('submit_weekly_marawis_challenge', params: {
+        'p_answers': answers,
       });
+      final data = Map<String, dynamic>.from(result as Map);
+      score = (data['score'] as num?)?.toInt() ?? 0;
+      await loadLeaderboard();
       if (mounted) setState(() { done = true; already = true; saving = false; });
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
         setState(() => saving = false);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Skor belum tersimpan. Coba lagi nanti.')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Skor gagal disimpan: $e')),
+        );
       }
     }
   }
+
+  Widget leaderboardView() => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('PAPAN PERINGKAT MINGGU INI',
+          style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF167D68))),
+        const SizedBox(height: 10),
+        if (leaderboard.isEmpty)
+          const Text('Belum ada anggota yang menyelesaikan challenge minggu ini.'),
+        for (var i = 0; i < leaderboard.length; i++)
+          ListTile(
+            dense: true,
+            leading: CircleAvatar(
+              radius: 16,
+              backgroundColor: i == 0 ? const Color(0xFFFFE8B5) : const Color(0xFFE8F4EF),
+              child: Text('${i + 1}', style: const TextStyle(fontWeight: FontWeight.w900)),
+            ),
+            title: Text(leaderboard[i]['full_name']?.toString() ?? 'Anggota'),
+            trailing: Text('${leaderboard[i]['score']} / 100',
+              style: const TextStyle(fontWeight: FontWeight.w900)),
+          ),
+      ]),
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     if (loading) return const Center(child: CircularProgressIndicator());
-    if (already && !done) return const Center(child: Padding(
-      padding: EdgeInsets.all(24),
+    if (error != null) return Center(child: Padding(
+      padding: const EdgeInsets.all(24),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Icon(Icons.verified_rounded, size: 58, color: Color(0xFF167D68)),
-        SizedBox(height: 12),
-        Text('Challenge minggu ini sudah kamu selesaikan!', textAlign: TextAlign.center, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-        SizedBox(height: 8),
-        Text('Tantangan baru tersedia pada minggu berikutnya.', textAlign: TextAlign.center),
+        Text(error!, textAlign: TextAlign.center),
+        const SizedBox(height: 12),
+        FilledButton.icon(onPressed: load, icon: const Icon(Icons.refresh), label: const Text('Coba lagi')),
       ]),
     ));
-    if (done) return Center(child: Card(
-      margin: const EdgeInsets.all(20), child: Padding(
-        padding: const EdgeInsets.all(24), child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.emoji_events_rounded, size: 64, color: Color(0xFFC58B2A)),
-          const Text('Challenge selesai!', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
-          Text('Skor kamu: ' + score.toString() + ' / 100'),
-          const SizedBox(height: 8), const Text('Skor tersimpan di riwayat Game Marawis.'),
+    if (already || done) return ListView(padding: const EdgeInsets.all(18), children: [
+      Card(color: const Color(0xFFE8F4EF), child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(children: [
+          const Icon(Icons.emoji_events_rounded, size: 56, color: Color(0xFFC58B2A)),
+          const SizedBox(height: 8),
+          Text(done ? 'Challenge selesai!' : 'Challenge minggu ini sudah selesai',
+            style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900),
+            textAlign: TextAlign.center),
+          Text(done ? 'Skor kamu: $score / 100' : 'Skor kamu: $score / 100'),
+          const SizedBox(height: 6),
+          const Text('Tantangan berikutnya tersedia minggu depan.', textAlign: TextAlign.center),
         ]),
-      ),
-    ));
+      )),
+      leaderboardView(),
+      TextButton.icon(onPressed: () async { await load(); }, icon: const Icon(Icons.refresh), label: const Text('Perbarui papan peringkat')),
+    ]);
     final q = questions[index];
-    return Center(child: ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 620),
-      child: ListView(shrinkWrap: true, padding: const EdgeInsets.all(18), children: [
-        Card(color: const Color(0xFFE8F4EF), child: Padding(
-          padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('TANTANGAN MINGGUAN', style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF167D68))),
-            const SizedBox(height: 5), const Text('Selesaikan 5 pertanyaan untuk mengumpulkan skor mingguan.'),
-            const SizedBox(height: 12), LinearProgressIndicator(value: (index + 1) / questions.length),
-            const SizedBox(height: 5), Text('Pertanyaan ' + (index + 1).toString() + ' dari ' + questions.length.toString()),
-          ]),
+    final options = List<String>.from(q['options'] as List);
+    return ListView(padding: const EdgeInsets.all(18), children: [
+      Card(color: const Color(0xFFE8F4EF), child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('TANTANGAN MINGGUAN', style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF167D68))),
+          const SizedBox(height: 5),
+          const Text('Lima pertanyaan acak. Skor dihitung langsung dan divalidasi oleh server.'),
+          const SizedBox(height: 12),
+          LinearProgressIndicator(value: (index + 1) / questions.length),
+          const SizedBox(height: 5),
+          Text('Pertanyaan ${index + 1} dari ${questions.length}'),
+        ]),
+      )),
+      const SizedBox(height: 14),
+      Text(q['question'].toString(), style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
+      const SizedBox(height: 12),
+      for (var i = 0; i < options.length; i++)
+        Padding(padding: const EdgeInsets.only(bottom: 9), child: SizedBox(
+          width: double.infinity,
+          child: OutlinedButton(
+            onPressed: saving ? null : () => answer(i),
+            child: Padding(padding: const EdgeInsets.symmetric(vertical: 11), child: Text(options[i])),
+          ),
         )),
-        const SizedBox(height: 12),
-        Text(q['q'].toString(), style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
-        const SizedBox(height: 12),
-        for (var i = 0; i < (q['a'] as List).length; i++)
-          Padding(padding: const EdgeInsets.only(bottom: 8), child: SizedBox(
-            width: double.infinity,
-            child: OutlinedButton(
-              onPressed: saving ? null : () => answer(i),
-              child: Padding(padding: const EdgeInsets.symmetric(vertical: 10), child: Text((q['a'] as List)[i].toString())),
-            ),
-          )),
-        if (saving) const Center(child: CircularProgressIndicator()),
-      ]),
-    ));
+      if (saving) const Center(child: CircularProgressIndicator()),
+    ]);
   }
 }
 
@@ -351,64 +405,67 @@ class _AchievementTab extends StatefulWidget {
 }
 class _AchievementTabState extends State<_AchievementTab> {
   final db = Supabase.instance.client;
-  late Future<Map<String,int>> future;
+  late Future<List<Map<String, dynamic>>> future;
   @override
   void initState() { super.initState(); future = load(); }
-  Future<Map<String,int>> load() async {
-    final id = db.auth.currentUser!.id;
-    final res = await Future.wait([
-      db.from('attendance').select('id').eq('member_id', id).eq('status','hadir'),
-      db.from('marawis_quiz_attempts').select('id').eq('user_id', id),
-      db.from('marawis_game_scores').select('id,score').eq('user_id', id),
-      db.from('member_scores').select('id').eq('member_id', id),
-    ]);
-    final games = List<Map<String,dynamic>>.from(res[2] as List);
-    return {
-      'attendance': (res[0] as List).length,
-      'quizzes': (res[1] as List).length,
-      'games': games.length,
-      'perfect': games.where((g) => (g['score'] as num? ?? 0) >= 100).length,
-      'contributions': (res[3] as List).length,
-    };
+
+  Future<List<Map<String, dynamic>>> load() async {
+    final rows = await db.rpc('get_my_marawis_achievements');
+    return List<Map<String, dynamic>>.from(
+      (rows as List).map((r) => Map<String, dynamic>.from(r as Map)),
+    );
   }
+
   @override
-  Widget build(BuildContext context) => FutureBuilder<Map<String,int>>(
+  Widget build(BuildContext context) => FutureBuilder<List<Map<String, dynamic>>>(
     future: future,
-    builder: (context,snapshot) {
+    builder: (context, snapshot) {
       if (snapshot.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
-      if (snapshot.hasError) return Center(child: TextButton(onPressed: () => setState(() => future = load()), child: const Text('Gagal memuat badge. Coba lagi.')));
-      final s = snapshot.data!;
-      final badges = [
-        ('Langkah Pertama','Hadir dalam satu kegiatan latihan.',Icons.directions_walk,s['attendance']! >= 1),
-        ('Anggota Konsisten','Mengikuti minimal lima kegiatan.',Icons.event_available,s['attendance']! >= 5),
-        ('Pemburu Ilmu','Menyelesaikan Quiz pertama.',Icons.menu_book,s['quizzes']! >= 1),
-        ('Penjelajah Game','Menyelesaikan permainan pertama.',Icons.sports_esports,s['games']! >= 1),
-        ('Skor Sempurna','Mendapatkan skor 100 dalam permainan.',Icons.stars,s['perfect']! >= 1),
-        ('Kontributor','Mendapatkan penilaian kontribusi pertama.',Icons.volunteer_activism,s['contributions']! >= 1),
-      ];
-      final unlocked = badges.where((b) => b.$4).length;
+      if (snapshot.hasError) return Center(child: TextButton(
+        onPressed: () => setState(() => future = load()),
+        child: const Text('Gagal memuat badge. Coba lagi.'),
+      ));
+      final unlocked = snapshot.data ?? [];
+      const definitions = <String, (String, String, IconData)>{
+        'active_member': ('Active Member', 'Hadir dalam satu kegiatan.', Icons.directions_walk),
+        'consistent_member': ('Consistent Member', 'Hadir minimal lima kali.', Icons.event_available),
+        'knowledge_expert': ('Knowledge Expert', 'Menyelesaikan quiz pertama.', Icons.menu_book),
+        'mission_completer': ('Mission Completer', 'Menyelesaikan challenge mingguan.', Icons.flag_rounded),
+        'perfect_challenger': ('Perfect Challenger', 'Meraih skor sempurna 100.', Icons.stars_rounded),
+        'top_contributor': ('Top Contributor', 'Mendapat penilaian kontribusi.', Icons.volunteer_activism),
+      };
+      final earned = unlocked.map((e) => e['badge_key'].toString()).toSet();
       return ListView(padding: const EdgeInsets.all(16), children: [
         Card(color: const Color(0xFFE8F4EF), child: Padding(
-          padding: const EdgeInsets.all(18), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('KOLEKSI PENCAPAIAN', style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF167D68))),
+          padding: const EdgeInsets.all(18),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('ACHIEVEMENT COLLECTION', style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF167D68))),
             const SizedBox(height: 6),
-            Text(unlocked.toString() + ' dari ' + badges.length.toString() + ' badge terbuka', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
-            const SizedBox(height: 10), LinearProgressIndicator(value: unlocked / badges.length),
+            Text('${earned.length} dari ${definitions.length} badge terbuka',
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 10),
+            LinearProgressIndicator(value: earned.length / definitions.length),
+            const SizedBox(height: 6),
+            const Text('Badge tersimpan di akun dan terbuka otomatis saat aktivitas tercatat.'),
           ]),
         )),
-        const SizedBox(height: 8),
-        for (final b in badges) Card(child: ListTile(
-          leading: CircleAvatar(
-            backgroundColor: b.$4 ? const Color(0xFFFFF1D6) : const Color(0xFFECEFED),
-            child: Icon(b.$3, color: b.$4 ? const Color(0xFFB87921) : Colors.grey),
-          ),
-          title: Text(b.$1, style: const TextStyle(fontWeight: FontWeight.w800)),
-          subtitle: Text(b.$2),
-          trailing: Icon(b.$4 ? Icons.check_circle : Icons.lock_outline, color: b.$4 ? const Color(0xFF167D68) : Colors.grey),
-        )),
+        const SizedBox(height: 10),
+        for (final entry in definitions.entries)
+          Card(child: ListTile(
+            leading: CircleAvatar(
+              backgroundColor: earned.contains(entry.key) ? const Color(0xFFFFE9B8) : const Color(0xFFF0F2F1),
+              child: Icon(entry.value.$3, color: earned.contains(entry.key) ? const Color(0xFFB87921) : const Color(0xFF9AA69F)),
+            ),
+            title: Text(entry.value.$1, style: const TextStyle(fontWeight: FontWeight.w900)),
+            subtitle: Text(entry.value.$2),
+            trailing: Icon(
+              earned.contains(entry.key) ? Icons.verified_rounded : Icons.lock_outline_rounded,
+              color: earned.contains(entry.key) ? const Color(0xFF167D68) : const Color(0xFF9AA69F),
+            ),
+          )),
         Align(alignment: Alignment.center, child: TextButton.icon(
           onPressed: () => setState(() => future = load()),
-          icon: const Icon(Icons.refresh), label: const Text('Perbarui pencapaian'),
+          icon: const Icon(Icons.refresh), label: const Text('Perbarui koleksi'),
         )),
       ]);
     },
