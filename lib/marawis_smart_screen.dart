@@ -1,6 +1,8 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class MarawisSmartScreen extends StatefulWidget {
   const MarawisSmartScreen({super.key, required this.role});
@@ -318,6 +320,9 @@ class _SmartReminderTab extends StatefulWidget {
 class _SmartReminderTabState extends State<_SmartReminderTab> {
   final db = Supabase.instance.client;
   late Future<List<Map<String, dynamic>>> future;
+  bool enablingPush = false;
+  bool sendingTest = false;
+  String? pushStatus;
   @override
   void initState() { super.initState(); future = load(); }
   Future<List<Map<String, dynamic>>> load() async {
@@ -356,6 +361,67 @@ class _SmartReminderTabState extends State<_SmartReminderTab> {
     });
     return items;
   }
+  Future<void> enablePush() async {
+    if (!kIsWeb) {
+      setState(() => pushStatus = 'Aktivasi push Android disiapkan pada tahap konfigurasi APK.');
+      return;
+    }
+    if (db.auth.currentUser == null) {
+      setState(() => pushStatus = 'Masuk ke akun terlebih dahulu untuk mengaktifkan notifikasi.');
+      return;
+    }
+    setState(() { enablingPush = true; pushStatus = null; });
+    try {
+      final settings = await FirebaseMessaging.instance.requestPermission(alert: true, badge: true, sound: true);
+      if (settings.authorizationStatus == AuthorizationStatus.denied) {
+        throw Exception('Izin notifikasi ditolak. Ubah izin situs dari pengaturan browser.');
+      }
+      final token = await FirebaseMessaging.instance.getToken(
+        vapidKey: 'BANtcJEtmEhRskDUEO6JoePB0sRHXyTZ6a50o-7RatojSMuGyLgqf4cC4UGupPA9Id-KemF9LURcdG-hCfDOygI',
+      );
+      if (token == null || token.isEmpty) throw Exception('Token perangkat belum tersedia. Coba muat ulang situs.');
+      await db.from('marawis_push_tokens').upsert({
+        'user_id': db.auth.currentUser!.id,
+        'token': token,
+        'platform': 'web',
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      }, onConflict: 'token');
+      FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
+        final user = db.auth.currentUser;
+        if (user == null) return;
+        await db.from('marawis_push_tokens').upsert({
+          'user_id': user.id, 'token': newToken, 'platform': 'web',
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        }, onConflict: 'token');
+      });
+      if (mounted) setState(() => pushStatus = 'Notifikasi berhasil diaktifkan untuk perangkat ini.');
+    } catch (error) {
+      if (mounted) setState(() => pushStatus = 'Gagal mengaktifkan notifikasi: $error');
+    } finally {
+      if (mounted) setState(() => enablingPush = false);
+    }
+  }
+
+  Future<void> sendTestPush() async {
+    setState(() { sendingTest = true; pushStatus = null; });
+    try {
+      final result = await db.functions.invoke('send-marawis-push', body: {
+        'title': 'Marawis SMPN 99',
+        'body': 'Push notification berhasil terhubung ke perangkat kamu.',
+      });
+      final data = result.data;
+      if (data is Map && (data['sent'] as num? ?? 0) > 0) {
+        if (mounted) setState(() => pushStatus = 'Notifikasi uji berhasil dikirim. Periksa notifikasi perangkat.');
+      } else {
+        if (mounted) setState(() => pushStatus = data is Map ? (data['message']?.toString() ?? 'Belum ada perangkat terdaftar.') : 'Belum ada perangkat terdaftar.');
+      }
+    } catch (error) {
+      if (mounted) setState(() => pushStatus = 'Pengiriman uji gagal: $error');
+    } finally {
+      if (mounted) setState(() => sendingTest = false);
+    }
+  }
+
   String dateLabel(Map<String, dynamic> item) {
     final date = item['_kind'] == 'activity'
       ? DateTime.tryParse(item['starts_at'].toString())?.toLocal()
@@ -372,9 +438,20 @@ class _SmartReminderTabState extends State<_SmartReminderTab> {
   }
   @override
   Widget build(BuildContext context) => Column(children: [
-    Padding(padding: const EdgeInsets.all(14), child: Row(children: [
-      const Expanded(child: Text('Jadwal kegiatan dan tugas yang perlu kamu perhatikan.', style: TextStyle(fontWeight: FontWeight.w600))),
-      IconButton(onPressed: () => setState(() => future = load()), icon: const Icon(Icons.refresh)),
+    Padding(padding: const EdgeInsets.fromLTRB(14, 12, 14, 6), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      const Text('Jadwal kegiatan dan tugas yang perlu kamu perhatikan.', style: TextStyle(fontWeight: FontWeight.w600)),
+      const SizedBox(height: 9),
+      Wrap(spacing: 8, runSpacing: 8, children: [
+        OutlinedButton.icon(onPressed: enablingPush ? null : enablePush,
+          icon: enablingPush ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.notifications_active_outlined),
+          label: Text(enablingPush ? 'Mengaktifkan...' : 'Aktifkan notifikasi')),
+        OutlinedButton.icon(onPressed: sendingTest ? null : sendTestPush,
+          icon: sendingTest ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.send_rounded),
+          label: Text(sendingTest ? 'Mengirim...' : 'Kirim tes')),
+        IconButton(onPressed: () => setState(() => future = load()), icon: const Icon(Icons.refresh)),
+      ]),
+      if (pushStatus != null) Padding(padding: const EdgeInsets.only(top: 5),
+        child: Text(pushStatus!, style: const TextStyle(fontSize: 12, color: Color(0xFF4268C5)))),
     ])),
     Expanded(child: FutureBuilder<List<Map<String, dynamic>>>(
       future: future,
@@ -409,7 +486,7 @@ class _SmartReminderTabState extends State<_SmartReminderTab> {
     )),
     const Padding(
       padding: EdgeInsets.fromLTRB(16,0,16,12),
-      child: Text('Pengingat kegiatan dan tenggat dijadwalkan oleh server dan masuk ke kotak Notifikasi aplikasi. Push notification ke layar HP saat aplikasi tertutup masih memerlukan konfigurasi Firebase Web/Android.', style: TextStyle(fontSize: 11, color: Colors.black54), textAlign: TextAlign.center),
+      child: Text('Pengingat kegiatan dan tenggat dijadwalkan oleh server dan masuk ke kotak Notifikasi aplikasi. Push web menggunakan Firebase Cloud Messaging; izinkan notifikasi pada perangkat untuk mengaktifkannya.', style: TextStyle(fontSize: 11, color: Colors.black54), textAlign: TextAlign.center),
     ),
   ]);
 }
