@@ -38,6 +38,7 @@ Deno.serve(async (req: Request) => {
     const completion = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: { "Authorization": "Bearer " + apiKey, "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(25000),
       body: JSON.stringify({
         model: "llama-3.3-70b-versatile", temperature: 0.45, max_tokens: 900,
         messages: [
@@ -47,15 +48,28 @@ Deno.serve(async (req: Request) => {
         ],
       }),
     });
-    const result = await completion.json();
-    if (!completion.ok) return new Response(JSON.stringify({ error: "AI provider request failed" }), {
-      status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    const providerText = await completion.text();
+    let result: any = {};
+    try { result = JSON.parse(providerText); } catch (_) { /* provider returned non-JSON */ }
+    if (!completion.ok) {
+      const providerMessage = String(result?.error?.message ?? "Tidak ada detail dari penyedia AI").slice(0, 500);
+      console.error("Groq provider error", { status: completion.status, message: providerMessage });
+      return new Response(JSON.stringify({
+        error: "AI_PROVIDER_ERROR",
+        message: "Penyedia AI menolak permintaan (HTTP " + completion.status + "): " + providerMessage,
+      }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
     const reply = result.choices?.[0]?.message?.content?.trim();
-    if (!reply) throw new Error("Empty AI response");
+    if (!reply) {
+      console.error("Groq returned an empty completion", { status: completion.status });
+      return new Response(JSON.stringify({ error: "EMPTY_AI_RESPONSE", message: "Penyedia AI mengirim jawaban kosong." }), {
+        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     return new Response(JSON.stringify({ reply }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  } catch (_) {
-    return new Response(JSON.stringify({ error: "Unable to process request" }), {
+  } catch (error) {
+    console.error("marawis-ai request failed", error instanceof Error ? error.message : String(error));
+    return new Response(JSON.stringify({ error: "Unable to process request", message: "Fungsi AI gagal memproses permintaan." }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
