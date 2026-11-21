@@ -378,6 +378,7 @@ class _SmartReminderTabState extends State<_SmartReminderTab> {
       }
       final token = await FirebaseMessaging.instance.getToken(
         vapidKey: 'BANtcJEtmEhRskDUEO6JoePB0sRHXyTZ6a50o-7RatojSMuGyLgqf4cC4UGupPA9Id-KemF9LURcdG-hCfDOygI',
+        serviceWorkerScriptPath: 'firebase-messaging-sw.js',
       );
       if (token == null || token.isEmpty) throw Exception('Token perangkat belum tersedia. Coba muat ulang situs.');
       await db.from('marawis_push_tokens').upsert({
