@@ -1,7 +1,5 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter/material.dart' as flutter;
 import 'package:flutter_markdown/flutter_markdown.dart';
-import 'package:markdown/markdown.dart' as md;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'marawis_challenge.dart';
 
