@@ -588,6 +588,150 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
       if(host)Padding(padding:const EdgeInsets.only(top:10),child:SizedBox(width:double.infinity,height:50,child:FilledButton(onPressed:finish,style:FilledButton.styleFrom(backgroundColor:const Color(0xFFFFD166),foregroundColor:const Color(0xFF211744),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(15))),child:const Text("AKHIRI PERMAINAN")))),
     ]));
   }
+  Future<void> _processChessMoves(Map<String,dynamic> liveRoom,List<Map<String,dynamic>> liveEvents)async{
+    if(_processingChess||!host||roomId==null)return;
+    _processingChess=true;
+    try{
+      final gs=Map<String,dynamic>.from(liveRoom['game_state']??{});
+      final last=(gs['last_chess_event_id'] as num?)?.toInt()??0;
+      final game=chess_lib.Chess.fromFEN((gs['fen']??chess_lib.Chess().fen).toString());
+      var lastId=last;
+      var changed=false;
+      var ended=false;
+      final log=List<String>.from(gs['move_log']??[]);
+      final ordered=liveEvents.where((e)=>e['event_type']=='chess_move'&&((e['id'] as num?)?.toInt()??0)>last).toList()..sort((a,b)=>(a['id'] as num).compareTo(b['id'] as num));
+      for(final event in ordered){
+        lastId=(event['id'] as num?)?.toInt()??lastId;
+        final payload=Map<String,dynamic>.from(event['payload']??{});
+        final actor=event['actor_id']?.toString();
+        final whiteTurn=game.turn==chess_lib.WHITE;
+        if((whiteTurn&&actor!=gs['white_id'])||(!whiteTurn&&actor!=gs['black_id']))continue;
+        final from=payload['from']?.toString()??'';
+        final to=payload['to']?.toString()??'';
+        if(from.length!=2||to.length!=2)continue;
+        final legal=game.moves({'square':from,'verbose':true});
+        final matching=legal.where((m)=>m is Map&&m['to']==to).toList();
+        if(matching.isEmpty)continue;
+        final san=(matching.first['san']??(from+'-'+to)).toString();
+        if(!game.move({'from':from,'to':to,'promotion':payload['promotion']??'q'}))continue;
+        log.add(san);
+        changed=true;
+        if(game.game_over){ended=true;break;}
+      }
+      if(changed||lastId>last){
+        final next={...gs,'fen':game.fen,'last_chess_event_id':lastId,'move_log':log,'turn_started_at':DateTime.now().toUtc().toIso8601String(),'phase':ended?'finished':'playing'};
+        await db.from('multiplayer_rooms').update({'game_state':next,'status':ended?'finished':'playing'}).eq('id',roomId!);
+        if(ended)_timeoutHandled=true;
+      }
+    }catch(e){msg('Langkah catur gagal disinkronkan: '+e.toString());}
+    finally{_processingChess=false;}
+  }
+  String _chessPieceLabel(chess_lib.Piece? piece){
+    if(piece==null)return '';
+    final type=piece.type.toString().toLowerCase();
+    if(type.contains('king'))return 'BEDUG';
+    if(type.contains('queen'))return 'REBANA';
+    if(type.contains('rook'))return 'DARBUKA';
+    if(type.contains('knight'))return 'MARAWIS';
+    if(type.contains('bishop'))return 'KECREK';
+    return 'MINI';
+  }
+  IconData _chessPieceIcon(chess_lib.Piece? piece){
+    if(piece==null)return Icons.circle;
+    final type=piece.type.toString().toLowerCase();
+    if(type.contains('king'))return Icons.workspace_premium_rounded;
+    if(type.contains('queen'))return Icons.album_rounded;
+    if(type.contains('rook'))return Icons.hourglass_bottom_rounded;
+    if(type.contains('knight'))return Icons.music_note_rounded;
+    if(type.contains('bishop'))return Icons.notifications_active_rounded;
+    return Icons.circle_rounded;
+  }
+  Future<void> _tapChessSquare(String square)async{
+    if(room==null||room!['status']!='playing')return;
+    final uid=db.auth.currentUser!.id;
+    final gs=state;
+    final game=chess_lib.Chess.fromFEN((gs['fen']??chess_lib.Chess().fen).toString());
+    final myWhite=uid==gs['white_id'];
+    final myBlack=uid==gs['black_id'];
+    if((game.turn==chess_lib.WHITE&&!myWhite)||(game.turn==chess_lib.BLACK&&!myBlack))return;
+    final selected=_selectedChessSquare;
+    final piece=game.get(square);
+    if(selected==null){
+      if(piece!=null&&((piece.color==chess_lib.WHITE&&myWhite)||(piece.color==chess_lib.BLACK&&myBlack)))setState(()=>_selectedChessSquare=square);
+      return;
+    }
+    final legal=game.moves({'square':selected,'verbose':true});
+    final target=legal.where((m)=>m is Map&&m['to']==square).toList();
+    if(target.isNotEmpty){
+      setState(()=>_selectedChessSquare=null);
+      await emit('chess_move',{'from':selected,'to':square,'promotion':'q'});
+      return;
+    }
+    if(piece!=null&&((piece.color==chess_lib.WHITE&&myWhite)||(piece.color==chess_lib.BLACK&&myBlack)))setState(()=>_selectedChessSquare=square);
+    else setState(()=>_selectedChessSquare=null);
+  }
+  Widget chessPanel(){
+    final gs=state;
+    final uid=db.auth.currentUser!.id;
+    final game=chess_lib.Chess.fromFEN((gs['fen']??chess_lib.Chess().fen).toString());
+    final whiteId=gs['white_id']?.toString()??'';
+    final blackId=gs['black_id']?.toString()??'';
+    final myWhite=uid==whiteId;
+    final myBlack=uid==blackId;
+    final myTurn=(game.turn==chess_lib.WHITE&&myWhite)||(game.turn==chess_lib.BLACK&&myBlack);
+    final whiteTurn=game.turn==chess_lib.WHITE;
+    final selected=_selectedChessSquare;
+    final selectedMoves=selected==null?<String>{}:game.moves({'square':selected,'verbose':true}).map((m)=>(m as Map)['to'].toString()).toSet();
+    final log=List<String>.from(gs['move_log']??[]);
+    final seconds=_chessSecondsLeft;
+    final side=whiteTurn?'PUTIH • TIM BEDUG':'HITAM • TIM REBANA';
+    final activeName=whiteTurn?playerName(whiteId):playerName(blackId);
+    return SingleChildScrollView(padding:const EdgeInsets.fromLTRB(14,12,14,24),child:Column(children:[
+      Container(width:double.infinity,padding:const EdgeInsets.all(16),decoration:BoxDecoration(gradient:const LinearGradient(colors:[Color(0xFF17113D),Color(0xFF086D70)]),borderRadius:BorderRadius.circular(22)),child:Column(children:[
+        Row(children:[const Icon(Icons.music_note_rounded,color:Color(0xFFFFD166),size:22),const SizedBox(width:8),const Expanded(child:Text('MARAWIS CHESS ARENA',style:TextStyle(color:Colors.white,fontWeight:FontWeight.w900,fontSize:14,letterSpacing:1))),Text(_formatClock(seconds),style:TextStyle(color:seconds<=30?const Color(0xFFFF8A80):const Color(0xFFFFD166),fontWeight:FontWeight.w900,fontSize:19))]),
+        const SizedBox(height:13),Row(children:[
+          Expanded(child:_chessPlayerChip('BEDUG • PUTIH',playerName(whiteId),myWhite,const Color(0xFFFFD166))),
+          const SizedBox(width:8),Expanded(child:_chessPlayerChip('REBANA • HITAM',playerName(blackId),myBlack,const Color(0xFF77D8CE))),
+        ]),
+        const SizedBox(height:12),Container(width:double.infinity,padding:const EdgeInsets.all(10),decoration:BoxDecoration(color:Colors.white.withOpacity(.1),borderRadius:BorderRadius.circular(12)),child:Row(children:[Icon(Icons.circle,size:10,color:whiteTurn?const Color(0xFFFFD166):const Color(0xFF77D8CE)),const SizedBox(width:8),Expanded(child:Text(side+' • '+activeName,style:const TextStyle(color:Colors.white,fontSize:11,fontWeight:FontWeight.w900))),if(game.king_attacked(game.turn))const Text('SKAK!',style:TextStyle(color:Color(0xFFFF8A80),fontWeight:FontWeight.w900))])),
+      ])),
+      const SizedBox(height:14),
+      AspectRatio(aspectRatio:1,child:Container(padding:const EdgeInsets.all(5),decoration:BoxDecoration(color:const Color(0xFF30234C),borderRadius:BorderRadius.circular(15),boxShadow:[BoxShadow(color:Colors.black.withOpacity(.25),blurRadius:16,offset:const Offset(0,7))]),child:GridView.builder(physics:const NeverScrollableScrollPhysics(),gridDelegate:const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount:8),itemCount:64,itemBuilder:(context,index){
+        final row=index~/8;
+        final col=index%8;
+        final boardRow=myBlack?7-row:row;
+        final boardCol=myBlack?7-col:col;
+        final square='abcdefgh'[boardCol]+(8-boardRow).toString();
+        final piece=game.get(square);
+        final light=(boardRow+boardCol).isEven;
+        final isSelected=selected==square;
+        final isTarget=selectedMoves.contains(square);
+        final isWhitePiece=piece?.color==chess_lib.WHITE;
+        final pieceColor=piece==null?Colors.transparent:(isWhitePiece?const Color(0xFFFFE7A5):const Color(0xFF75D6CB));
+        final ink=piece==null?Colors.transparent:(isWhitePiece?const Color(0xFF39254E):const Color(0xFF142B39));
+        return InkWell(onTap:()=>_tapChessSquare(square),child:Container(decoration:BoxDecoration(color:isSelected?const Color(0xFFFFD166):light?const Color(0xFFE8DCC4):const Color(0xFF826C91),border:Border.all(color:Colors.black.withOpacity(.07),width:.4)),child:Stack(alignment:Alignment.center,children:[
+          if(isTarget)Container(width:piece==null?12:30,height:piece==null?12:30,decoration:BoxDecoration(color:const Color(0xFF30C69A).withOpacity(piece==null?.65:.22),shape:BoxShape.circle,border:piece==null?null:Border.all(color:const Color(0xFF30C69A),width:2))),
+          if(piece!=null)Column(mainAxisAlignment:MainAxisAlignment.center,children:[
+            Container(width:MediaQuery.of(context).size.width/11,height:MediaQuery.of(context).size.width/11,constraints:const BoxConstraints(maxWidth:43,maxHeight:43,minWidth:20,minHeight:20),decoration:BoxDecoration(color:pieceColor,shape:BoxShape.circle,border:Border.all(color:ink.withOpacity(.45),width:1.4),boxShadow:[BoxShadow(color:Colors.black.withOpacity(.18),blurRadius:3,offset:const Offset(0,2))]),child:Icon(_chessPieceIcon(piece),color:ink,size:MediaQuery.of(context).size.width/18)),
+            if(MediaQuery.of(context).size.width>390)Text(_chessPieceLabel(piece),maxLines:1,overflow:TextOverflow.clip,style:TextStyle(color:ink,fontSize:6,fontWeight:FontWeight.w900)),
+          ]),
+          if(col==0)Positioned(left:2,top:1,child:Text((8-boardRow).toString(),style:TextStyle(fontSize:8,color:light?const Color(0xFF6B5876):Colors.white70,fontWeight:FontWeight.w900))),
+          if(row==7)Positioned(right:2,bottom:0,child:Text('abcdefgh'[boardCol],style:TextStyle(fontSize:8,color:light?const Color(0xFF6B5876):Colors.white70,fontWeight:FontWeight.w900))),
+        ])));
+      }))),
+      const SizedBox(height:12),
+      Text(myTurn?'GILIRAN KAMU • Pilih bidak lalu kotak tujuan':'Menunggu lawan menyelesaikan langkah...',style:TextStyle(color:myTurn?const Color(0xFFFFD166):Colors.white70,fontSize:12,fontWeight:FontWeight.w800),textAlign:TextAlign.center),
+      const SizedBox(height:14),
+      Container(width:double.infinity,padding:const EdgeInsets.all(14),decoration:BoxDecoration(color:Colors.white.withOpacity(.07),borderRadius:BorderRadius.circular(16)),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+        const Text('RIWAYAT LANGKAH',style:TextStyle(color:Colors.white,fontSize:11,fontWeight:FontWeight.w900,letterSpacing:1)),
+        const SizedBox(height:8),if(log.isEmpty)const Text('Langkah pertama menanti...',style:TextStyle(color:Colors.white54,fontSize:12)),
+        Wrap(spacing:8,runSpacing:6,children:[for(var i=0;i<log.length;i++)Container(padding:const EdgeInsets.symmetric(horizontal:8,vertical:5),decoration:BoxDecoration(color:Colors.white.withOpacity(.09),borderRadius:BorderRadius.circular(8)),child:Text((i+1).toString()+'. '+log[i],style:const TextStyle(color:Colors.white70,fontSize:10,fontWeight:FontWeight.w700)))]),
+      ])),
+      if(game.game_over)Padding(padding:const EdgeInsets.only(top:12),child:Text(game.moves().isEmpty&&game.king_attacked(game.turn)?'SKAKMAT! Pertandingan selesai.':'Pertandingan selesai • remis.',style:const TextStyle(color:Color(0xFFFFD166),fontWeight:FontWeight.w900,fontSize:16))),
+      if(host)Padding(padding:const EdgeInsets.only(top:12),child:TextButton(onPressed:finish,child:const Text('AKHIRI PERTANDINGAN'))),
+    ]));
+  }
+  Widget _chessPlayerChip(String title,String name,bool mine,Color accent)=>Container(padding:const EdgeInsets.all(10),decoration:BoxDecoration(color:accent.withOpacity(.13),borderRadius:BorderRadius.circular(13),border:Border.all(color:accent.withOpacity(.45))),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(title,style:TextStyle(color:accent,fontSize:9,fontWeight:FontWeight.w900)),const SizedBox(height:4),Text(name+(mine?' • KAMU':''),maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:Colors.white,fontSize:11,fontWeight:FontWeight.w800))]));
   Widget wordPanel(String type){
     final round=(state['round'] as num?)?.toInt()??0;
     final answers=events.where((e)=>e['event_type']=='word_answer'&&e['payload']['round']==round).toList();
