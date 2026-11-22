@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
@@ -85,7 +86,7 @@ class _OrganizationInsightsScreenState extends State<OrganizationInsightsScreen>
     final report = pw.Document();
     final generatedAt = DateTime.now();
     report.addPage(pw.MultiPage(
-      pageFormat: pw.PdfPageFormat.a4,
+      pageFormat: PdfPageFormat.a4,
       build: (context) => [
         pw.Header(level: 0, text: 'Laporan Organisasi Marawis SMPN 99'),
         pw.Text('Dibuat: ${generatedAt.day.toString().padLeft(2, '0')}/${generatedAt.month.toString().padLeft(2, '0')}/${generatedAt.year}'),
