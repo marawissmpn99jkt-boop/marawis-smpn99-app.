@@ -1190,7 +1190,26 @@ class HomeScreen extends StatelessWidget {
                             ),
                           ),
                         ],
-          ),
+                      ),
+                    ),
+                    Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Color(0xFF167D68)),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 22),
+            const Center(
+              child: Text(
+                'MARAWIS SMPN 99 JAKARTA • 2026/2027',
+                style: TextStyle(
+                  color: Color(0xFF9AA69F),
+                  fontSize: 10,
+                  letterSpacing: 1,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+
           Positioned.fill(
             child: _DraggableMarwi(
               displayName: displayName,
@@ -1201,129 +1220,72 @@ class HomeScreen extends StatelessWidget {
           ),
         ],
       ),
-    ),
-  );
+    );
   }
 }
 
 class _DraggableMarwi extends StatefulWidget {
   const _DraggableMarwi({required this.displayName, required this.onTap});
-
   final String displayName;
   final VoidCallback onTap;
-
   @override
   State<_DraggableMarwi> createState() => _DraggableMarwiState();
 }
 
 class _DraggableMarwiState extends State<_DraggableMarwi> {
   Offset? _position;
-
   @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        const itemWidth = 196.0;
-        const itemHeight = 208.0;
-        final maxLeft = (constraints.maxWidth - itemWidth).clamp(0.0, double.infinity);
-        final maxTop = (constraints.maxHeight - itemHeight).clamp(0.0, double.infinity);
-        final current = _position ??
-            Offset(maxLeft - 4, (maxTop - 12).clamp(0.0, double.infinity));
-
-        return Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Positioned(
-              left: current.dx.clamp(0.0, maxLeft),
-              top: current.dy.clamp(0.0, maxTop),
-              child: GestureDetector(
-                onPanUpdate: (details) {
-                  setState(() {
-                    _position = Offset(
-                      (current.dx + details.delta.dx).clamp(0.0, maxLeft),
-                      (current.dy + details.delta.dy).clamp(0.0, maxTop),
-                    );
-                  });
-                },
-                child: SizedBox(
-                  width: itemWidth,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Container(
-                        width: 190,
-                        margin: const EdgeInsets.only(right: 3, bottom: 4),
-                        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(17),
-                          border: Border.all(color: const Color(0xFFB9DED1)),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.12),
-                              blurRadius: 14,
-                              offset: const Offset(0, 5),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Text(
-                              "MA'RWI",
-                              style: TextStyle(
-                                color: Color(0xFF167D68),
-                                fontSize: 10,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 1,
-                              ),
-                            ),
-                            const SizedBox(height: 3),
-                            Text(
-                              'Assalamualaikum, ${widget.displayName}! Gimana kabar antum hari ini, sehat?',
-                              maxLines: 4,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Color(0xFF263B34),
-                                fontSize: 12,
-                                height: 1.3,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: widget.onTap,
-                        child: SizedBox(
-                          width: 116,
-                          height: 128,
-                          child: Image.asset(
-                            'assets/images/marwi.jpg',
-                            fit: BoxFit.contain,
-                            errorBuilder: (_, __, ___) => const Icon(
-                              Icons.music_note_rounded,
-                              size: 72,
-                              color: Color(0xFF167D68),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      const itemWidth = 196.0;
+      const itemHeight = 208.0;
+      final maxLeft = (constraints.maxWidth - itemWidth).clamp(0.0, double.infinity).toDouble();
+      final maxTop = (constraints.maxHeight - itemHeight).clamp(0.0, double.infinity).toDouble();
+      final current = _position ?? Offset(maxLeft - 4, (maxTop - 12).clamp(0.0, double.infinity).toDouble());
+      return Stack(children: [
+        Positioned(
+          left: current.dx.clamp(0.0, maxLeft).toDouble(),
+          top: current.dy.clamp(0.0, maxTop).toDouble(),
+          child: GestureDetector(
+            onPanUpdate: (details) => setState(() {
+              _position = Offset(
+                (current.dx + details.delta.dx).clamp(0.0, maxLeft).toDouble(),
+                (current.dy + details.delta.dy).clamp(0.0, maxTop).toDouble(),
+              );
+            }),
+            child: SizedBox(
+              width: itemWidth,
+              child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.end, children: [
+                Container(
+                  width: 190,
+                  margin: const EdgeInsets.only(right: 3, bottom: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(17),
+                    border: Border.all(color: const Color(0xFFB9DED1)),
+                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 14, offset: const Offset(0, 5))],
                   ),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                    const Text("MA'RWI", style: TextStyle(color: Color(0xFF167D68), fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                    const SizedBox(height: 3),
+                    Text('Assalamualaikum, ${widget.displayName}! Gimana kabar antum hari ini, sehat?', maxLines: 4, overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Color(0xFF263B34), fontSize: 12, height: 1.3, fontWeight: FontWeight.w700)),
+                  ]),
                 ),
-              ),
+                GestureDetector(
+                  onTap: widget.onTap,
+                  child: SizedBox(width: 116, height: 128, child: Image.asset('assets/images/marwi.jpg', fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => const Icon(Icons.music_note_rounded, size: 72, color: Color(0xFF167D68)))),
+                ),
+              ]),
             ),
-          ],
-        );
-      },
-    );
-  }
+          ),
+        ),
+      ]);
+    },
+  );
 }
-
-
 
 class _LatestEmergencyBanner extends StatefulWidget {
   const _LatestEmergencyBanner({required this.role});
