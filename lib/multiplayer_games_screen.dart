@@ -400,10 +400,34 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
     ]));
   }
   Widget scoreboard(){
-    final sorted=players.toList()..sort((a,b)=>score(b['user_id'].toString()).compareTo(score(a['user_id'].toString())));
-    return Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const SizedBox(height:12),const Text('Papan skor',style:TextStyle(fontWeight:FontWeight.w900)),for(final p in sorted)ListTile(dense:true,title:Text(p['display_name'].toString()),trailing:Text(score(p['user_id'].toString()).toString()+' poin',style:const TextStyle(fontWeight:FontWeight.w900)))]);
+    final sorted=players.toList()..sort((a,b)=>score(b["user_id"].toString()).compareTo(score(a["user_id"].toString())));
+    return Container(padding:const EdgeInsets.all(14),decoration:BoxDecoration(color:Colors.white.withOpacity(.07),borderRadius:BorderRadius.circular(18),border:Border.all(color:Colors.white.withOpacity(.08))),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+      const Row(children:[Icon(Icons.leaderboard_rounded,color:Color(0xFFFFD166),size:17),SizedBox(width:7),Text("LIVE SCOREBOARD",style:TextStyle(color:Colors.white,fontSize:10,fontWeight:FontWeight.w900,letterSpacing:1.2))]),
+      const SizedBox(height:8),
+      for(var i=0;i<sorted.length;i++)Padding(padding:const EdgeInsets.symmetric(vertical:5),child:Row(children:[
+        SizedBox(width:24,child:Text((i+1).toString(),style:TextStyle(color:i==0?const Color(0xFFFFD166):Colors.white54,fontWeight:FontWeight.w900))),
+        Expanded(child:Text(sorted[i]["display_name"].toString(),style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w700,fontSize:12))),
+        Text(score(sorted[i]["user_id"].toString()).toString()+" PTS",style:const TextStyle(color:Color(0xFF70E2B2),fontWeight:FontWeight.w900,fontSize:11)),
+      ])),
+    ]));
   }
-  Widget results()=>Card(color:Colors.white,child:Padding(padding:const EdgeInsets.all(18),child:Column(children:[const Icon(Icons.emoji_events,size:48,color:Color(0xFFC58B2A)),const Text('Permainan selesai!',style:TextStyle(fontSize:21,fontWeight:FontWeight.w900)),scoreboard(),OutlinedButton(onPressed:leave,child:const Text('Kembali ke lobby'))])));
+  Widget results()=>Scaffold(
+    backgroundColor:const Color(0xFF111329),
+    body:Container(
+      decoration:const BoxDecoration(gradient:LinearGradient(begin:Alignment.topLeft,end:Alignment.bottomRight,colors:[Color(0xFF17152F),Color(0xFF34265F),Color(0xFF124A4B)])),
+      child:SafeArea(child:Center(child:SingleChildScrollView(padding:const EdgeInsets.all(20),child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[
+        Container(width:92,height:92,decoration:BoxDecoration(color:const Color(0xFFFFD166).withOpacity(.16),shape:BoxShape.circle,border:Border.all(color:const Color(0xFFFFD166).withOpacity(.5),width:2)),child:const Icon(Icons.emoji_events_rounded,color:Color(0xFFFFD166),size:54)),
+        const SizedBox(height:18),
+        const Text("GAME OVER!",style:TextStyle(color:Colors.white,fontSize:31,fontWeight:FontWeight.w900,letterSpacing:1.4)),
+        const SizedBox(height:7),
+        Text(title(room?["game_type"].toString()??""),style:const TextStyle(color:Colors.white70,fontWeight:FontWeight.w700)),
+        const SizedBox(height:24),
+        scoreboard(),
+        const SizedBox(height:22),
+        SizedBox(width:double.infinity,height:54,child:FilledButton.icon(onPressed:leave,icon:const Icon(Icons.home_rounded),label:const Text("KEMBALI KE LOBBY"),style:FilledButton.styleFrom(backgroundColor:const Color(0xFFFFD166),foregroundColor:const Color(0xFF211744),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(16))))),
+      ])))),
+    ),
+  );
 }
 class _GamePainter extends CustomPainter{
   _GamePainter(this.events,this.current);final List<Map<String,dynamic>> events;final List<Offset> current;
