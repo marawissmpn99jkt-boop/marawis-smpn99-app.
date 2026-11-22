@@ -1093,22 +1093,12 @@ class HomeScreen extends StatelessWidget {
                           borderRadius: BorderRadius.circular(24),
                           border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
                         ),
-                        child: const Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text('🥁', style: TextStyle(fontSize: 65, height: 1.1)),
-                              SizedBox(height: 5),
-                              Text(
-                                "MA'RWI",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 11,
-                                  letterSpacing: 1.5,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                            ],
+                        clipBehavior: Clip.antiAlias,
+                        child: Image.asset(
+                          'assets/images/marwi.jpg',
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) => const Center(
+                            child: Text("MA'RWI", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
                           ),
                         ),
                       ),
