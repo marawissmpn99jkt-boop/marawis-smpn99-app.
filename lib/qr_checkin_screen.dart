@@ -1,12 +1,13 @@
-import 'dart:math';
 import 'package:material_ui/material_ui.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+
+import 'member_cards_screen.dart';
 
 class QrCheckinScreen extends StatefulWidget {
   const QrCheckinScreen({super.key, required this.role});
   final String role;
+
   @override
   State<QrCheckinScreen> createState() => _QrCheckinScreenState();
 }
@@ -14,28 +15,24 @@ class QrCheckinScreen extends StatefulWidget {
 class _QrCheckinScreenState extends State<QrCheckinScreen> {
   final _db = Supabase.instance.client;
   late Future<List<Map<String, dynamic>>> _future;
-  bool _busy = false;
-  String? _lastScan;
   bool get _admin => widget.role == 'pengurus' || widget.role == 'pembina';
 
   @override
   void initState() {
     super.initState();
-    _future = _load();
+    _future = _loadActivities();
   }
 
-  Future<List<Map<String, dynamic>>> _load() async {
+  Future<List<Map<String, dynamic>>> _loadActivities() async {
     if (!_admin) return [];
-    final activities = await _db.from('activities').select('id,title,starts_at,ends_at').order('starts_at', ascending: false);
-    final codes = await _db.from('activity_checkin_codes').select('activity_id,token,enabled,expires_at');
-    final byActivity = {for (final code in codes) code['activity_id'].toString(): code};
-    return List<Map<String, dynamic>>.from(activities).map((activity) => {
-      ...activity,
-      'checkin': byActivity[activity['id'].toString()],
-    }).toList();
+    final rows = await _db
+        .from('activities')
+        .select('id,title,starts_at,ends_at')
+        .order('starts_at', ascending: false);
+    return List<Map<String, dynamic>>.from(rows);
   }
 
-  void _refresh() => setState(() => _future = _load());
+  void _refresh() => setState(() => _future = _loadActivities());
 
   String _date(dynamic raw) {
     final date = DateTime.tryParse(raw?.toString() ?? '')?.toLocal();
@@ -43,201 +40,301 @@ class _QrCheckinScreenState extends State<QrCheckinScreen> {
     return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year} • ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
 
-  String _newToken() {
-    final random = Random.secure();
-    return List.generate(32, (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0')).join();
-  }
-
-  String _payload(Map<String, dynamic> activity, String token) => 'MS99CHECKIN|${activity['id']}|$token';
-
-  Future<void> _showQr(Map<String, dynamic> activity, String token) async {
-    if (!mounted) return;
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('QR Check-in Kegiatan'),
-        content: SizedBox(
-          width: 320,
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Text(activity['title'].toString(), textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w900)),
-            const SizedBox(height: 8),
-            Text(_date(activity['starts_at']), style: const TextStyle(fontSize: 11, color: Color(0xFF718078))),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)),
-              child: QrImageView(data: _payload(activity, token), version: QrVersions.auto, size: 230),
-            ),
-            const SizedBox(height: 12),
-            const Text('Minta anggota memindai QR ini dari menu Check-in Kegiatan. Jangan bagikan QR di luar peserta kegiatan.',
-              textAlign: TextAlign.center, style: TextStyle(fontSize: 11, height: 1.45, color: Color(0xFF718078))),
-          ]),
-        ),
-        actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Tutup'))],
+  Future<void> _openScanner(Map<String, dynamic> activity) async {
+    final message = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (_) => _MemberQrScannerScreen(activity: activity),
       ),
     );
-  }
-
-  Future<void> _createOrRotate(Map<String, dynamic> activity) async {
-    if (_busy) return;
-    setState(() => _busy = true);
-    try {
-      final token = _newToken();
-      final end = DateTime.tryParse(activity['ends_at']?.toString() ?? '') ??
-          DateTime.tryParse(activity['starts_at']?.toString() ?? '')?.add(const Duration(hours: 4)) ??
-          DateTime.now().add(const Duration(hours: 8));
-      await _db.from('activity_checkin_codes').upsert({
-        'activity_id': activity['id'],
-        'token': token,
-        'enabled': true,
-        'expires_at': end.add(const Duration(hours: 4)).toUtc().toIso8601String(),
-        'created_by': _db.auth.currentUser!.id,
-        'updated_at': DateTime.now().toUtc().toIso8601String(),
-      }, onConflict: 'activity_id');
-      if (!mounted) return;
-      _refresh();
-      await _showQr(activity, token);
-    } catch (error) {
-      _message('QR gagal dibuat: $error');
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _disable(Map<String, dynamic> activity) async {
-    try {
-      await _db.from('activity_checkin_codes').update({
-        'enabled': false,
-        'updated_at': DateTime.now().toUtc().toIso8601String(),
-      }).eq('activity_id', activity['id']);
-      _refresh();
-      _message('QR check-in dinonaktifkan.');
-    } catch (error) {
-      _message('QR gagal dinonaktifkan: $error');
-    }
-  }
-
-  Future<void> _checkIn(String raw) async {
-    if (_busy || raw == _lastScan) return;
-    _lastScan = raw;
-    final parts = raw.split('|');
-    if (parts.length != 3 || parts[0] != 'MS99CHECKIN') {
-      _message('QR bukan kode check-in Marawis SMPN 99.');
-      return;
-    }
-    final activityId = int.tryParse(parts[1]);
-    if (activityId == null) {
-      _message('Kode kegiatan tidak valid.');
-      return;
-    }
-    setState(() => _busy = true);
-    try {
-      await _db.from('attendance').insert({
-        'activity_id': activityId,
-        'member_id': _db.auth.currentUser!.id,
-        'status': 'hadir',
-        'notes': 'QR:${parts[2]}',
-        'marked_by': _db.auth.currentUser!.id,
-      });
-      _message('Check-in berhasil. Kehadiran kamu sudah tercatat.');
-    } catch (error) {
-      final detail = error.toString();
-      if (detail.contains('duplicate key') || detail.contains('23505')) {
-        _message('Kehadiran untuk kegiatan ini sudah tercatat sebelumnya.');
-      } else {
-        _message(detail.replaceFirst('Exception: ', ''));
-        _lastScan = null;
-      }
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  void _message(String value) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(value), behavior: SnackBarBehavior.floating));
+    if (!mounted || message == null) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     if (!_admin) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Check-in Kegiatan', style: TextStyle(fontWeight: FontWeight.w800))),
-        body: Column(children: [
-          Container(
-            width: double.infinity,
-            margin: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-            padding: const EdgeInsets.all(15),
-            decoration: BoxDecoration(color: const Color(0xFFEAF5EF), borderRadius: BorderRadius.circular(16)),
-            child: const Text('Arahkan kamera ke QR resmi yang ditampilkan Pengurus atau Pembina. Check-in hanya dapat dilakukan dalam waktu kegiatan yang ditentukan.',
-              style: TextStyle(fontSize: 12, height: 1.5, color: Color(0xFF345B4D))),
-          ),
-          Expanded(child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(22),
-              child: MobileScanner(onDetect: (capture) {
-                if (capture.barcodes.isEmpty) return;
-                final value = capture.barcodes.first.rawValue;
-                if (value != null) _checkIn(value);
-              }),
+        appBar: AppBar(
+          title: const Text('Check-in Kegiatan',
+              style: TextStyle(fontWeight: FontWeight.w800)),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 86,
+                  height: 86,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE7F4EE),
+                    borderRadius: BorderRadius.circular(26),
+                  ),
+                  child: const Icon(Icons.qr_code_2_rounded,
+                      size: 48, color: Color(0xFF167D68)),
+                ),
+                const SizedBox(height: 18),
+                const Text(
+                  'Tunjukkan QR kartu anggota kamu',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 9),
+                const Text(
+                  'Saat kegiatan berlangsung, buka Kartu Identitas Digital dan tunjukkan QR pribadi kamu kepada Pengurus atau Pembina. Mereka yang akan memindai dan mencatat kehadiran.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      color: Color(0xFF718078), height: 1.55, fontSize: 13),
+                ),
+                const SizedBox(height: 22),
+                FilledButton.icon(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => MemberCardsScreen(role: widget.role),
+                    ),
+                  ),
+                  icon: const Icon(Icons.badge_rounded),
+                  label: const Text('Buka kartu anggota saya'),
+                ),
+              ],
             ),
-          )),
-          if (_busy) const Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator()),
-        ]),
+          ),
+        ),
       );
     }
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Kelola QR Check-in', style: TextStyle(fontWeight: FontWeight.w800)),
-        actions: [IconButton(onPressed: _refresh, icon: const Icon(Icons.refresh_rounded))],
+        title: const Text('Scanner QR Anggota',
+            style: TextStyle(fontWeight: FontWeight.w800)),
+        actions: [
+          IconButton(
+              onPressed: _refresh, icon: const Icon(Icons.refresh_rounded))
+        ],
       ),
       body: FutureBuilder<List<Map<String, dynamic>>>(
         future: _future,
         builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
-          if (snapshot.hasError) return Center(child: TextButton(onPressed: _refresh, child: const Text('Gagal memuat kegiatan. Coba lagi.')));
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return Center(
+              child: TextButton(
+                onPressed: _refresh,
+                child: const Text('Gagal memuat kegiatan. Coba lagi.'),
+              ),
+            );
+          }
           final activities = snapshot.data ?? [];
-          if (activities.isEmpty) return const Center(child: Text('Belum ada kegiatan. Buat jadwal terlebih dahulu.'));
+          if (activities.isEmpty) {
+            return const Center(
+                child: Text('Belum ada kegiatan. Buat jadwal terlebih dahulu.'));
+          }
           return ListView.separated(
             padding: const EdgeInsets.all(16),
             itemCount: activities.length,
             separatorBuilder: (_, __) => const SizedBox(height: 10),
             itemBuilder: (context, index) {
               final activity = activities[index];
-              final code = activity['checkin'] as Map<String, dynamic>?;
-              final enabled = code?['enabled'] == true;
-              final token = code?['token']?.toString();
               return Container(
-                padding: const EdgeInsets.all(15),
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: const Color(0xFFE5ECE8))),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(activity['title'].toString(), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
-                  const SizedBox(height: 5),
-                  Text(_date(activity['starts_at']), style: const TextStyle(color: Color(0xFF718078), fontSize: 11)),
-                  const SizedBox(height: 12),
-                  Row(children: [
-                    Expanded(child: Text(enabled ? 'QR aktif' : 'QR belum aktif', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: enabled ? const Color(0xFF167D68) : const Color(0xFF9A6B22)))),
-                    if (enabled && token != null) TextButton.icon(onPressed: () => _showQr(activity, token), icon: const Icon(Icons.qr_code_2_rounded), label: const Text('Lihat QR')),
-                  ]),
-                  Wrap(spacing: 8, children: [
-                    FilledButton.tonalIcon(
-                      onPressed: _busy ? null : () => _createOrRotate(activity),
-                      icon: const Icon(Icons.qr_code_rounded, size: 18),
-                      label: Text(enabled ? 'Perbarui QR' : 'Buat QR'),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: const Color(0xFFE5ECE8)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(activity['title'].toString(),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w900, fontSize: 15)),
+                    const SizedBox(height: 5),
+                    Text(_date(activity['starts_at']),
+                        style: const TextStyle(
+                            color: Color(0xFF718078), fontSize: 11)),
+                    const SizedBox(height: 13),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: () => _openScanner(activity),
+                        icon: const Icon(Icons.qr_code_scanner_rounded),
+                        label: const Text('Scan QR anggota'),
+                      ),
                     ),
-                    if (enabled) OutlinedButton.icon(
-                      onPressed: () => _disable(activity),
-                      icon: const Icon(Icons.block_rounded, size: 18),
-                      label: const Text('Nonaktifkan'),
-                    ),
-                  ]),
-                ]),
+                  ],
+                ),
               );
             },
           );
         },
+      ),
+    );
+  }
+}
+
+class _MemberQrScannerScreen extends StatefulWidget {
+  const _MemberQrScannerScreen({required this.activity});
+  final Map<String, dynamic> activity;
+
+  @override
+  State<_MemberQrScannerScreen> createState() => _MemberQrScannerScreenState();
+}
+
+class _MemberQrScannerScreenState extends State<_MemberQrScannerScreen> {
+  final _db = Supabase.instance.client;
+  bool _busy = false;
+  bool _finished = false;
+  String _status = 'Arahkan kamera ke QR pada kartu digital anggota.';
+
+  Future<void> _handleScan(String? raw) async {
+    if (_busy || _finished || raw == null) return;
+
+    const prefix = 'MARAWIS-MEMBER|';
+    if (!raw.startsWith(prefix)) {
+      setState(() => _status = 'QR tidak dikenali. Pindai QR kartu anggota Marawis.');
+      return;
+    }
+
+    final cardCode = raw.substring(prefix.length).trim();
+    if (cardCode.isEmpty || cardCode.contains('|')) {
+      setState(() => _status = 'Kode kartu tidak valid. Coba pindai ulang.');
+      return;
+    }
+
+    setState(() {
+      _busy = true;
+      _status = 'Memeriksa kartu anggota...';
+    });
+
+    try {
+      final member = await _db
+          .from('members')
+          .select('id,display_name,membership_status')
+          .eq('card_code', cardCode)
+          .maybeSingle();
+
+      if (member == null) {
+        throw Exception('Kartu anggota tidak ditemukan.');
+      }
+      if (member['membership_status'] != 'aktif') {
+        throw Exception('Status anggota tidak aktif. Hubungi Pengurus.');
+      }
+
+      await _db.from('attendance').insert({
+        'activity_id': widget.activity['id'],
+        'member_id': member['id'],
+        'status': 'hadir',
+        'notes': 'Check-in QR oleh petugas',
+        'marked_by': _db.auth.currentUser!.id,
+      });
+
+      if (!mounted) return;
+      setState(() {
+        _finished = true;
+        _status = 'Check-in berhasil untuk ${member['display_name']}.';
+      });
+    } catch (error) {
+      if (!mounted) return;
+      final detail = error.toString();
+      final duplicate = detail.contains('duplicate key') ||
+          detail.contains('23505');
+      setState(() {
+        _finished = true;
+        _status = duplicate
+            ? 'Anggota ini sudah tercatat hadir untuk kegiatan ini.'
+            : detail.replaceFirst('Exception: ', '');
+      });
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  void _scanNext() {
+    setState(() {
+      _finished = false;
+      _status = 'Arahkan kamera ke QR pada kartu digital anggota berikutnya.';
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Scan QR Anggota',
+            style: TextStyle(fontWeight: FontWeight.w800)),
+      ),
+      body: Column(
+        children: [
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEAF5EF),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(widget.activity['title'].toString(),
+                    style: const TextStyle(fontWeight: FontWeight.w900)),
+                const SizedBox(height: 6),
+                Text(_status,
+                    style: const TextStyle(
+                        fontSize: 12,
+                        height: 1.45,
+                        color: Color(0xFF345B4D))),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(22),
+                child: _finished
+                    ? Container(
+                        width: double.infinity,
+                        color: const Color(0xFFF2F6F3),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.check_circle_rounded,
+                                size: 58, color: Color(0xFF167D68)),
+                            const SizedBox(height: 12),
+                            const Text('Pemindaian selesai',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 17)),
+                            const SizedBox(height: 18),
+                            FilledButton.icon(
+                              onPressed: _scanNext,
+                              icon: const Icon(Icons.qr_code_scanner_rounded),
+                              label: const Text('Scan anggota berikutnya'),
+                            ),
+                          ],
+                        ),
+                      )
+                    : MobileScanner(
+                        onDetect: (capture) {
+                          if (capture.barcodes.isEmpty) return;
+                          _handleScan(capture.barcodes.first.rawValue);
+                        },
+                      ),
+              ),
+            ),
+          ),
+          if (_busy)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 16),
+              child: CircularProgressIndicator(),
+            ),
+        ],
       ),
     );
   }
