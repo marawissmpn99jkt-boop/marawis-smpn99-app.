@@ -216,9 +216,8 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
         final gs=Map<String,dynamic>.from(nextRoom['game_state']??{});
         final round=(gs['round'] as num?)?.toInt()??0;
         final answer=(gs['answer']??'').toString().toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'),'');
-        final alreadyScored=(x[2] as List).any((e)=>e['event_type']=='word_answer'&&e['payload'] is Map&&e['payload']['round']==round&&e['payload']['correct']==true);
         final correct=(x[2] as List).where((e){if(e['event_type']!='word_answer'||e['payload'] is! Map||e['payload']['round']!=round)return false;return (e['payload']['text']??'').toString().toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'),'')==answer;}).toList();
-        if(correct.isNotEmpty&&!alreadyScored&&!_rotatingDraw){_rotatingDraw=true;Future.microtask(()async{final next=round+1;if(next>=10){await finish();}else{await updateState(_newWordRound(nextRoom['game_type'].toString(),next));}_rotatingDraw=false;});}
+        if(correct.isNotEmpty&&!_rotatingDraw){_rotatingDraw=true;Future.microtask(()async{final next=round+1;if(next>=10){await finish();}else{await updateState(_newWordRound(nextRoom['game_type'].toString(),next));}_rotatingDraw=false;});}
       }
       if(justStarted)Future.delayed(const Duration(milliseconds:1700),(){
         if(mounted)setState(()=>showGameIntro=false);
