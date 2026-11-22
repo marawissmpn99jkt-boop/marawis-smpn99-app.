@@ -18,6 +18,7 @@ class CommunityHubScreen extends StatefulWidget {
 class _CommunityHubScreenState extends State<CommunityHubScreen> with SingleTickerProviderStateMixin {
   final db = Supabase.instance.client;
   late final TabController tabs;
+  bool gameActive=false;
   bool get admin => widget.role == 'pengurus' || widget.role == 'pembina';
   @override void initState(){super.initState();tabs=TabController(length:3,vsync:this);}
   @override void dispose(){tabs.dispose();super.dispose();}
@@ -290,7 +291,7 @@ class _CommunityHubScreenState extends State<CommunityHubScreen> with SingleTick
     reply.dispose();
   }
 
-  @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('Komunitas Marawis'),bottom:TabBar(controller:tabs,isScrollable:true,tabs:const [Tab(icon:Icon(Icons.lightbulb_outline),text:'Kotak Saran'),Tab(icon:Icon(Icons.quiz_outlined),text:'Quiz'),Tab(icon:Icon(Icons.sports_esports_outlined),text:'Game')])),body:TabBarView(controller:tabs,children:[suggestions(),quizzes(),games()]));
+  @override Widget build(BuildContext context)=>Scaffold(appBar:gameActive?null:AppBar(title:const Text('Komunitas Marawis'),bottom:TabBar(controller:tabs,isScrollable:true,tabs:const [Tab(icon:Icon(Icons.lightbulb_outline),text:'Kotak Saran'),Tab(icon:Icon(Icons.quiz_outlined),text:'Quiz'),Tab(icon:Icon(Icons.sports_esports_outlined),text:'Game')])),body:TabBarView(controller:tabs,physics:gameActive?const NeverScrollableScrollPhysics():null,children:[suggestions(),quizzes(),games()]));
 
   Widget suggestions()=>Column(children:[
     Padding(padding:const EdgeInsets.all(14),child:Row(children:[const Expanded(child:Text('Sampaikan ide dan masukan untuk Marawis.')),FilledButton.icon(onPressed:addSuggestion,icon:const Icon(Icons.send),label:const Text('Kirim'))])),
@@ -302,7 +303,7 @@ class _CommunityHubScreenState extends State<CommunityHubScreen> with SingleTick
     Expanded(child:FutureBuilder<List<Map<String,dynamic>>>(future:db.from('marawis_quizzes').select('id,title,description,duration_minutes,published,created_at').order('created_at',ascending:false).then((v)=>List<Map<String,dynamic>>.from(v)),builder:(c,s){if(s.hasError)return Center(child:TextButton(onPressed:()=>setState((){}),child:const Text('Gagal memuat Quiz')));if(!s.hasData)return const Center(child:CircularProgressIndicator());if(s.data!.isEmpty)return const Center(child:Text('Belum ada Quiz.'));return ListView.builder(itemCount:s.data!.length,itemBuilder:(c,i){final q=s.data![i];return Card(color:Colors.white,child:ListTile(leading:const Icon(Icons.quiz,color:Color(0xFF167D68)),title:Text(q['title'].toString(),style:const TextStyle(fontWeight:FontWeight.w800)),subtitle:Text(q['duration_minutes'].toString()+' menit • '+(q['published']==true?'Dipublikasikan':'Draft')+'\n'+(q['description']??'Quiz Marawis').toString()),isThreeLine:true,onTap:q['published']==true?()=>takeQuiz(q):null,trailing:admin?PopupMenuButton<String>(onSelected:(v)async{if(v=='publish')await db.from('marawis_quizzes').update({'published':true}).eq('id',q['id']);if(v=='review')await reviewEssays(q);if(v=='results')await showQuizResults(q);if(v=='delete')await db.from('marawis_quizzes').delete().eq('id',q['id']);setState((){});},itemBuilder:(_)=>[const PopupMenuItem(value:'publish',child:Text('Publikasikan')),const PopupMenuItem(value:'results',child:Text('Lihat hasil peserta')),const PopupMenuItem(value:'review',child:Text('Koreksi esai')),const PopupMenuItem(value:'delete',child:Text('Hapus'))]):null));});}))
   ]);
 
-  Widget games()=>MultiplayerGamesScreen(role:widget.role,soloGame:_Games(db:db));
+  Widget games()=>MultiplayerGamesScreen(role:widget.role,soloGame:_Games(db:db),onGameActive:(active){if(mounted)setState(()=>gameActive=active);});
 }
 
 class _QuizExamDialog extends StatefulWidget {

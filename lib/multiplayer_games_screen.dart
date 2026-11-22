@@ -1,12 +1,15 @@
 import 'dart:async';
 import 'dart:math';
+import 'dart:html' as html;
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class MultiplayerGamesScreen extends StatefulWidget {
-  const MultiplayerGamesScreen({super.key, required this.role, required this.soloGame});
+  const MultiplayerGamesScreen({super.key, required this.role, required this.soloGame, this.onGameActive});
   final String role;
   final Widget soloGame;
+  final ValueChanged<bool>? onGameActive;
   @override State<MultiplayerGamesScreen> createState()=>_MultiplayerGamesScreenState();
 }
 class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
@@ -18,6 +21,9 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
   RealtimeChannel? channel;
   bool busy=false;
   bool showGameIntro=false;
+  Color brushColor=const Color(0xFF167D68);
+  double brushSize=5;
+  bool eraser=false;
   final guess=TextEditingController();
   final questions=<Map<String,dynamic>>[
     {'q':'Apa fungsi utama hajir dalam permainan marawis?','a':['Menjaga ketukan dasar','Mengatur kostum','Membuka acara','Mengatur mikrofon'],'c':0},
@@ -82,7 +88,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
     {'q':"Sikap amanah dalam kehidupan sehari-hari ditunjukkan dengan...",'a':["Menjaga titipan","Membocorkan rahasia orang","Mengambil hak teman","Mengingkari tanggung jawab"],'c':0,'category':"Keislaman"},
     {'q':"Ketika berbeda pendapat, adab yang baik adalah...",'a':["Bersikap santun","Menghina","Meninggikan suara","Memutus pertemanan"],'c':0,'category':"Keislaman"},
   ];
-  final words=['REBANA','MARAWIS','KOMPAK','HAJIR','DARBUKA','LATIHAN','PANGGUNG','IRAMA'];
+  final words=['REBANA','MARAWIS','KOMPAK','HAJIR','DARBUKA','LATIHAN','PANGGUNG','IRAMA','BEDUG','KARAKTER','SEPATU','PAYUNG','SEKOLAH','BUKU','PENSIL','KAMERA','KIPAS','JENDELA','SEPEDA','BOLA','KUCING','KELINCI','PISANG','SEMANGKA','KOPI','ROTI','JAM','KALENDER','KURSI','MEJA','TAS','TOPI','KACAMATA','SENDOK','GARPU','PIRING','BOTOL','PAYUNG','PESAWAT','KERETA','KAPAL','GITAR','DRUM','MIKROFON','PANGGUNG','BENDERA','MASJID','BINTANG','BULAN','MATAHARI','GUNUNG','PANTAI','POHON','BUNGA','KOMPUTER','TELEPON','KUNCI','KADO','LILIN'];
   List<List<Offset>> localStrokes=[];
   List<Offset> activeStroke=[];
   @override void initState(){super.initState();loadRooms();}
@@ -101,7 +107,8 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
     if(!staff)return;
     try{
       final code=List.generate(6,(_)=>Random.secure().nextInt(10)).join();
-      final x=await db.from('multiplayer_rooms').insert({'room_code':code,'game_type':game,'host_id':db.auth.currentUser!.id,'max_players':10,'game_state':{}}).select().single();
+      final x=await db.from('multiplayer_rooms').insert({'room_code':code,'game_type':game,'host_id':db.auth.currentUser!.id,'max_players':50,'game_state':{}}).select().single();
+      _enterImmersiveMode();
       await enter(Map<String,dynamic>.from(x));
     }catch(e){msg('Gagal membuat room: '+e.toString());}
   }
@@ -116,8 +123,13 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
     try{
       final uid=db.auth.currentUser!.id;
       final old=await db.from('multiplayer_players').select('id').eq('room_id',r['id']).eq('user_id',uid).maybeSingle();
-      if(old==null)await db.from('multiplayer_players').insert({'room_id':r['id'],'user_id':uid,'display_name':await displayName()});
-      if(!mounted)return;setState(()=>roomId=r['id'].toString());await refreshRoom();subscribeRoom();
+      if(old==null){
+        final current=await db.from('multiplayer_players').select('id').eq('room_id',r['id']);
+        final cap=((r['max_players'] as num?)?.toInt()??50).clamp(1,50);
+        if(current.length>=cap){msg('Room sudah penuh (maksimal '+cap.toString()+' pemain).');return;}
+        await db.from('multiplayer_players').insert({'room_id':r['id'],'user_id':uid,'display_name':await displayName()});
+      }
+      if(!mounted)return;setState(()=>roomId=r['id'].toString());widget.onGameActive?.call(true);_enterImmersiveMode();await refreshRoom();subscribeRoom();
     }catch(e){msg('Gagal masuk room: '+e.toString());}
   }
   void subscribeRoom(){
@@ -165,18 +177,28 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
       s['answer_orders']=(s['question_order'] as List).map((_)=>[0,1,2,3]..shuffle(Random.secure())).toList();
     }
     if(type=='draw_guess'){secretWord=words[Random.secure().nextInt(words.length)];s['drawer_id']=db.auth.currentUser!.id;}
+    if(type=='reaction_rush'){s['tap_open']=false;s['round']=0;}
+    if(type=='this_or_that'){s['round']=0;}
     await updateState(s,status:'playing');
+  }
+  void _enterImmersiveMode(){
+    try{SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);}catch(_){}
+    try{html.document.documentElement?.requestFullscreen();}catch(_){}
+  }
+  void _exitImmersiveMode(){
+    try{if(html.document.fullscreenElement!=null)html.document.exitFullscreen();}catch(_){}
+    try{SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);}catch(_){}
   }
   Future<void> leave()async{
     final id=roomId;if(id==null)return;
     try{if(host)await db.from('multiplayer_rooms').update({'status':'finished','game_state':{...state,'phase':'finished'}}).eq('id',id);await db.from('multiplayer_players').delete().eq('room_id',id).eq('user_id',db.auth.currentUser!.id);}catch(_){}
-    await channel?.unsubscribe();if(mounted)setState(() { roomId=null; room=null; players=[]; events=[]; secretWord=null; });loadRooms();
+    await channel?.unsubscribe();_exitImmersiveMode();if(mounted)setState(() { roomId=null; room=null; players=[]; events=[]; secretWord=null; activeStroke=[]; });widget.onGameActive?.call(false);loadRooms();
   }
   Future<void> finish()async=>updateState({...state,'phase':'finished'},status:'finished');
-  String title(String key)=>key=='quiz_arena'?'Marawis Quiz Arena':key=='who_leader'?'Who Is The Leader?':'Draw & Guess';
+  String title(String key)=>key=='quiz_arena'?'Marawis Quiz Arena':key=='who_leader'?'Who Is The Leader?':key=='reaction_rush'?'Reaction Rush':key=='this_or_that'?'This or That':'Draw & Guess';
   Map<String,dynamic> player(String id)=>players.firstWhere((p)=>p['user_id']==id,orElse:()=>{});
   String playerName(String id)=>(player(id)['display_name']??'Pemain').toString();
-  int score(String id)=>events.where((e){if(e['event_type']=='answer'&&e['actor_id']==id){final round=(e['payload']['round'] as num?)?.toInt()??-1;final choice=(e['payload']['choice'] as num?)?.toInt()??-1;final order=state['question_order'] is List?List<int>.from(state['question_order'] as List):List<int>.generate(questions.length,(i)=>i);final qIndex=round>=0&&round<order.length?order[round]:-1;final answerOrders=state['answer_orders'] is List?state['answer_orders'] as List:[];final answerOrder=round>=0&&round<answerOrders.length?List<int>.from(answerOrders[round] as List):[0,1,2,3];return qIndex>=0&&qIndex<questions.length&&choice>=0&&choice<answerOrder.length&&answerOrder[choice]==questions[qIndex]['c'];}return e['event_type']=='guess'&&e['payload']['accepted']==true&&e['payload']['target']==id;}).length*10;
+  int score(String id)=>events.where((e){if(e['event_type']=='reaction_tap'&&e['actor_id']==id)return true;if(e['event_type']=='answer'&&e['actor_id']==id){final round=(e['payload']['round'] as num?)?.toInt()??-1;final choice=(e['payload']['choice'] as num?)?.toInt()??-1;final order=state['question_order'] is List?List<int>.from(state['question_order'] as List):List<int>.generate(questions.length,(i)=>i);final qIndex=round>=0&&round<order.length?order[round]:-1;final answerOrders=state['answer_orders'] is List?state['answer_orders'] as List:[];final answerOrder=round>=0&&round<answerOrders.length?List<int>.from(answerOrders[round] as List):[0,1,2,3];return qIndex>=0&&qIndex<questions.length&&choice>=0&&choice<answerOrder.length&&answerOrder[choice]==questions[qIndex]['c'];}return e['event_type']=='guess'&&e['payload']['accepted']==true&&e['payload']['target']==id;}).length*10;
   Widget cardGame(String key,String name,String detail,IconData icon){
     final colors=key=='quiz_arena'?const [Color(0xFF6B4EFF),Color(0xFFAA55E8)]:key=='who_leader'?const [Color(0xFF087E8B),Color(0xFF35B6A4)]:const [Color(0xFFE46C32),Color(0xFFF2B544)];
     return Container(
@@ -208,6 +230,8 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
       cardGame('quiz_arena','Marawis Quiz Arena','Jawab pertanyaan secara serentak.',Icons.quiz),
       cardGame('who_leader','Who Is The Leader?','Voting pemimpin tim secara real-time.',Icons.groups),
       cardGame('draw_guess','Draw & Guess','Host menggambar, anggota menebak.',Icons.brush),
+      cardGame('reaction_rush','Reaction Rush','Adu refleks dan kumpulkan poin tercepat.',Icons.flash_on_rounded),
+      cardGame('this_or_that','This or That','Pilih cepat dan lihat pilihan seluruh room.',Icons.thumbs_up_down_rounded),
       const SizedBox(height:18),Row(children:[const Expanded(child:Text('Room tersedia',style:TextStyle(fontWeight:FontWeight.w900,fontSize:17))),IconButton(onPressed:loadRooms,icon:const Icon(Icons.refresh))]),
       if(rooms.isEmpty)const Padding(padding:EdgeInsets.all(20),child:Text('Belum ada room yang menunggu pemain.',textAlign:TextAlign.center)) else for(final r in rooms)Card(color:Colors.white,child:ListTile(title:Text(title(r['game_type'].toString())),subtitle:Text('Kode '+r['room_code'].toString()+' • Maks. '+r['max_players'].toString()+' pemain'),trailing:FilledButton(onPressed:()=>enter(r),child:const Text('Gabung')))),
       const SizedBox(height:12),OutlinedButton.icon(onPressed:()=>showModalBottomSheet(context:context,isScrollControlled:true,builder:(_)=>SizedBox(height:500,child:widget.soloGame)),icon:const Icon(Icons.person),label:const Text('Mainkan tantangan solo')),
@@ -320,6 +344,8 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
     final key=room!['game_type'].toString();
     if(key=='quiz_arena')return quizPanel();
     if(key=='who_leader')return leaderPanel();
+    if(key=='reaction_rush')return reactionPanel();
+    if(key=='this_or_that')return thisOrThatPanel();
     return drawPanel();
   }
   Widget quizPanel(){
@@ -394,30 +420,55 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
   }
   Widget drawPanel(){
     final uid=db.auth.currentUser!.id;final drawer=state["drawer_id"]?.toString();final canDraw=uid==drawer;
-    final drawEvents=events.where((e)=>e["event_type"]=="draw").toList();
+    final drawEvents=events.where((e)=>["draw","undo","clear"].contains(e["event_type"])).toList();
     final guesses=events.where((e)=>e["event_type"]=="guess"&&e["payload"]["accepted"]!=true).toList();
-    return SingleChildScrollView(padding:const EdgeInsets.fromLTRB(16,10,16,20),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-      Container(width:double.infinity,padding:const EdgeInsets.all(18),decoration:BoxDecoration(gradient:const LinearGradient(colors:[Color(0xFFE46C32),Color(0xFFB64F80)]),borderRadius:BorderRadius.circular(23)),child:Row(children:[
-        const Icon(Icons.draw_rounded,color:Colors.white,size:35),const SizedBox(width:12),
-        Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text("DRAW & GUESS",style:TextStyle(color:Colors.white,fontSize:20,fontWeight:FontWeight.w900)),Text(canDraw?"Gambarkan kata rahasia untuk temanmu!":"Amati gambar, lalu tebak secepatnya.",style:const TextStyle(color:Colors.white70,fontSize:11))])),
+    const palette=[Color(0xFF167D68),Color(0xFF252525),Color(0xFFE64B4B),Color(0xFF3678E8),Color(0xFFFFB52E),Color(0xFF9856D8),Color(0xFFFF70A6),Color(0xFF8B5A2B)];
+    return SingleChildScrollView(padding:const EdgeInsets.fromLTRB(14,8,14,18),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+      Container(width:double.infinity,padding:const EdgeInsets.all(17),decoration:BoxDecoration(gradient:const LinearGradient(colors:[Color(0xFFE46C32),Color(0xFFB64F80)]),borderRadius:BorderRadius.circular(22)),child:Row(children:[
+        const Icon(Icons.draw_rounded,color:Colors.white,size:34),const SizedBox(width:11),
+        Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text("DRAW & GUESS",style:TextStyle(color:Colors.white,fontSize:19,fontWeight:FontWeight.w900)),Text(canDraw?"Gambar dengan bebas, temanmu akan menebak!":"Perhatikan gambar dan kirim tebakanmu.",style:const TextStyle(color:Colors.white70,fontSize:11))])),
       ])),
-      const SizedBox(height:14),
-      if(canDraw)Container(width:double.infinity,padding:const EdgeInsets.all(12),decoration:BoxDecoration(color:const Color(0xFFFFD166).withOpacity(.13),borderRadius:BorderRadius.circular(14),border:Border.all(color:const Color(0xFFFFD166).withOpacity(.3))),child:Text("KATA RAHASIA: "+(secretWord??"MARAWIS"),style:const TextStyle(color:Color(0xFFFFD166),fontWeight:FontWeight.w900,letterSpacing:1.2))),
-      if(!canDraw)const Padding(padding:EdgeInsets.only(bottom:9),child:Text("GAMBAR RAHASIA",style:TextStyle(color:Colors.white70,fontSize:10,fontWeight:FontWeight.w900,letterSpacing:1.2))),
-      const SizedBox(height:8),
-      Container(height:270,width:double.infinity,decoration:BoxDecoration(color:const Color(0xFFFFFCF5),borderRadius:BorderRadius.circular(21),border:Border.all(color:Colors.white.withOpacity(.25)),boxShadow:[BoxShadow(color:Colors.black.withOpacity(.2),blurRadius:18,offset:const Offset(0,8))]),child:ClipRRect(borderRadius:BorderRadius.circular(21),child:GestureDetector(
-        onPanStart:canDraw?(d)=>setState(()=>activeStroke=[d.localPosition]):null,
-        onPanUpdate:canDraw?(d)=>setState(()=>activeStroke.add(d.localPosition)):null,
-        onPanEnd:canDraw?(d)async{final pts=activeStroke.map((p)=>{"x":p.dx,"y":p.dy}).toList();setState(()=>activeStroke=[]);if(pts.length>1)await emit("draw",{"points":pts});}:null,
-        child:CustomPaint(painter:_GamePainter(drawEvents,activeStroke),child:const SizedBox.expand()),
-      ))),
-      if(canDraw)Padding(padding:const EdgeInsets.only(top:8),child:Row(children:[const Icon(Icons.touch_app_rounded,color:Colors.white54,size:16),const SizedBox(width:6),const Expanded(child:Text("Sentuh dan geser untuk menggambar di kanvas.",style:TextStyle(color:Colors.white54,fontSize:10))),TextButton(onPressed:()=>setState(()=>activeStroke=[]),child:const Text("HAPUS GARIS"))])),
+      const SizedBox(height:12),
+      if(canDraw)Container(width:double.infinity,padding:const EdgeInsets.symmetric(horizontal:14,vertical:12),decoration:BoxDecoration(color:const Color(0xFFFFD166).withOpacity(.13),borderRadius:BorderRadius.circular(14),border:Border.all(color:const Color(0xFFFFD166).withOpacity(.3))),child:Row(children:[const Icon(Icons.lightbulb_rounded,color:Color(0xFFFFD166),size:20),const SizedBox(width:8),Expanded(child:Text("KATA RAHASIA  •  "+(secretWord??"MARAWIS"),style:const TextStyle(color:Color(0xFFFFD166),fontWeight:FontWeight.w900,letterSpacing:1)))])),
+      if(!canDraw)const Padding(padding:EdgeInsets.only(bottom:8),child:Text("GAMBAR RAHASIA",style:TextStyle(color:Colors.white70,fontSize:10,fontWeight:FontWeight.w900,letterSpacing:1.2))),
+      const SizedBox(height:9),
+      if(canDraw)Container(padding:const EdgeInsets.all(11),decoration:BoxDecoration(color:Colors.white.withOpacity(.08),borderRadius:BorderRadius.circular(16)),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+        Row(children:[const Text("WARNA",style:TextStyle(color:Colors.white70,fontSize:9,fontWeight:FontWeight.w900,letterSpacing:1)),const Spacer(),Text(eraser?"PENGHAPUS":"KUAS "+brushSize.toStringAsFixed(0),style:const TextStyle(color:Colors.white70,fontSize:9,fontWeight:FontWeight.w800))]),
+        const SizedBox(height:8),
+        Wrap(spacing:9,runSpacing:8,children:[
+          for(final color in palette)GestureDetector(onTap:()=>setState((){brushColor=color;eraser=false;}),child:Container(width:27,height:27,decoration:BoxDecoration(color:color,shape:BoxShape.circle,border:Border.all(color:brushColor==color&&!eraser?Colors.white:Colors.white30,width:brushColor==color&&!eraser?3:1)))),
+          GestureDetector(onTap:()=>setState(()=>eraser=!eraser),child:Container(width:34,height:27,decoration:BoxDecoration(color:eraser?const Color(0xFFFFD166):Colors.white12,borderRadius:BorderRadius.circular(8)),child:Icon(Icons.auto_fix_high_rounded,color:eraser?const Color(0xFF241B43):Colors.white,size:17))),
+          GestureDetector(onTap:()=>setState(()=>brushSize=(brushSize+2).clamp(2,16)),child:Container(width:34,height:27,decoration:BoxDecoration(color:Colors.white12,borderRadius:BorderRadius.circular(8)),child:const Icon(Icons.add_rounded,color:Colors.white,size:17))),
+          GestureDetector(onTap:()=>setState(()=>brushSize=(brushSize-2).clamp(2,16)),child:Container(width:34,height:27,decoration:BoxDecoration(color:Colors.white12,borderRadius:BorderRadius.circular(8)),child:const Icon(Icons.remove_rounded,color:Colors.white,size:17))),
+        ]),
+        const SizedBox(height:7),
+        Slider(value:brushSize,min:2,max:16,divisions:7,onChanged:(v)=>setState(()=>brushSize=v),activeColor:const Color(0xFFFFD166),inactiveColor:Colors.white24),
+      ])),
+      const SizedBox(height:9),
+      Container(height:300,width:double.infinity,decoration:BoxDecoration(color:const Color(0xFFFFFCF5),borderRadius:BorderRadius.circular(23),border:Border.all(color:Colors.white.withOpacity(.3)),boxShadow:[BoxShadow(color:Colors.black.withOpacity(.2),blurRadius:18,offset:const Offset(0,8))]),child:ClipRRect(borderRadius:BorderRadius.circular(23),child:LayoutBuilder(builder:(context,box)=>GestureDetector(
+        behavior:HitTestBehavior.opaque,
+        onPanStart:canDraw?(d)=>setState(()=>activeStroke=[Offset((d.localPosition.dx/box.maxWidth).clamp(0,1),(d.localPosition.dy/box.maxHeight).clamp(0,1))]):null,
+        onPanUpdate:canDraw?(d)=>setState(()=>activeStroke.add(Offset((d.localPosition.dx/box.maxWidth).clamp(0,1),(d.localPosition.dy/box.maxHeight).clamp(0,1)))):null,
+        onPanEnd:canDraw?(d)async{
+          final pts=activeStroke.map((p)=>{"x":p.dx,"y":p.dy}).toList();
+          final color=eraser?const Color(0xFFFFFCF5):brushColor;
+          final width=eraser?brushSize*3:brushSize;
+          setState(()=>activeStroke=[]);
+          if(pts.length>1)await emit("draw",{"points":pts,"color":color.value,"width":width});
+        }:null,
+        child:CustomPaint(painter:_GamePainter(drawEvents,activeStroke,eraser?const Color(0xFFFFFCF5):brushColor,eraser?brushSize*3:brushSize),child:const SizedBox.expand()),
+      )))),
+      if(canDraw)Padding(padding:const EdgeInsets.only(top:8),child:Row(children:[
+        const Expanded(child:Text("Geser jari untuk menggambar. Gunakan undo jika salah.",style:TextStyle(color:Colors.white54,fontSize:10))),
+        TextButton.icon(onPressed:()async{setState(()=>activeStroke=[]);final last=drawEvents.where((e)=>e["event_type"]=="draw"&&e["actor_id"]==uid).toList();if(last.isNotEmpty)await emit("undo",{"target":last.last["id"]});},icon:const Icon(Icons.undo_rounded,size:16),label:const Text("UNDO")),
+        IconButton(tooltip:"Bersihkan kanvas",onPressed:()=>emit("clear",{}),icon:const Icon(Icons.delete_sweep_rounded,color:Color(0xFFFF8A80))),
+      ])),
       if(!canDraw)Padding(padding:const EdgeInsets.only(top:13),child:Row(children:[
-        Expanded(child:TextField(controller:guess,style:const TextStyle(color:Colors.white),decoration:InputDecoration(hintText:"Ketik tebakanmu...",hintStyle:const TextStyle(color:Colors.white38),filled:true,fillColor:Colors.white.withOpacity(.1),border:OutlineInputBorder(borderRadius:BorderRadius.circular(15),borderSide:BorderSide.none)))),
+        Expanded(child:TextField(controller:guess,onSubmitted:(v)async{if(v.trim().isNotEmpty){await emit("guess",{"text":v.trim()});guess.clear();}},style:const TextStyle(color:Colors.white),decoration:InputDecoration(hintText:"Tulis tebakanmu...",hintStyle:const TextStyle(color:Colors.white38),filled:true,fillColor:Colors.white.withOpacity(.1),border:OutlineInputBorder(borderRadius:BorderRadius.circular(15),borderSide:BorderSide.none)))),
         const SizedBox(width:8),
         SizedBox(height:52,width:54,child:FilledButton(onPressed:()async{final v=guess.text.trim();if(v.isNotEmpty){await emit("guess",{"text":v});guess.clear();}},style:FilledButton.styleFrom(backgroundColor:const Color(0xFFFFD166),foregroundColor:const Color(0xFF211744),padding:EdgeInsets.zero,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(15))),child:const Icon(Icons.send_rounded))),
       ])),
-      const SizedBox(height:17),const Text("TEBAKAN PEMAIN",style:TextStyle(color:Colors.white70,fontSize:10,fontWeight:FontWeight.w900,letterSpacing:1.2)),
+      const SizedBox(height:15),const Text("TEBAKAN PEMAIN",style:TextStyle(color:Colors.white70,fontSize:10,fontWeight:FontWeight.w900,letterSpacing:1.2)),
       const SizedBox(height:8),
       if(guesses.isEmpty)const Text("Belum ada tebakan. Jadilah yang pertama!",style:TextStyle(color:Colors.white54,fontSize:11)),
       for(final g in guesses)Container(margin:const EdgeInsets.only(bottom:7),padding:const EdgeInsets.symmetric(horizontal:12,vertical:9),decoration:BoxDecoration(color:Colors.white.withOpacity(.08),borderRadius:BorderRadius.circular(13)),child:Row(children:[
@@ -426,6 +477,154 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
       ])),
       if(host)Padding(padding:const EdgeInsets.only(top:10),child:SizedBox(width:double.infinity,height:50,child:FilledButton(onPressed:finish,style:FilledButton.styleFrom(backgroundColor:const Color(0xFFFFD166),foregroundColor:const Color(0xFF211744),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(15))),child:const Text("AKHIRI PERMAINAN")))),
     ]));
+  }
+  Widget reactionPanel(){
+    final round=(state["round"] as num?)?.toInt()??0;
+    final open=state["tap_open"]==true;
+    final uid=db.auth.currentUser!.id;
+    final taps=events.where((e)=>e["event_type"]=="reaction_tap"&&e["payload"]["round"]==round).toList()
+      ..sort((a,b)=>DateTime.tryParse(a["created_at"].toString())?.compareTo(DateTime.tryParse(b["created_at"].toString())??DateTime.now())??0);
+    final mine=taps.any((e)=>e["actor_id"]==uid);
+    return SingleChildScrollView(
+      padding:const EdgeInsets.fromLTRB(18,12,18,20),
+      child:Column(children:[
+        Container(
+          width:double.infinity,padding:const EdgeInsets.all(22),
+          decoration:BoxDecoration(gradient:const LinearGradient(colors:[Color(0xFF4524A8),Color(0xFFE04F91)]),borderRadius:BorderRadius.circular(25)),
+          child:Column(children:[
+            const Icon(Icons.bolt_rounded,color:Color(0xFFFFD166),size:48),
+            const SizedBox(height:9),
+            const Text("REACTION RUSH",style:TextStyle(color:Colors.white,fontSize:24,fontWeight:FontWeight.w900,letterSpacing:1)),
+            const SizedBox(height:7),
+            Text("RONDE ${round+1} / 3",style:const TextStyle(color:Colors.white70,fontSize:11,fontWeight:FontWeight.w900,letterSpacing:1.5)),
+            const SizedBox(height:15),
+            Text(open?"TEKAN SECEPAT MUNGKIN!":"TUNGGU ABA-ABA HOST",style:const TextStyle(color:Color(0xFFFFD166),fontSize:13,fontWeight:FontWeight.w900)),
+          ]),
+        ),
+        const SizedBox(height:20),
+        if(open)
+          SizedBox(
+            width:220,height:220,
+            child:Material(
+              color:mine?const Color(0xFF70E2B2):const Color(0xFFFFD166),
+              shape:const CircleBorder(),elevation:8,
+              child:InkWell(
+                customBorder:const CircleBorder(),
+                onTap:mine?null:()=>emit("reaction_tap",{"round":round}),
+                child:Center(child:Column(mainAxisSize:MainAxisSize.min,children:[
+                  Icon(mine?Icons.check_rounded:Icons.touch_app_rounded,color:const Color(0xFF211744),size:56),
+                  const SizedBox(height:8),
+                  Text(mine?"TERKIRIM!":"TAP!",style:const TextStyle(color:Color(0xFF211744),fontSize:25,fontWeight:FontWeight.w900)),
+                ])),
+              ),
+            ),
+          )
+        else
+          const Padding(padding:EdgeInsets.symmetric(vertical:45),child:Icon(Icons.hourglass_top_rounded,color:Colors.white54,size:60)),
+        const SizedBox(height:20),
+        const Text("URUTAN PEMAIN",style:TextStyle(color:Colors.white70,fontSize:10,fontWeight:FontWeight.w900,letterSpacing:1.3)),
+        const SizedBox(height:9),
+        for(var i=0;i<taps.length;i++)
+          Container(
+            margin:const EdgeInsets.only(bottom:7),padding:const EdgeInsets.all(12),
+            decoration:BoxDecoration(color:Colors.white.withOpacity(.08),borderRadius:BorderRadius.circular(14)),
+            child:Row(children:[
+              Text("#${i+1}",style:const TextStyle(color:Color(0xFFFFD166),fontWeight:FontWeight.w900)),
+              const SizedBox(width:12),
+              Expanded(child:Text(playerName(taps[i]["actor_id"].toString()),style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w800))),
+              if(i==0)const Icon(Icons.emoji_events_rounded,color:Color(0xFFFFD166)),
+            ]),
+          ),
+        if(taps.isEmpty)const Text("Belum ada yang menekan.",style:TextStyle(color:Colors.white54,fontSize:11)),
+        if(host)
+          Padding(
+            padding:const EdgeInsets.only(top:16),
+            child:SizedBox(
+              width:double.infinity,height:52,
+              child:FilledButton(
+                onPressed:!open?()=>updateState({...state,"tap_open":true}):()=>round<2?updateState({...state,"round":round+1,"tap_open":false}):finish(),
+                style:FilledButton.styleFrom(backgroundColor:const Color(0xFFFFD166),foregroundColor:const Color(0xFF211744),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(16))),
+                child:Text(!open?"BUKA ABA-ABA":round<2?"RONDE BERIKUTNYA":"SELESAI"),
+              ),
+            ),
+          ),
+      ]),
+    );
+  }
+  Widget thisOrThatPanel(){
+    const prompts=[
+      ["Latihan pagi","Latihan sore"],
+      ["Tampil di panggung besar","Tampil di acara sekolah"],
+      ["Rebana","Darbuka"],
+      ["Makan bersama","Nonton bersama"],
+      ["Lagu cepat","Lagu bertempo santai"],
+      ["Jadi pemain inti","Jadi koordinator acara"],
+      ["Latihan rutin","Latihan intensif menjelang tampil"],
+      ["Kerja tim","Tantangan individu"],
+    ];
+    final round=(state["round"] as num?)?.toInt()??0;
+    if(round>=prompts.length)return results();
+    final options=prompts[round];
+    final uid=db.auth.currentUser!.id;
+    final votes=events.where((e)=>e["event_type"]=="choice_vote"&&e["payload"]["round"]==round).toList();
+    final mine=votes.any((e)=>e["actor_id"]==uid);
+    final tally=[0,0];
+    for(final v in votes){final n=(v["payload"]["choice"] as num?)?.toInt()??-1;if(n>=0&&n<2)tally[n]++;}
+    return SingleChildScrollView(
+      padding:const EdgeInsets.fromLTRB(18,12,18,20),
+      child:Column(children:[
+        Container(
+          width:double.infinity,padding:const EdgeInsets.all(22),
+          decoration:BoxDecoration(gradient:const LinearGradient(colors:[Color(0xFF087E8B),Color(0xFF5A4ACB)]),borderRadius:BorderRadius.circular(24)),
+          child:Column(children:[
+            const Icon(Icons.thumbs_up_down_rounded,color:Color(0xFFFFD166),size:38),
+            const SizedBox(height:10),
+            const Text("THIS OR THAT",style:TextStyle(color:Colors.white,fontSize:23,fontWeight:FontWeight.w900,letterSpacing:1)),
+            const SizedBox(height:6),
+            Text("PILIHAN ${round+1} / ${prompts.length}",style:const TextStyle(color:Colors.white70,fontSize:10,fontWeight:FontWeight.w900,letterSpacing:1.4)),
+          ]),
+        ),
+        const SizedBox(height:22),
+        for(var i=0;i<2;i++)
+          Padding(
+            padding:const EdgeInsets.only(bottom:12),
+            child:Material(
+              color:mine?Colors.white.withOpacity(.06):const Color(0xFF4C439C),
+              borderRadius:BorderRadius.circular(20),
+              child:InkWell(
+                onTap:mine?null:()=>emit("choice_vote",{"round":round,"choice":i}),
+                borderRadius:BorderRadius.circular(20),
+                child:Container(
+                  width:double.infinity,padding:const EdgeInsets.all(23),
+                  decoration:BoxDecoration(borderRadius:BorderRadius.circular(20),border:Border.all(color:const Color(0xFF9A8FEA).withOpacity(.4))),
+                  child:Column(children:[
+                    Text(i==0?"A":"B",style:const TextStyle(color:Color(0xFFFFD166),fontSize:12,fontWeight:FontWeight.w900)),
+                    const SizedBox(height:7),
+                    Text(options[i],textAlign:TextAlign.center,style:const TextStyle(color:Colors.white,fontSize:20,fontWeight:FontWeight.w900)),
+                    const SizedBox(height:8),
+                    Text("${tally[i]} suara",style:const TextStyle(color:Colors.white70,fontSize:11,fontWeight:FontWeight.w700)),
+                  ]),
+                ),
+              ),
+            ),
+          ),
+        if(mine)const Text("Pilihanmu sudah dikirim. Tunggu host.",style:TextStyle(color:Color(0xFF70E2B2),fontSize:11,fontWeight:FontWeight.w800)),
+        if(host)
+          Padding(
+            padding:const EdgeInsets.only(top:12),
+            child:SizedBox(
+              width:double.infinity,height:52,
+              child:FilledButton(
+                onPressed:()=>round+1<prompts.length?updateState({...state,"round":round+1}):finish(),
+                style:FilledButton.styleFrom(backgroundColor:const Color(0xFFFFD166),foregroundColor:const Color(0xFF211744),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(16))),
+                child:Text(round+1<prompts.length?"PERTANYAAN BERIKUTNYA":"LIHAT HASIL"),
+              ),
+            ),
+          ),
+        const SizedBox(height:16),
+        scoreboard(),
+      ]),
+    );
   }
   Widget scoreboard(){
     final sorted=players.toList()..sort((a,b)=>score(b["user_id"].toString()).compareTo(score(a["user_id"].toString())));
@@ -458,11 +657,20 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
   );
 }
 class _GamePainter extends CustomPainter{
-  _GamePainter(this.events,this.current);final List<Map<String,dynamic>> events;final List<Offset> current;
+  _GamePainter(this.events,this.current,this.currentColor,this.currentWidth);
+  final List<Map<String,dynamic>> events;final List<Offset> current;final Color currentColor;final double currentWidth;
+  void stroke(Canvas canvas,Size size,List<dynamic> raw,Color color,double width){
+    if(raw.length<2)return;final pts=<Offset>[];
+    for(final v in raw){if(v is! Map)continue;final x=(v['x'] as num?)?.toDouble()??0;final y=(v['y'] as num?)?.toDouble()??0;pts.add(Offset(x*size.width,y*size.height));}
+    if(pts.length<2)return;final path=Path()..moveTo(pts.first.dx,pts.first.dy);
+    if(pts.length==2){path.lineTo(pts.last.dx,pts.last.dy);}else{for(var i=1;i<pts.length-1;i++){final mid=Offset((pts[i].dx+pts[i+1].dx)/2,(pts[i].dy+pts[i+1].dy)/2);path.quadraticBezierTo(pts[i].dx,pts[i].dy,mid.dx,mid.dy);}path.lineTo(pts.last.dx,pts.last.dy);}
+    final p=Paint()..color=color..strokeWidth=width..strokeCap=StrokeCap.round..strokeJoin=StrokeJoin.round..style=PaintingStyle.stroke..isAntiAlias=true;canvas.drawPath(path,p);
+  }
   @override void paint(Canvas canvas,Size size){
-    final p=Paint()..color=const Color(0xFF167D68)..strokeWidth=4..strokeCap=StrokeCap.round..style=PaintingStyle.stroke;
-    for(final e in events){final raw=e['payload'] is Map?e['payload']['points']:null;if(raw is! List||raw.length<2)continue;final path=Path();for(var i=0;i<raw.length;i++){final v=raw[i];if(v is! Map)continue;final x=(v['x'] as num?)?.toDouble()??0;final y=(v['y'] as num?)?.toDouble()??0;if(i==0)path.moveTo(x,y);else path.lineTo(x,y);}canvas.drawPath(path,p);}
-    if(current.length>1){final path=Path()..moveTo(current.first.dx,current.first.dy);for(final v in current.skip(1)){path.lineTo(v.dx,v.dy);}canvas.drawPath(path,p);}
+    final visible=<Map<String,dynamic>>[];
+    for(final e in events){final type=e['event_type'];if(type=='clear'){visible.clear();}else if(type=='undo'){visible.removeWhere((v)=>v['id']==e['payload']?['target']);}else if(type=='draw'){visible.add(e);}}
+    for(final e in visible){final payload=e['payload'] is Map ? e['payload'] as Map : <String,dynamic>{};final raw=payload['points'];if(raw is! List)continue;final color=Color((payload['color'] as num?)?.toInt()??const Color(0xFF167D68).value);final width=(payload['width'] as num?)?.toDouble()??5;stroke(canvas,size,raw,color,width);}
+    if(current.length>1)stroke(canvas,size,current.map((p)=>{'x':p.dx,'y':p.dy}).toList(),currentColor,currentWidth);
   }
   @override bool shouldRepaint(covariant _GamePainter old)=>true;
 }
