@@ -218,7 +218,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
         final answer=(gs['answer']??'').toString().toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'),'');
         final alreadyScored=(x[2] as List).any((e)=>e['event_type']=='word_answer'&&e['payload'] is Map&&e['payload']['round']==round&&e['payload']['correct']==true);
         final correct=(x[2] as List).where((e){if(e['event_type']!='word_answer'||e['payload'] is! Map||e['payload']['round']!=round)return false;return (e['payload']['text']??'').toString().toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'),'')==answer;}).toList();
-        if(correct.isNotEmpty&&!alreadyScored&&!_rotatingDraw){_rotatingDraw=true;final win=correct.first;Future.microtask(()async{await db.from('multiplayer_events').insert({'room_id':id,'actor_id':win['actor_id'],'event_type':'word_answer','payload':{'round':round,'text':win['payload']['text'],'correct':true}});final next=round+1;if(next>=10){await finish();}else{await updateState(_newWordRound(nextRoom['game_type'].toString(),next));}_rotatingDraw=false;});}
+        if(correct.isNotEmpty&&!alreadyScored&&!_rotatingDraw){_rotatingDraw=true;Future.microtask(()async{final next=round+1;if(next>=10){await finish();}else{await updateState(_newWordRound(nextRoom['game_type'].toString(),next));}_rotatingDraw=false;});}
       }
       if(justStarted)Future.delayed(const Duration(milliseconds:1700),(){
         if(mounted)setState(()=>showGameIntro=false);
@@ -602,7 +602,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
       scoreboard(),
     ]));
   }
-  Future<void> _submitWordAnswer(String value,int round)async{final text=value.trim();if(text.isEmpty)return;guess.clear();await emit('word_answer',{'round':round,'text':text});}
+  Future<void> _submitWordAnswer(String value,int round)async{final text=value.trim();if(text.isEmpty)return;guess.clear();final normalized=text.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'),'');final answer=(state['answer']??'').toString().toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'),'');await emit('word_answer',{'round':round,'text':text,'correct':normalized==answer});}
   Widget reactionPanel(){
     final round=(state["round"] as num?)?.toInt()??0;
     final open=state["tap_open"]==true;
