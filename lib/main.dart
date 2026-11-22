@@ -19,6 +19,7 @@ import 'work_programs_screen.dart';
 import 'community_hub_screen.dart';
 import 'management_hub_screen.dart';
 import 'marawis_smart_screen.dart';
+import 'voting_screen.dart';
 
 const supabaseUrl = 'https://yatbnzczricrwrqhzsqr.supabase.co';
 const supabasePublishableKey = 'sb_publishable_Uz6EYSbI3Nhj28uP3lEFsw_nCbEYMHS';
@@ -1114,6 +1115,15 @@ class HomeScreen extends StatelessWidget {
               color: const Color(0xFFEAF4EF),
               iconColor: const Color(0xFF167D68),
               onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => CommunityHubScreen(role: role))),
+            ),
+            const SizedBox(height: 14),
+            _MenuCard(
+              icon: Icons.how_to_vote_rounded,
+              title: 'Voting Digital',
+              subtitle: 'Berikan suara & lihat hasil voting',
+              color: const Color(0xFFEAF0FF),
+              iconColor: const Color(0xFF4268C5),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => VotingScreen(role: role))),
             ),
             const SizedBox(height: 14),
             _MenuCard(
