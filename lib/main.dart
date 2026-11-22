@@ -1344,10 +1344,10 @@ class _DraggableMarwiState extends State<_DraggableMarwi> {
                       child: SizedBox(
                         width: 116,
                         height: 132,
-                        child: Image.asset(
-                          'assets/images/marwi.webp',
+                        child: Image.network(
+                          'https://raw.githubusercontent.com/marawissmpn99jkt-boop/marawis-smpn99-app./main/assets/images/marwi.webp?v=2',
                           fit: BoxFit.contain,
-                          errorBuilder: (_, __, ___) => const Icon(Icons.music_note_rounded, size: 72, color: Color(0xFF167D68)),
+                          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
                         ),
                       ),
                     ),
