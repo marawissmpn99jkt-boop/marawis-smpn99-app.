@@ -132,15 +132,22 @@ class _QrCheckinScreenState extends State<QrCheckinScreen> {
     }
     setState(() => _busy = true);
     try {
-      final result = await _db.rpc('marawis_check_in', params: {
-        'p_activity_id': activityId,
-        'p_token': parts[2],
+      await _db.from('attendance').insert({
+        'activity_id': activityId,
+        'member_id': _db.auth.currentUser!.id,
+        'status': 'hadir',
+        'notes': 'QR:${parts[2]}',
+        'marked_by': _db.auth.currentUser!.id,
       });
-      final data = Map<String, dynamic>.from(result as Map);
-      _message(data['message']?.toString() ?? 'Check-in selesai.');
+      _message('Check-in berhasil. Kehadiran kamu sudah tercatat.');
     } catch (error) {
-      _message('Check-in gagal: $error');
-      _lastScan = null;
+      final detail = error.toString();
+      if (detail.contains('duplicate key') || detail.contains('23505')) {
+        _message('Kehadiran untuk kegiatan ini sudah tercatat sebelumnya.');
+      } else {
+        _message(detail.replaceFirst('Exception: ', ''));
+        _lastScan = null;
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
