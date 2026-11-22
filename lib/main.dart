@@ -1190,50 +1190,19 @@ class HomeScreen extends StatelessWidget {
                             ),
                           ),
                         ],
-                      ),
-                    ),
-                    Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Color(0xFF167D68)),
-                  ],
-                ),
+          ),
+          Positioned.fill(
+            child: _DraggableMarwi(
+              displayName: displayName,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => MarawisSmartScreen(role: role)),
               ),
             ),
-            const SizedBox(height: 22),
-            const Center(
-              child: Text(
-                'MARAWIS SMPN 99 JAKARTA • 2026/2027',
-                style: TextStyle(
-                  color: Color(0xFF9AA69F),
-                  fontSize: 10,
-                  letterSpacing: 1,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            ],
-            ),
-            Positioned.fill(
-              child: _DraggableMarwi(
-                displayName: displayName,
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => MarawisSmartScreen(role: role)),
-                ),
-              ),
-            ),
-            ],
-            ),
-            Positioned.fill(
-              child: _DraggableMarwi(
-                displayName: displayName,
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => MarawisSmartScreen(role: role)),
-                ),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
 }
 
 class _DraggableMarwi extends StatefulWidget {
