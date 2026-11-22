@@ -1138,15 +1138,17 @@ class HomeScreen extends StatelessWidget {
               onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => MarawisSmartScreen(role: role))),
             ),
             const SizedBox(height: 14),
-            _MenuCard(
-              icon: Icons.qr_code_scanner_rounded,
-              title: 'Check-in Kegiatan',
-              subtitle: 'Presensi menggunakan QR',
-              color: const Color(0xFFE7F4EE),
-              iconColor: const Color(0xFF167D68),
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => QrCheckinScreen(role: role))),
-            ),
-            const SizedBox(height: 14),
+            if (isAdmin) ...[
+              _MenuCard(
+                icon: Icons.qr_code_scanner_rounded,
+                title: 'Check-in Kegiatan',
+                subtitle: 'Scan QR anggota untuk presensi',
+                color: const Color(0xFFE7F4EE),
+                iconColor: const Color(0xFF167D68),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => QrCheckinScreen(role: role))),
+              ),
+              const SizedBox(height: 14),
+            ],
             _MenuCard(
               icon: Icons.badge_rounded,
               title: 'Kartu Identitas Digital',
