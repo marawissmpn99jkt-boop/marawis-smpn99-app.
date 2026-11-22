@@ -21,6 +21,8 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
   RealtimeChannel? channel;
   bool busy=false;
   bool showGameIntro=false;
+  Timer? _gameClock;
+  bool _timeoutHandled=false;
   Color brushColor=const Color(0xFF167D68);
   double brushSize=5;
   bool eraser=false;
@@ -92,7 +94,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
   List<List<Offset>> localStrokes=[];
   List<Offset> activeStroke=[];
   @override void initState(){super.initState();loadRooms();}
-  @override void dispose(){channel?.unsubscribe();guess.dispose();super.dispose();}
+  @override void dispose(){channel?.unsubscribe();_gameClock?.cancel();guess.dispose();super.dispose();}
   void msg(String s){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(s)));}
   Future<String> displayName()async{
     final id=db.auth.currentUser!.id;
@@ -147,12 +149,28 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
       if(!mounted)return;
       final nextRoom=Map<String,dynamic>.from(x[0] as Map);
       final justStarted=room?["status"]!="playing"&&nextRoom["status"]=="playing";
+      final previousDrawer=room?['game_state'] is Map ? room?['game_state']['drawer_id']?.toString() : null;
+      final nextDrawer=nextRoom['game_state'] is Map ? nextRoom['game_state']['drawer_id']?.toString() : null;
+      final uid=db.auth.currentUser?.id;
+      if(nextDrawer!=null&&nextDrawer!=previousDrawer&&nextDrawer==uid){secretWord=words[Random.secure().nextInt(words.length)];localStrokes=[];activeStroke=[];}
       setState(() {
         room=nextRoom;
         players=List<Map<String,dynamic>>.from(x[1] as List);
         events=List<Map<String,dynamic>>.from(x[2] as List);
         if(justStarted)showGameIntro=true;
       });
+      if(nextRoom['status']=='playing'&&nextRoom['game_type']=='draw_guess')_startGameClock();else {_gameClock?.cancel();_gameClock=null;}
+      if(host&&nextRoom['game_type']=='draw_guess'){
+        final gs=Map<String,dynamic>.from(nextRoom['game_state']??{});
+        final processed=(gs['last_rotation_event_id'] as num?)?.toInt()??0;
+        final accepted=(x[2] as List).where((e)=>e['event_type']=='guess'&&e['payload'] is Map&&e['payload']['accepted']==true&&((e['id'] as num?)?.toInt()??0)>processed).toList();
+        if(accepted.isNotEmpty){
+          final event=accepted.last;
+          final target=event['payload']['target']?.toString();
+          final eventId=(event['id'] as num?)?.toInt()??processed;
+          if(target!=null&&target!=gs['drawer_id']?.toString())Future.microtask(()=>updateState({...gs,'drawer_id':target,'round':((gs['round'] as num?)?.toInt()??0)+1,'last_rotation_event_id':eventId,'phase':'draw'}));
+        }
+      }
       if(justStarted)Future.delayed(const Duration(milliseconds:1700),(){
         if(mounted)setState(()=>showGameIntro=false);
       });
@@ -160,6 +178,27 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
   }
   bool get host=>room?['host_id']==db.auth.currentUser?.id;
   Map<String,dynamic> get state=>Map<String,dynamic>.from(room?['game_state']??{});
+  DateTime? get _drawEndsAt {
+    final raw=state['started_at']?.toString();
+    final started=raw==null?null:DateTime.tryParse(raw)?.toLocal();
+    if(started==null)return null;
+    final seconds=(state['duration_seconds'] as num?)?.toInt()??480;
+    return started.add(Duration(seconds:seconds));
+  }
+  int get _drawSecondsLeft {
+    final end=_drawEndsAt;
+    if(end==null)return 480;
+    return end.difference(DateTime.now()).inSeconds.clamp(0,480);
+  }
+  void _startGameClock(){
+    if(_gameClock!=null)return;
+    _gameClock=Timer.periodic(const Duration(seconds:1),(_){
+      if(!mounted)return;
+      setState((){});
+      if(_drawSecondsLeft<=0&&host&&!_timeoutHandled){_timeoutHandled=true;finish();}
+    });
+  }
+  String _formatClock(int seconds)=>(seconds~/60).toString().padLeft(2,'0')+':'+(seconds%60).toString().padLeft(2,'0');
   Future<void> emit(String type,Map<String,dynamic> payload)async{
     try{await db.from('multiplayer_events').insert({'room_id':roomId,'actor_id':db.auth.currentUser!.id,'event_type':type,'payload':payload});}
     catch(e){msg('Aksi gagal: '+e.toString());}
@@ -176,7 +215,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
       s['question_order']=order.take(20).toList();
       s['answer_orders']=(s['question_order'] as List).map((_)=>[0,1,2,3]..shuffle(Random.secure())).toList();
     }
-    if(type=='draw_guess'){secretWord=words[Random.secure().nextInt(words.length)];s['drawer_id']=db.auth.currentUser!.id;}
+    if(type=='draw_guess'){secretWord=words[Random.secure().nextInt(words.length)];s['drawer_id']=db.auth.currentUser!.id;s['started_at']=DateTime.now().toUtc().toIso8601String();s['duration_seconds']=480;s['last_rotation_event_id']=0;_timeoutHandled=false;}
     if(type=='reaction_rush'){s['tap_open']=false;s['round']=0;}
     if(type=='this_or_that'){s['round']=0;}
     await updateState(s,status:'playing');
@@ -192,7 +231,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
   Future<void> leave()async{
     final id=roomId;if(id==null)return;
     try{if(host)await db.from('multiplayer_rooms').update({'status':'finished','game_state':{...state,'phase':'finished'}}).eq('id',id);await db.from('multiplayer_players').delete().eq('room_id',id).eq('user_id',db.auth.currentUser!.id);}catch(_){}
-    await channel?.unsubscribe();_exitImmersiveMode();if(mounted)setState(() { roomId=null; room=null; players=[]; events=[]; secretWord=null; activeStroke=[]; });widget.onGameActive?.call(false);loadRooms();
+    await channel?.unsubscribe();_gameClock?.cancel();_gameClock=null;_exitImmersiveMode();if(mounted)setState(() { roomId=null; room=null; players=[]; events=[]; secretWord=null; activeStroke=[]; });widget.onGameActive?.call(false);loadRooms();
   }
   Future<void> finish()async=>updateState({...state,'phase':'finished'},status:'finished');
   String title(String key)=>key=='quiz_arena'?'Marawis Quiz Arena':key=='who_leader'?'Who Is The Leader?':key=='reaction_rush'?'Reaction Rush':key=='this_or_that'?'This or That':'Draw & Guess';
@@ -424,9 +463,9 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
     final guesses=events.where((e)=>e["event_type"]=="guess"&&e["payload"]["accepted"]!=true).toList();
     const palette=[Color(0xFF167D68),Color(0xFF252525),Color(0xFFE64B4B),Color(0xFF3678E8),Color(0xFFFFB52E),Color(0xFF9856D8),Color(0xFFFF70A6),Color(0xFF8B5A2B)];
     return SingleChildScrollView(padding:const EdgeInsets.fromLTRB(14,8,14,18),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-      Container(width:double.infinity,padding:const EdgeInsets.all(17),decoration:BoxDecoration(gradient:const LinearGradient(colors:[Color(0xFFE46C32),Color(0xFFB64F80)]),borderRadius:BorderRadius.circular(22)),child:Row(children:[
-        const Icon(Icons.draw_rounded,color:Colors.white,size:34),const SizedBox(width:11),
-        Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text("DRAW & GUESS",style:TextStyle(color:Colors.white,fontSize:19,fontWeight:FontWeight.w900)),Text(canDraw?"Gambar dengan bebas, temanmu akan menebak!":"Perhatikan gambar dan kirim tebakanmu.",style:const TextStyle(color:Colors.white70,fontSize:11))])),
+      Container(width:double.infinity,padding:const EdgeInsets.all(17),decoration:BoxDecoration(gradient:const LinearGradient(colors:[Color(0xFFE46C32),Color(0xFFB64F80)]),borderRadius:BorderRadius.circular(22)),child:Column(children:[
+        Row(children:[const Icon(Icons.draw_rounded,color:Colors.white,size:34),const SizedBox(width:11),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text("DRAW & GUESS",style:TextStyle(color:Colors.white,fontSize:19,fontWeight:FontWeight.w900)),Text(canDraw?"Giliranmu menggambar!":"Tebak gambar untuk mengambil giliran berikutnya.",style:const TextStyle(color:Colors.white70,fontSize:11))])),Container(padding:const EdgeInsets.symmetric(horizontal:11,vertical:8),decoration:BoxDecoration(color:Colors.black.withOpacity(.18),borderRadius:BorderRadius.circular(12)),child:Column(children:[const Text('SISA WAKTU',style:TextStyle(color:Colors.white70,fontSize:8,fontWeight:FontWeight.w900)),Text(_formatClock(_drawSecondsLeft),style:TextStyle(color:_drawSecondsLeft<60?const Color(0xFFFF8A80):Colors.white,fontSize:17,fontWeight:FontWeight.w900))]))]),
+        const SizedBox(height:8),Align(alignment:Alignment.centerLeft,child:Text('GILIRAN: '+playerName(drawer??''),style:const TextStyle(color:Color(0xFFFFD166),fontSize:10,fontWeight:FontWeight.w900,letterSpacing:1.1))),
       ])),
       const SizedBox(height:12),
       if(canDraw)Container(width:double.infinity,padding:const EdgeInsets.symmetric(horizontal:14,vertical:12),decoration:BoxDecoration(color:const Color(0xFFFFD166).withOpacity(.13),borderRadius:BorderRadius.circular(14),border:Border.all(color:const Color(0xFFFFD166).withOpacity(.3))),child:Row(children:[const Icon(Icons.lightbulb_rounded,color:Color(0xFFFFD166),size:20),const SizedBox(width:8),Expanded(child:Text("KATA RAHASIA  •  "+(secretWord??"MARAWIS"),style:const TextStyle(color:Color(0xFFFFD166),fontWeight:FontWeight.w900,letterSpacing:1)))])),
