@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 import 'dart:html' as html;
 import 'package:flutter/services.dart';
+import 'package:chess/chess.dart' as chess_lib;
 import 'package:material_ui/material_ui.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -26,6 +27,8 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
   bool _refreshing=false;
   bool _timeoutHandled=false;
   bool _rotatingDraw=false;
+  bool _processingChess=false;
+  String? _selectedChessSquare;
   Color brushColor=const Color(0xFF167D68);
   double brushSize=5;
   bool eraser=false;
@@ -134,7 +137,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
     if(!staff)return;
     try{
       final code=List.generate(6,(_)=>Random.secure().nextInt(10)).join();
-      final x=await db.from('multiplayer_rooms').insert({'room_code':code,'game_type':game,'host_id':db.auth.currentUser!.id,'max_players':50,'game_state':{}}).select().single();
+      final x=await db.from('multiplayer_rooms').insert({'room_code':code,'game_type':game,'host_id':db.auth.currentUser!.id,'max_players':game=='marawis_chess'?2:50,'game_state':{}}).select().single();
       _enterImmersiveMode();
       await enter(Map<String,dynamic>.from(x));
     }catch(e){msg('Gagal membuat room: '+e.toString());}
@@ -152,7 +155,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
       final old=await db.from('multiplayer_players').select('id').eq('room_id',r['id']).eq('user_id',uid).maybeSingle();
       if(old==null){
         final current=await db.from('multiplayer_players').select('id').eq('room_id',r['id']);
-        final cap=((r['max_players'] as num?)?.toInt()??50).clamp(1,50);
+        final cap=r['game_type']=='marawis_chess'?2:((r['max_players'] as num?)?.toInt()??50).clamp(1,50);
         if(current.length>=cap){msg('Room sudah penuh (maksimal '+cap.toString()+' pemain).');return;}
         await db.from('multiplayer_players').insert({'room_id':r['id'],'user_id':uid,'display_name':await displayName()});
       }
@@ -201,6 +204,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
         }).toList();
         if(correct.isNotEmpty){final winner=correct.first['actor_id'].toString();Future.microtask(()=>emit('guess',{'accepted':true,'target':winner}));}
       }
+      if(host&&nextRoom['game_type']=='marawis_chess'&&!_processingChess){Future.microtask(()=>_processChessMoves(nextRoom,List<Map<String,dynamic>>.from(x[2] as List)));}
       if(host&&nextRoom['game_type']=='draw_guess'&&!_rotatingDraw){
         final gs=Map<String,dynamic>.from(nextRoom['game_state']??{});
         final processed=(gs['last_rotation_event_id'] as num?)?.toInt()??0;
@@ -245,10 +249,12 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
       if(!mounted)return;
       setState((){});
       if(room?['game_type']=='draw_guess'&&_drawSecondsLeft<=0&&host&&!_timeoutHandled){_timeoutHandled=true;finish();}
+      if(room?['game_type']=='marawis_chess'&&_chessSecondsLeft<=0&&host&&!_timeoutHandled){_timeoutHandled=true;finish();}
       if(['word_guess','word_scramble','emoji_guess'].contains(room?['game_type'])&&_wordSecondsLeft<=0&&host&&!_timeoutHandled){_timeoutHandled=true;final round=(state['round'] as num?)?.toInt()??0;Future.microtask(()async{if(round>=9){await finish();}else{await updateState(_newWordRound(room!['game_type'].toString(),round+1));}_timeoutHandled=false;});}
     });
   }
   String _formatClock(int seconds)=>(seconds~/60).toString().padLeft(2,'0')+':'+(seconds%60).toString().padLeft(2,'0');
+  int get _chessSecondsLeft{final started=DateTime.tryParse(state['turn_started_at']?.toString()??'');if(started==null)return 300;return (300-DateTime.now().toUtc().difference(started.toUtc()).inSeconds).clamp(0,300);}
   int get _wordSecondsLeft{final started=DateTime.tryParse(state['round_started_at']?.toString()??'');if(started==null)return 45;return (45-DateTime.now().toUtc().difference(started.toUtc()).inSeconds).clamp(0,45);}
   Map<String,dynamic> _newWordRound(String type,int round){final item=wordChallenges[Random.secure().nextInt(wordChallenges.length)];final answer=item['word']!.toString();final letters=answer.split('')..shuffle(Random.secure());return {'round':round,'phase':'guess','answer':answer,'clue':item['clue'],'emoji':item['emoji'],'scrambled':letters.join(''),'round_started_at':DateTime.now().toUtc().toIso8601String()};}
   Future<void> emit(String type,Map<String,dynamic> payload)async{
@@ -269,6 +275,12 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
     }
     if(type=='draw_guess'){secretWord=words[Random.secure().nextInt(words.length)];s['drawer_id']=db.auth.currentUser!.id;s['started_at']=DateTime.now().toUtc().toIso8601String();s['duration_seconds']=480;s['last_rotation_event_id']=0;_timeoutHandled=false;}
     if(['word_guess','word_scramble','emoji_guess'].contains(type))s.addAll(_newWordRound(type,0));
+    if(type=='marawis_chess'){
+      if(players.length<2){msg('Catur butuh 2 pemain. Undang satu teman dulu!');return;}
+      final opponent=players.firstWhere((p)=>p['user_id']!=db.auth.currentUser!.id);
+      s.addAll({'fen':chess_lib.Chess().fen,'white_id':db.auth.currentUser!.id,'black_id':opponent['user_id'],'turn_started_at':DateTime.now().toUtc().toIso8601String(),'last_chess_event_id':0,'move_log':[],'phase':'playing'});
+      _timeoutHandled=false;
+    }
     if(type=='reaction_rush'){s['tap_open']=false;s['round']=0;}
     if(type=='this_or_that'){s['round']=0;}
     await updateState(s,status:'playing');
@@ -287,7 +299,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
     await channel?.unsubscribe();_gameClock?.cancel();_gameClock=null;_syncClock?.cancel();_syncClock=null;_exitImmersiveMode();if(mounted)setState(() { roomId=null; room=null; players=[]; events=[]; secretWord=null; activeStroke=[]; });widget.onGameActive?.call(false);loadRooms();
   }
   Future<void> finish()async=>updateState({...state,'phase':'finished'},status:'finished');
-  String title(String key)=>key=='quiz_arena'?'Marawis Quiz Arena':key=='who_leader'?'Who Is The Leader?':key=='reaction_rush'?'Reaction Rush':key=='this_or_that'?'This or That':key=='word_guess'?'Tebak Kata':key=='word_scramble'?'Susun Huruf':key=='emoji_guess'?'Tebak Emoji':'Draw & Guess';
+  String title(String key)=>key=='quiz_arena'?'Marawis Quiz Arena':key=='who_leader'?'Who Is The Leader?':key=='reaction_rush'?'Reaction Rush':key=='this_or_that'?'This or That':key=='word_guess'?'Tebak Kata':key=='word_scramble'?'Susun Huruf':key=='emoji_guess'?'Tebak Emoji':key=='marawis_chess'?'Marawis Chess Arena':'Draw & Guess';
   Map<String,dynamic> player(String id)=>players.firstWhere((p)=>p['user_id']==id,orElse:()=>{});
   String playerName(String id)=>(player(id)['display_name']??'Pemain').toString();
   int score(String id)=>events.where((e){if(e['event_type']=='word_answer'&&e['actor_id']==id&&e['payload']['correct']==true)return true;if(e['event_type']=='reaction_tap'&&e['actor_id']==id)return true;if(e['event_type']=='answer'&&e['actor_id']==id){final round=(e['payload']['round'] as num?)?.toInt()??-1;final choice=(e['payload']['choice'] as num?)?.toInt()??-1;final order=state['question_order'] is List?List<int>.from(state['question_order'] as List):List<int>.generate(questions.length,(i)=>i);final qIndex=round>=0&&round<order.length?order[round]:-1;final answerOrders=state['answer_orders'] is List?state['answer_orders'] as List:[];final answerOrder=round>=0&&round<answerOrders.length?List<int>.from(answerOrders[round] as List):[0,1,2,3];return qIndex>=0&&qIndex<questions.length&&choice>=0&&choice<answerOrder.length&&answerOrder[choice]==questions[qIndex]['c'];}return e['event_type']=='guess'&&e['payload']['accepted']==true&&e['payload']['target']==id;}).length*10;
@@ -327,6 +339,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
       cardGame('word_guess','Tebak Kata','Pecahkan petunjuk sebelum waktu habis.',Icons.psychology_alt_rounded),
       cardGame('word_scramble','Susun Huruf','Acak huruf jadi kata yang benar.',Icons.sort_by_alpha_rounded),
       cardGame('emoji_guess','Tebak Emoji','Tebak kata dari kombinasi emoji.',Icons.emoji_emotions_rounded),
+      cardGame('marawis_chess','Marawis Chess Arena','Catur klasik dengan bidak alat musik Marawis.',Icons.grid_4x4_rounded),
       const SizedBox(height:18),Row(children:[const Expanded(child:Text('Room tersedia',style:TextStyle(fontWeight:FontWeight.w900,fontSize:17))),IconButton(onPressed:loadRooms,icon:const Icon(Icons.refresh))]),
       if(rooms.isEmpty)const Padding(padding:EdgeInsets.all(20),child:Text('Belum ada room yang menunggu pemain.',textAlign:TextAlign.center)) else for(final r in rooms)Card(color:Colors.white,child:ListTile(title:Text(title(r['game_type'].toString())),subtitle:Text('Kode '+r['room_code'].toString()+' • Maks. '+r['max_players'].toString()+' pemain'),trailing:FilledButton(onPressed:()=>enter(r),child:const Text('Gabung')))),
       const SizedBox(height:12),OutlinedButton.icon(onPressed:()=>showModalBottomSheet(context:context,isScrollControlled:true,builder:(_)=>SizedBox(height:500,child:widget.soloGame)),icon:const Icon(Icons.person),label:const Text('Mainkan tantangan solo')),
@@ -436,6 +449,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
     ]));
   }));
   Widget gamePanel(){
+    if(room!['game_type']=='marawis_chess')return chessPanel();
     final key=room!['game_type'].toString();
     if(key=='quiz_arena')return quizPanel();
     if(key=='who_leader')return leaderPanel();
