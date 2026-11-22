@@ -918,7 +918,9 @@ class HomeScreen extends StatelessWidget {
         ],
       ),
       body: SafeArea(
-        child: ListView(
+        child: Stack(
+          children: [
+            ListView(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
           children: [
             _LatestEmergencyBanner(role: role),
@@ -996,117 +998,6 @@ class HomeScreen extends StatelessWidget {
                   ],
                 ),
               ),
-            Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => MarawisSmartScreen(role: role),
-                  ),
-                ),
-                borderRadius: BorderRadius.circular(26),
-                child: Ink(
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(26),
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF126B5B), Color(0xFF28A987)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF167D68).withValues(alpha: 0.18),
-                        blurRadius: 18,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.16),
-                                borderRadius: BorderRadius.circular(30),
-                              ),
-                              child: const Text(
-                                "MASKOT MARAWIS • MA'RWI",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 9,
-                                  letterSpacing: 1,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              'Assalamualaikum, $displayName!',
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 21,
-                                height: 1.2,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                            const SizedBox(height: 7),
-                            const Text(
-                              'Gimana kabar antum hari ini? Sehat?',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 13,
-                                height: 1.4,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                const Text(
-                                  'Ngobrol dengan Ma\'rwi AI',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 16),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Container(
-                        width: 112,
-                        height: 132,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.14),
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
-                        ),
-                        clipBehavior: Clip.antiAlias,
-                        child: Image.asset(
-                          'assets/images/marwi.jpg',
-                          fit: BoxFit.contain,
-                          errorBuilder: (_, __, ___) => const Center(
-                            child: Text("MA'RWI", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
             const SizedBox(height: 26),
             const _SectionHeading(
               title: 'Menu utama',
@@ -1318,12 +1209,150 @@ class HomeScreen extends StatelessWidget {
                 ),
               ),
             ),
+            ],
+            ),
+            Positioned.fill(
+              child: _DraggableMarwi(
+                displayName: displayName,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => MarawisSmartScreen(role: role)),
+                ),
+              ),
+            ),
+            ],
+            ),
+            Positioned.fill(
+              child: _DraggableMarwi(
+                displayName: displayName,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => MarawisSmartScreen(role: role)),
+                ),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 }
+
+class _DraggableMarwi extends StatefulWidget {
+  const _DraggableMarwi({required this.displayName, required this.onTap});
+
+  final String displayName;
+  final VoidCallback onTap;
+
+  @override
+  State<_DraggableMarwi> createState() => _DraggableMarwiState();
+}
+
+class _DraggableMarwiState extends State<_DraggableMarwi> {
+  Offset? _position;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const itemWidth = 196.0;
+        const itemHeight = 208.0;
+        final maxLeft = (constraints.maxWidth - itemWidth).clamp(0.0, double.infinity);
+        final maxTop = (constraints.maxHeight - itemHeight).clamp(0.0, double.infinity);
+        final current = _position ??
+            Offset(maxLeft - 4, (maxTop - 12).clamp(0.0, double.infinity));
+
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned(
+              left: current.dx.clamp(0.0, maxLeft),
+              top: current.dy.clamp(0.0, maxTop),
+              child: GestureDetector(
+                onPanUpdate: (details) {
+                  setState(() {
+                    _position = Offset(
+                      (current.dx + details.delta.dx).clamp(0.0, maxLeft),
+                      (current.dy + details.delta.dy).clamp(0.0, maxTop),
+                    );
+                  });
+                },
+                child: SizedBox(
+                  width: itemWidth,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Container(
+                        width: 190,
+                        margin: const EdgeInsets.only(right: 3, bottom: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(17),
+                          border: Border.all(color: const Color(0xFFB9DED1)),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.12),
+                              blurRadius: 14,
+                              offset: const Offset(0, 5),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text(
+                              "MA'RWI",
+                              style: TextStyle(
+                                color: Color(0xFF167D68),
+                                fontSize: 10,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 1,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              'Assalamualaikum, ${widget.displayName}! Gimana kabar antum hari ini, sehat?',
+                              maxLines: 4,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Color(0xFF263B34),
+                                fontSize: 12,
+                                height: 1.3,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: widget.onTap,
+                        child: SizedBox(
+                          width: 116,
+                          height: 128,
+                          child: Image.asset(
+                            'assets/images/marwi.jpg',
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, __, ___) => const Icon(
+                              Icons.music_note_rounded,
+                              size: 72,
+                              color: Color(0xFF167D68),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
 
 
 class _LatestEmergencyBanner extends StatefulWidget {
