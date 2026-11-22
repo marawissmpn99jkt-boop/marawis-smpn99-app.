@@ -636,16 +636,6 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
     if(type.contains('bishop'))return 'KECREK';
     return 'MINI';
   }
-  IconData _chessPieceIcon(chess_lib.Piece? piece){
-    if(piece==null)return Icons.circle;
-    final type=piece.type.toString().toLowerCase();
-    if(type.contains('king'))return Icons.workspace_premium_rounded;
-    if(type.contains('queen'))return Icons.album_rounded;
-    if(type.contains('rook'))return Icons.hourglass_bottom_rounded;
-    if(type.contains('knight'))return Icons.music_note_rounded;
-    if(type.contains('bishop'))return Icons.notifications_active_rounded;
-    return Icons.circle_rounded;
-  }
   Future<void> _tapChessSquare(String square)async{
     if(room==null||room!['status']!='playing')return;
     final uid=db.auth.currentUser!.id;
@@ -712,7 +702,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
         return InkWell(onTap:()=>_tapChessSquare(square),child:Container(decoration:BoxDecoration(color:isSelected?const Color(0xFFFFD166):light?const Color(0xFFE8DCC4):const Color(0xFF826C91),border:Border.all(color:Colors.black.withOpacity(.07),width:.4)),child:Stack(alignment:Alignment.center,children:[
           if(isTarget)Container(width:piece==null?12:30,height:piece==null?12:30,decoration:BoxDecoration(color:const Color(0xFF30C69A).withOpacity(piece==null ? 0.65 : 0.22),shape:BoxShape.circle,border:piece==null?null:Border.all(color:const Color(0xFF30C69A),width:2))),
           if(piece!=null)Column(mainAxisAlignment:MainAxisAlignment.center,children:[
-            Container(width:MediaQuery.of(context).size.width/11,height:MediaQuery.of(context).size.width/11,constraints:const BoxConstraints(maxWidth:43,maxHeight:43,minWidth:20,minHeight:20),decoration:BoxDecoration(color:pieceColor,shape:BoxShape.circle,border:Border.all(color:ink.withOpacity(.45),width:1.4),boxShadow:[BoxShadow(color:Colors.black.withOpacity(.18),blurRadius:3,offset:const Offset(0,2))]),child:Icon(_chessPieceIcon(piece),color:ink,size:MediaQuery.of(context).size.width/18)),
+            Container(width:MediaQuery.of(context).size.width/11,height:MediaQuery.of(context).size.width/11,constraints:const BoxConstraints(maxWidth:43,maxHeight:43,minWidth:20,minHeight:20),decoration:BoxDecoration(color:pieceColor,shape:BoxShape.circle,border:Border.all(color:ink.withOpacity(.45),width:1.4),boxShadow:[BoxShadow(color:Colors.black.withOpacity(.18),blurRadius:3,offset:const Offset(0,2))]),child:CustomPaint(painter:_MarawisPiecePainter(piece!.type.toString().toLowerCase(),isWhitePiece),size:Size.infinite)),
             if(MediaQuery.of(context).size.width>390)Text(_chessPieceLabel(piece),maxLines:1,overflow:TextOverflow.clip,style:TextStyle(color:ink,fontSize:6,fontWeight:FontWeight.w900)),
           ]),
           if(col==0)Positioned(left:2,top:1,child:Text((8-boardRow).toString(),style:TextStyle(fontSize:8,color:light?const Color(0xFF6B5876):Colors.white70,fontWeight:FontWeight.w900))),
@@ -952,4 +942,56 @@ class _GamePainter extends CustomPainter{
     if(current.length>1)stroke(canvas,size,current.map((p)=>{'x':p.dx,'y':p.dy}).toList(),currentColor,currentWidth);
   }
   @override bool shouldRepaint(covariant _GamePainter old)=>true;
+}
+
+
+class _MarawisPiecePainter extends CustomPainter{
+  _MarawisPiecePainter(this.kind,this.light);
+  final String kind;
+  final bool light;
+  @override void paint(Canvas canvas,Size size){
+    final w=size.width,h=size.height;
+    final ink=Paint()..color=light?const Color(0xFF563B54):const Color(0xFF173C45)..style=PaintingStyle.fill..isAntiAlias=true;
+    final trim=Paint()..color=light?const Color(0xFFB77B37):const Color(0xFFB9F0E6)..style=PaintingStyle.stroke..strokeWidth=w*.065..isAntiAlias=true;
+    final fill=Paint()..color=light?const Color(0xFFFFD98D):const Color(0xFF4FA99E)..style=PaintingStyle.fill..isAntiAlias=true;
+    final cx=w/2;
+    if(kind.contains('king')){
+      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(w*.28,h*.3,w*.44,h*.52),Radius.circular(w*.12)),fill);
+      canvas.drawOval(Rect.fromLTWH(w*.25,h*.23,w*.5,h*.16),trim);
+      canvas.drawLine(Offset(w*.32,h*.3),Offset(w*.68,h*.3),trim);
+      final crown=Path()..moveTo(w*.3,h*.22)..lineTo(w*.34,h*.06)..lineTo(w*.48,h*.16)..lineTo(w*.62,h*.06)..lineTo(w*.7,h*.22)..close();
+      canvas.drawPath(crown,ink);canvas.drawPath(crown,trim);
+      canvas.drawRect(Rect.fromLTWH(w*.22,h*.82,w*.56,h*.08),ink);
+    }else if(kind.contains('queen')){
+      canvas.drawCircle(Offset(cx,h*.5),w*.34,fill);
+      canvas.drawCircle(Offset(cx,h*.5),w*.27,trim);
+      canvas.drawCircle(Offset(cx,h*.5),w*.08,ink);
+      for(final a in [0.0,1.57,3.14,4.71]){final p=Offset(cx+math.cos(a)*w*.17,h*.5+math.sin(a)*w*.17);canvas.drawCircle(p,w*.045,ink);}
+    }else if(kind.contains('rook')){
+      final p=Path()..moveTo(w*.3,h*.2)..lineTo(w*.7,h*.2)..lineTo(w*.58,h*.76)..lineTo(w*.42,h*.76)..close();
+      canvas.drawPath(p,fill);canvas.drawPath(p,trim);
+      canvas.drawOval(Rect.fromLTWH(w*.27,h*.12,w*.46,h*.16),ink);canvas.drawOval(Rect.fromLTWH(w*.27,h*.12,w*.46,h*.16),trim);
+      canvas.drawLine(Offset(w*.38,h*.46),Offset(w*.62,h*.46),trim);
+      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(w*.27,h*.78,w*.46,h*.1),Radius.circular(w*.04)),ink);
+    }else if(kind.contains('knight')){
+      for(final x in [w*.25,w*.58]){
+        canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(x,h*.27,w*.2,h*.48),Radius.circular(w*.07)),fill);
+        canvas.drawOval(Rect.fromLTWH(x-w*.025,h*.2,w*.25,h*.15),trim);
+        canvas.drawLine(Offset(x+w*.1,h*.35),Offset(x+w*.1,h*.68),trim);
+      }
+      canvas.drawLine(Offset(w*.2,h*.78),Offset(w*.82,h*.78),ink..strokeWidth=w*.07..strokeCap=StrokeCap.round);
+    }else if(kind.contains('bishop')){
+      canvas.drawLine(Offset(cx,h*.23),Offset(cx,h*.8),ink..strokeWidth=w*.09..strokeCap=StrokeCap.round);
+      canvas.drawCircle(Offset(w*.37,h*.36),w*.19,fill);canvas.drawCircle(Offset(w*.63,h*.36),w*.19,fill);
+      canvas.drawCircle(Offset(w*.37,h*.36),w*.19,trim);canvas.drawCircle(Offset(w*.63,h*.36),w*.19,trim);
+      canvas.drawCircle(Offset(w*.37,h*.36),w*.045,ink);canvas.drawCircle(Offset(w*.63,h*.36),w*.045,ink);
+      canvas.drawRect(Rect.fromLTWH(w*.24,h*.79,w*.52,h*.09),ink);
+    }else{
+      canvas.drawCircle(Offset(cx,h*.48),w*.3,fill);
+      canvas.drawCircle(Offset(cx,h*.48),w*.23,trim);
+      canvas.drawCircle(Offset(cx,h*.48),w*.07,ink);
+      canvas.drawRect(Rect.fromLTWH(w*.28,h*.79,w*.44,h*.09),ink);
+    }
+  }
+  @override bool shouldRepaint(covariant _MarawisPiecePainter old)=>old.kind!=kind||old.light!=light;
 }
