@@ -482,28 +482,85 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
     final round=(state["round"] as num?)?.toInt()??0;
     final open=state["tap_open"]==true;
     final uid=db.auth.currentUser!.id;
-    final taps=events.where((e)=>e["event_type"]=="reaction_tap"&&e["payload"]["round"]==round).toList()..sort((a,b)=>DateTime.tryParse(a["created_at"].toString())?.compareTo(DateTime.tryParse(b["created_at"].toString())??DateTime.now())??0);
+    final taps=events.where((e)=>e["event_type"]=="reaction_tap"&&e["payload"]["round"]==round).toList()
+      ..sort((a,b)=>DateTime.tryParse(a["created_at"].toString())?.compareTo(DateTime.tryParse(b["created_at"].toString())??DateTime.now())??0);
     final mine=taps.any((e)=>e["actor_id"]==uid);
-    return SingleChildScrollView(padding:const EdgeInsets.fromLTRB(18,12,18,20),child:Column(children:[
-      Container(width:double.infinity,padding:const EdgeInsets.all(22),decoration:BoxDecoration(gradient:const LinearGradient(colors:[Color(0xFF4524A8),Color(0xFFE04F91)]),borderRadius:BorderRadius.circular(25)),child:Column(children:[
-        const Icon(Icons.bolt_rounded,color:Color(0xFFFFD166),size:48),
-        const SizedBox(height:9),const Text("REACTION RUSH",style:TextStyle(color:Colors.white,fontSize:24,fontWeight:FontWeight.w900,letterSpacing:1)),
-        const SizedBox(height:7),Text("RONDE "+(round+1).toString()+" / 3",style:const TextStyle(color:Colors.white70,fontSize:11,fontWeight:FontWeight.w900,letterSpacing:1.5)),
-        const SizedBox(height:15),Text(open?"TEKAN SECEPAT MUNGKIN!":"TUNGGU ABA-ABA HOST",style:const TextStyle(color:Color(0xFFFFD166),fontSize:13,fontWeight:FontWeight.w900)),
-      ])),
-      const SizedBox(height:20),
-      if(open)SizedBox(width:220,height:220,child(Material(color:mine?const Color(0xFF70E2B2):const Color(0xFFFFD166),shape:const CircleBorder(),elevation:8,child:InkWell(customBorder:const CircleBorder(),onTap:mine?null:()=>emit("reaction_tap",{"round":round}),child:Center(child:Column(mainAxisSize:MainAxisSize.min,children:[Icon(mine?Icons.check_rounded:Icons.touch_app_rounded,color:const Color(0xFF211744),size:56),const SizedBox(height:8),Text(mine?"TERKIRIM!":"TAP!",style:const TextStyle(color:Color(0xFF211744),fontSize:25,fontWeight:FontWeight.w900))]))))),
-      if(!open)const Padding(padding:EdgeInsets.symmetric(vertical:45),child:Icon(Icons.hourglass_top_rounded,color:Colors.white54,size:60)),
-      const SizedBox(height:20),const Text("URUTAN PEMAIN",style:TextStyle(color:Colors.white70,fontSize:10,fontWeight:FontWeight.w900,letterSpacing:1.3)),
-      const SizedBox(height:9),
-      for(var i=0;i<taps.length;i++)Container(margin:const EdgeInsets.only(bottom:7),padding:const EdgeInsets.all(12),decoration:BoxDecoration(color:Colors.white.withOpacity(.08),borderRadius:BorderRadius.circular(14)),child:Row(children:[Text("#"+(i+1).toString(),style:const TextStyle(color:Color(0xFFFFD166),fontWeight:FontWeight.w900)),const SizedBox(width:12),Expanded(child:Text(playerName(taps[i]["actor_id"].toString()),style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w800))),if(i==0)const Icon(Icons.emoji_events_rounded,color:Color(0xFFFFD166))])),
-      if(taps.isEmpty)const Text("Belum ada yang menekan.",style:TextStyle(color:Colors.white54,fontSize:11)),
-      if(host)Padding(padding:const EdgeInsets.only(top:16),child:SizedBox(width:double.infinity,height:52,child:FilledButton(onPressed:!open?()=>updateState({...state,"tap_open":true}):()=>round<2?updateState({...state,"round":round+1,"tap_open":false}):finish(),style:FilledButton.styleFrom(backgroundColor:const Color(0xFFFFD166),foregroundColor:const Color(0xFF211744),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(16))),child:Text(!open?"BUKA ABA-ABA":round<2?"RONDE BERIKUTNYA":"SELESAI")))),
-    ]));
+    return SingleChildScrollView(
+      padding:const EdgeInsets.fromLTRB(18,12,18,20),
+      child:Column(children:[
+        Container(
+          width:double.infinity,padding:const EdgeInsets.all(22),
+          decoration:BoxDecoration(gradient:const LinearGradient(colors:[Color(0xFF4524A8),Color(0xFFE04F91)]),borderRadius:BorderRadius.circular(25)),
+          child:Column(children:[
+            const Icon(Icons.bolt_rounded,color:Color(0xFFFFD166),size:48),
+            const SizedBox(height:9),
+            const Text("REACTION RUSH",style:TextStyle(color:Colors.white,fontSize:24,fontWeight:FontWeight.w900,letterSpacing:1)),
+            const SizedBox(height:7),
+            Text("RONDE ${round+1} / 3",style:const TextStyle(color:Colors.white70,fontSize:11,fontWeight:FontWeight.w900,letterSpacing:1.5)),
+            const SizedBox(height:15),
+            Text(open?"TEKAN SECEPAT MUNGKIN!":"TUNGGU ABA-ABA HOST",style:const TextStyle(color:Color(0xFFFFD166),fontSize:13,fontWeight:FontWeight.w900)),
+          ]),
+        ),
+        const SizedBox(height:20),
+        if(open)
+          SizedBox(
+            width:220,height:220,
+            child:Material(
+              color:mine?const Color(0xFF70E2B2):const Color(0xFFFFD166),
+              shape:const CircleBorder(),elevation:8,
+              child:InkWell(
+                customBorder:const CircleBorder(),
+                onTap:mine?null:()=>emit("reaction_tap",{"round":round}),
+                child:Center(child:Column(mainAxisSize:MainAxisSize.min,children:[
+                  Icon(mine?Icons.check_rounded:Icons.touch_app_rounded,color:const Color(0xFF211744),size:56),
+                  const SizedBox(height:8),
+                  Text(mine?"TERKIRIM!":"TAP!",style:const TextStyle(color:Color(0xFF211744),fontSize:25,fontWeight:FontWeight.w900)),
+                ])),
+              ),
+            ),
+          )
+        else
+          const Padding(padding:EdgeInsets.symmetric(vertical:45),child:Icon(Icons.hourglass_top_rounded,color:Colors.white54,size:60)),
+        const SizedBox(height:20),
+        const Text("URUTAN PEMAIN",style:TextStyle(color:Colors.white70,fontSize:10,fontWeight:FontWeight.w900,letterSpacing:1.3)),
+        const SizedBox(height:9),
+        for(var i=0;i<taps.length;i++)
+          Container(
+            margin:const EdgeInsets.only(bottom:7),padding:const EdgeInsets.all(12),
+            decoration:BoxDecoration(color:Colors.white.withOpacity(.08),borderRadius:BorderRadius.circular(14)),
+            child:Row(children:[
+              Text("#${i+1}",style:const TextStyle(color:Color(0xFFFFD166),fontWeight:FontWeight.w900)),
+              const SizedBox(width:12),
+              Expanded(child:Text(playerName(taps[i]["actor_id"].toString()),style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w800))),
+              if(i==0)const Icon(Icons.emoji_events_rounded,color:Color(0xFFFFD166)),
+            ]),
+          ),
+        if(taps.isEmpty)const Text("Belum ada yang menekan.",style:TextStyle(color:Colors.white54,fontSize:11)),
+        if(host)
+          Padding(
+            padding:const EdgeInsets.only(top:16),
+            child:SizedBox(
+              width:double.infinity,height:52,
+              child:FilledButton(
+                onPressed:!open?()=>updateState({...state,"tap_open":true}):()=>round<2?updateState({...state,"round":round+1,"tap_open":false}):finish(),
+                style:FilledButton.styleFrom(backgroundColor:const Color(0xFFFFD166),foregroundColor:const Color(0xFF211744),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(16))),
+                child:Text(!open?"BUKA ABA-ABA":round<2?"RONDE BERIKUTNYA":"SELESAI"),
+              ),
+            ),
+          ),
+      ]),
+    );
   }
   Widget thisOrThatPanel(){
     const prompts=[
-      ["Latihan pagi","Latihan sore"],["Tampil di panggung besar","Tampil di acara sekolah"],["Rebana","Darbuka"],["Makan bersama","Nonton bersama"],["Lagu cepat","Lagu bertempo santai"],["Jadi pemain inti","Jadi koordinator acara"],["Latihan rutin","Latihan intensif menjelang tampil"],["Kerja tim","Tantangan individu"]],
+      ["Latihan pagi","Latihan sore"],
+      ["Tampil di panggung besar","Tampil di acara sekolah"],
+      ["Rebana","Darbuka"],
+      ["Makan bersama","Nonton bersama"],
+      ["Lagu cepat","Lagu bertempo santai"],
+      ["Jadi pemain inti","Jadi koordinator acara"],
+      ["Latihan rutin","Latihan intensif menjelang tampil"],
+      ["Kerja tim","Tantangan individu"],
     ];
     final round=(state["round"] as num?)?.toInt()??0;
     if(round>=prompts.length)return results();
@@ -511,19 +568,63 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
     final uid=db.auth.currentUser!.id;
     final votes=events.where((e)=>e["event_type"]=="choice_vote"&&e["payload"]["round"]==round).toList();
     final mine=votes.any((e)=>e["actor_id"]==uid);
-    final tally=[0,0];for(final v in votes){final n=(v["payload"]["choice"] as num?)?.toInt()??-1;if(n>=0&&n<2)tally[n]++;}
-    return SingleChildScrollView(padding:const EdgeInsets.fromLTRB(18,12,18,20),child:Column(children:[
-      Container(width:double.infinity,padding:const EdgeInsets.all(22),decoration:BoxDecoration(gradient:const LinearGradient(colors:[Color(0xFF087E8B),Color(0xFF5A4ACB)]),borderRadius:BorderRadius.circular(24)),child:Column(children:[
-        const Icon(Icons.thumbs_up_down_rounded,color:Color(0xFFFFD166),size:38),
-        const SizedBox(height:10),const Text("THIS OR THAT",style:TextStyle(color:Colors.white,fontSize:23,fontWeight:FontWeight.w900,letterSpacing:1)),
-        const SizedBox(height:6),Text("PILIHAN "+(round+1).toString()+" / "+prompts.length.toString(),style:const TextStyle(color:Colors.white70,fontSize:10,fontWeight:FontWeight.w900,letterSpacing:1.4)),
-      ])),
-      const SizedBox(height:22),
-      for(var i=0;i<2;i++)Padding(padding:const EdgeInsets.only(bottom:12),child(Material(color:mine?Colors.white.withOpacity(.06):const Color(0xFF4C439C),borderRadius:BorderRadius.circular(20),child:InkWell(onTap:mine?null:()=>emit("choice_vote",{"round":round,"choice":i}),borderRadius:BorderRadius.circular(20),child:Container(width:double.infinity,padding:const EdgeInsets.all(23),decoration:BoxDecoration(borderRadius:BorderRadius.circular(20),border:Border.all(color:const Color(0xFF9A8FEA).withOpacity(.4))),child:Column(children:[Text(i==0?"A":"B",style:const TextStyle(color:Color(0xFFFFD166),fontSize:12,fontWeight:FontWeight.w900)),const SizedBox(height:7),Text(options[i],textAlign:TextAlign.center,style:const TextStyle(color:Colors.white,fontSize:20,fontWeight:FontWeight.w900)),const SizedBox(height:8),Text(tally[i].toString()+" suara",style:const TextStyle(color:Colors.white70,fontSize:11,fontWeight:FontWeight.w700))])))))),
-      if(mine)const Text("Pilihanmu sudah dikirim. Tunggu host.",style:TextStyle(color:Color(0xFF70E2B2),fontSize:11,fontWeight:FontWeight.w800)),
-      if(host)Padding(padding:const EdgeInsets.only(top:12),child:SizedBox(width:double.infinity,height:52,child:FilledButton(onPressed:()=>round+1<prompts.length?updateState({...state,"round":round+1}):finish(),style:FilledButton.styleFrom(backgroundColor:const Color(0xFFFFD166),foregroundColor:const Color(0xFF211744),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(16))),child:Text(round+1<prompts.length?"PERTANYAAN BERIKUTNYA":"LIHAT HASIL")))),
-      const SizedBox(height:16),scoreboard(),
-    ]));
+    final tally=[0,0];
+    for(final v in votes){final n=(v["payload"]["choice"] as num?)?.toInt()??-1;if(n>=0&&n<2)tally[n]++;}
+    return SingleChildScrollView(
+      padding:const EdgeInsets.fromLTRB(18,12,18,20),
+      child:Column(children:[
+        Container(
+          width:double.infinity,padding:const EdgeInsets.all(22),
+          decoration:BoxDecoration(gradient:const LinearGradient(colors:[Color(0xFF087E8B),Color(0xFF5A4ACB)]),borderRadius:BorderRadius.circular(24)),
+          child:Column(children:[
+            const Icon(Icons.thumbs_up_down_rounded,color:Color(0xFFFFD166),size:38),
+            const SizedBox(height:10),
+            const Text("THIS OR THAT",style:TextStyle(color:Colors.white,fontSize:23,fontWeight:FontWeight.w900,letterSpacing:1)),
+            const SizedBox(height:6),
+            Text("PILIHAN ${round+1} / ${prompts.length}",style:const TextStyle(color:Colors.white70,fontSize:10,fontWeight:FontWeight.w900,letterSpacing:1.4)),
+          ]),
+        ),
+        const SizedBox(height:22),
+        for(var i=0;i<2;i++)
+          Padding(
+            padding:const EdgeInsets.only(bottom:12),
+            child:Material(
+              color:mine?Colors.white.withOpacity(.06):const Color(0xFF4C439C),
+              borderRadius:BorderRadius.circular(20),
+              child:InkWell(
+                onTap:mine?null:()=>emit("choice_vote",{"round":round,"choice":i}),
+                borderRadius:BorderRadius.circular(20),
+                child:Container(
+                  width:double.infinity,padding:const EdgeInsets.all(23),
+                  decoration:BoxDecoration(borderRadius:BorderRadius.circular(20),border:Border.all(color:const Color(0xFF9A8FEA).withOpacity(.4))),
+                  child:Column(children:[
+                    Text(i==0?"A":"B",style:const TextStyle(color:Color(0xFFFFD166),fontSize:12,fontWeight:FontWeight.w900)),
+                    const SizedBox(height:7),
+                    Text(options[i],textAlign:TextAlign.center,style:const TextStyle(color:Colors.white,fontSize:20,fontWeight:FontWeight.w900)),
+                    const SizedBox(height:8),
+                    Text("${tally[i]} suara",style:const TextStyle(color:Colors.white70,fontSize:11,fontWeight:FontWeight.w700)),
+                  ]),
+                ),
+              ),
+            ),
+          ),
+        if(mine)const Text("Pilihanmu sudah dikirim. Tunggu host.",style:TextStyle(color:Color(0xFF70E2B2),fontSize:11,fontWeight:FontWeight.w800)),
+        if(host)
+          Padding(
+            padding:const EdgeInsets.only(top:12),
+            child:SizedBox(
+              width:double.infinity,height:52,
+              child:FilledButton(
+                onPressed:()=>round+1<prompts.length?updateState({...state,"round":round+1}):finish(),
+                style:FilledButton.styleFrom(backgroundColor:const Color(0xFFFFD166),foregroundColor:const Color(0xFF211744),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(16))),
+                child:Text(round+1<prompts.length?"PERTANYAAN BERIKUTNYA":"LIHAT HASIL"),
+              ),
+            ),
+          ),
+        const SizedBox(height:16),
+        scoreboard(),
+      ]),
+    );
   }
   Widget scoreboard(){
     final sorted=players.toList()..sort((a,b)=>score(b["user_id"].toString()).compareTo(score(a["user_id"].toString())));
