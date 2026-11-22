@@ -202,19 +202,92 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
     ])));
   }
   Widget roomPage(){
-    final r=room;if(r==null)return const Scaffold(body:Center(child:CircularProgressIndicator()));
-    final status=r['status'].toString();
-    return Scaffold(appBar:AppBar(title:Text('Room '+r['room_code'].toString()),leading:IconButton(onPressed:leave,icon:const Icon(Icons.arrow_back)),actions:[IconButton(onPressed:refreshRoom,icon:const Icon(Icons.refresh))]),body:ListView(padding:const EdgeInsets.all(16),children:[
-      Card(color:Colors.white,child:Padding(padding:const EdgeInsets.all(16),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-        Text(title(r['game_type'].toString()),style:const TextStyle(fontSize:19,fontWeight:FontWeight.w900)),Text('Kode: '+r['room_code'].toString(),style:const TextStyle(fontSize:22,color:Color(0xFF167D68),fontWeight:FontWeight.w900,letterSpacing:2)),Text(players.length.toString()+'/'+r['max_players'].toString()+' pemain • '+(status=='waiting'?'Menunggu':status=='playing'?'Berlangsung':'Selesai')),
-        for(final p in players)ListTile(dense:true,leading:CircleAvatar(child:Text(p['display_name'].toString().isEmpty?'?':p['display_name'].toString()[0].toUpperCase())),title:Text(p['display_name'].toString()),trailing:p['user_id']==r['host_id']?const Chip(label:Text('HOST')):null),
-        if(status=='waiting'&&host)SizedBox(width:double.infinity,child:FilledButton(onPressed:players.length<2?null:start,child:const Text('Mulai permainan • min. 2 pemain'))),
-        if(status=='waiting'&&!host)const Text('Menunggu host memulai permainan...'),
-      ]))),
-      if(status=='playing')gamePanel(),
-      if(status=='finished')results(),
-    ]));
+    final r=room;
+    if(r==null)return const Scaffold(backgroundColor:Color(0xFF111329),body:Center(child:CircularProgressIndicator(color:Color(0xFFFFD166))));
+    final status=r["status"].toString();
+    if(status=="playing")return gameplayPage();
+    if(status=="finished")return results();
+    return Scaffold(
+      backgroundColor:const Color(0xFF111329),
+      body:Container(
+        decoration:const BoxDecoration(gradient:LinearGradient(begin:Alignment.topLeft,end:Alignment.bottomRight,colors:[Color(0xFF17152F),Color(0xFF28204F),Color(0xFF123C43)])),
+        child:SafeArea(child:Column(children:[
+          Padding(padding:const EdgeInsets.all(16),child:Row(children:[
+            _roundAction(Icons.close_rounded,leave),
+            const SizedBox(width:12),
+            const Expanded(child:Text("GAME ROOM",style:TextStyle(color:Colors.white70,fontWeight:FontWeight.w900,letterSpacing:2))),
+            _livePill("LOBBY"),
+          ])),
+          Expanded(child:ListView(padding:const EdgeInsets.fromLTRB(20,12,20,24),children:[
+            Container(padding:const EdgeInsets.all(22),decoration:BoxDecoration(gradient:const LinearGradient(colors:[Color(0xFF694BDF),Color(0xFF9B54D8)]),borderRadius:BorderRadius.circular(27)),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+              Text(title(r["game_type"].toString()).toUpperCase(),style:const TextStyle(color:Colors.white70,fontWeight:FontWeight.w900,fontSize:10,letterSpacing:1.5)),
+              const SizedBox(height:12),
+              const Text("Siap-siap\nmain bareng!",style:TextStyle(color:Colors.white,fontSize:31,height:1.05,fontWeight:FontWeight.w900)),
+              const SizedBox(height:18),
+              Row(children:[
+                Container(padding:const EdgeInsets.symmetric(horizontal:14,vertical:10),decoration:BoxDecoration(color:Colors.black.withOpacity(.18),borderRadius:BorderRadius.circular(14)),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+                  const Text("KODE ROOM",style:TextStyle(color:Colors.white70,fontSize:9,fontWeight:FontWeight.w800)),
+                  Text(r["room_code"].toString(),style:const TextStyle(color:Colors.white,fontSize:22,fontWeight:FontWeight.w900,letterSpacing:4)),
+                ])),
+                const Spacer(),
+                Text(players.length.toString()+"/"+r["max_players"].toString()+" pemain",style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w800)),
+              ]),
+            ])),
+            const SizedBox(height:24),
+            Row(children:[const Expanded(child:Text("Pemain di arena",style:TextStyle(color:Colors.white,fontSize:19,fontWeight:FontWeight.w900))),Text(players.length.toString()+" ONLINE",style:const TextStyle(color:Color(0xFF70E2B2),fontSize:10,fontWeight:FontWeight.w900))]),
+            const SizedBox(height:12),
+            for(final p in players)Container(margin:const EdgeInsets.only(bottom:9),padding:const EdgeInsets.all(12),decoration:BoxDecoration(color:Colors.white.withOpacity(.08),borderRadius:BorderRadius.circular(17),border:Border.all(color:Colors.white.withOpacity(.1))),child:Row(children:[
+              CircleAvatar(backgroundColor:p["user_id"]==r["host_id"]?const Color(0xFFFFD166):const Color(0xFF7069D9),child:Text(p["display_name"].toString().isEmpty?"?":p["display_name"].toString()[0].toUpperCase(),style:const TextStyle(color:Color(0xFF17152F),fontWeight:FontWeight.w900))),
+              const SizedBox(width:12),
+              Expanded(child:Text(p["display_name"].toString(),style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w800))),
+              if(p["user_id"]==r["host_id"])const Text("HOST",style:TextStyle(color:Color(0xFFFFD166),fontSize:10,fontWeight:FontWeight.w900)),
+            ])),
+            const SizedBox(height:12),
+            Container(padding:const EdgeInsets.all(15),decoration:BoxDecoration(color:Colors.white.withOpacity(.07),borderRadius:BorderRadius.circular(17)),child:Row(children:[
+              const Icon(Icons.tips_and_updates_rounded,color:Color(0xFFFFD166)),
+              const SizedBox(width:10),
+              Expanded(child:Text(host?"Mulai permainan saat minimal dua pemain sudah masuk.":"Tunggu host memulai permainan. Layar game akan terbuka otomatis untuk semua pemain.",style:const TextStyle(color:Colors.white70,fontSize:12,height:1.4))),
+            ])),
+            const SizedBox(height:18),
+            if(host)SizedBox(width:double.infinity,height:56,child:FilledButton.icon(onPressed:players.length<2?null:start,icon:const Icon(Icons.play_arrow_rounded,size:25),label:const Text("MULAI PERMAINAN",style:TextStyle(fontWeight:FontWeight.w900,letterSpacing:1)),style:FilledButton.styleFrom(backgroundColor:const Color(0xFFFFD166),foregroundColor:const Color(0xFF211744),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(17))))),
+            if(!host)const Center(child:Text("HOST SEDANG MENYIAPKAN GAME...",style:TextStyle(color:Colors.white54,fontSize:10,fontWeight:FontWeight.w900,letterSpacing:1.2))),
+          ])),
+        ])),
+      ),
+    );
   }
+  Widget _roundAction(IconData icon,VoidCallback action)=>Material(color:Colors.white.withOpacity(.1),shape:const CircleBorder(),child:InkWell(customBorder:const CircleBorder(),onTap:action,child:SizedBox(width:42,height:42,child:Icon(icon,color:Colors.white,size:20))));
+  Widget _livePill(String label)=>Container(padding:const EdgeInsets.symmetric(horizontal:11,vertical:7),decoration:BoxDecoration(color:const Color(0xFF70E2B2).withOpacity(.14),borderRadius:BorderRadius.circular(30),border:Border.all(color:const Color(0xFF70E2B2).withOpacity(.35))),child:Row(mainAxisSize:MainAxisSize.min,children:[const Icon(Icons.circle,size:7,color:Color(0xFF70E2B2)),const SizedBox(width:6),Text(label,style:const TextStyle(color:Color(0xFF70E2B2),fontSize:9,fontWeight:FontWeight.w900,letterSpacing:1))]));
+  Widget gameplayPage(){
+    final r=room!;
+    return Scaffold(backgroundColor:const Color(0xFF111329),body:Container(
+      decoration:const BoxDecoration(gradient:LinearGradient(begin:Alignment.topLeft,end:Alignment.bottomRight,colors:[Color(0xFF17152F),Color(0xFF211D45),Color(0xFF123C43)])),
+      child:SafeArea(child:Column(children:[
+        Padding(padding:const EdgeInsets.fromLTRB(14,10,14,12),child:Row(children:[
+          _roundAction(Icons.close_rounded,leave),
+          const SizedBox(width:10),
+          Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+            Text(title(r["game_type"].toString()),maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900,fontSize:14)),
+            Text("ROOM "+r["room_code"].toString(),style:const TextStyle(color:Colors.white54,fontSize:9,fontWeight:FontWeight.w800,letterSpacing:1.3)),
+          ])),
+          _livePill("LIVE"),
+          const SizedBox(width:8),
+          Container(padding:const EdgeInsets.symmetric(horizontal:10,vertical:8),decoration:BoxDecoration(color:Colors.white.withOpacity(.1),borderRadius:BorderRadius.circular(30)),child:Row(children:[const Icon(Icons.people_alt_rounded,color:Colors.white70,size:15),const SizedBox(width:5),Text(players.length.toString(),style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900))])),
+        ])),
+        Expanded(child:AnimatedSwitcher(duration:const Duration(milliseconds:420),child:KeyedSubtree(key:ValueKey(state["phase"].toString()+"_"+(state["round"]??0).toString()),child:gamePanel()))),
+        _playerStrip(),
+      ])),
+    ));
+  }
+  Widget _playerStrip()=>Container(height:82,padding:const EdgeInsets.fromLTRB(14,9,14,10),decoration:BoxDecoration(color:Colors.black.withOpacity(.2),border:Border(top:BorderSide(color:Colors.white.withOpacity(.08)))),child:ListView.separated(scrollDirection:Axis.horizontal,itemCount:players.length,separatorBuilder:(_,__)=>const SizedBox(width:12),itemBuilder:(context,index){
+    final p=players[index];final name=p["display_name"].toString();final isMe=p["user_id"]==db.auth.currentUser?.id;
+    return SizedBox(width:62,child:Column(children:[
+      CircleAvatar(radius:21,backgroundColor:isMe?const Color(0xFFFFD166):const Color(0xFF7069D9),child:Text(name.isEmpty?"?":name[0].toUpperCase(),style:const TextStyle(color:Color(0xFF17152F),fontWeight:FontWeight.w900))),
+      const SizedBox(height:5),
+      Text(name,maxLines:1,overflow:TextOverflow.ellipsis,style:TextStyle(color:isMe?const Color(0xFFFFD166):Colors.white70,fontSize:9,fontWeight:FontWeight.w800)),
+      Text(score(p["user_id"].toString()).toString()+" PTS",style:const TextStyle(color:Colors.white38,fontSize:8,fontWeight:FontWeight.w700)),
+    ]));
+  }));
   Widget gamePanel(){
     final key=room!['game_type'].toString();
     if(key=='quiz_arena')return quizPanel();
