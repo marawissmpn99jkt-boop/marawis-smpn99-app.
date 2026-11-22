@@ -1209,7 +1209,8 @@ class HomeScreen extends StatelessWidget {
                 ),
               ),
             ),
-
+          ],
+        ),
           Positioned.fill(
             child: _DraggableMarwi(
               displayName: displayName,
@@ -1220,6 +1221,7 @@ class HomeScreen extends StatelessWidget {
           ),
         ],
       ),
+    ),
     );
   }
 }
