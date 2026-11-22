@@ -1,12 +1,15 @@
 import 'dart:async';
 import 'dart:math';
+import 'dart:html' as html;
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class MultiplayerGamesScreen extends StatefulWidget {
-  const MultiplayerGamesScreen({super.key, required this.role, required this.soloGame});
+  const MultiplayerGamesScreen({super.key, required this.role, required this.soloGame, this.onGameActive});
   final String role;
   final Widget soloGame;
+  final ValueChanged<bool>? onGameActive;
   @override State<MultiplayerGamesScreen> createState()=>_MultiplayerGamesScreenState();
 }
 class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
@@ -18,6 +21,9 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
   RealtimeChannel? channel;
   bool busy=false;
   bool showGameIntro=false;
+  Color brushColor=const Color(0xFF167D68);
+  double brushSize=5;
+  bool eraser=false;
   final guess=TextEditingController();
   final questions=<Map<String,dynamic>>[
     {'q':'Apa fungsi utama hajir dalam permainan marawis?','a':['Menjaga ketukan dasar','Mengatur kostum','Membuka acara','Mengatur mikrofon'],'c':0},
@@ -101,7 +107,8 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
     if(!staff)return;
     try{
       final code=List.generate(6,(_)=>Random.secure().nextInt(10)).join();
-      final x=await db.from('multiplayer_rooms').insert({'room_code':code,'game_type':game,'host_id':db.auth.currentUser!.id,'max_players':10,'game_state':{}}).select().single();
+      final x=await db.from('multiplayer_rooms').insert({'room_code':code,'game_type':game,'host_id':db.auth.currentUser!.id,'max_players':50,'game_state':{}}).select().single();
+      _enterImmersiveMode();
       await enter(Map<String,dynamic>.from(x));
     }catch(e){msg('Gagal membuat room: '+e.toString());}
   }
@@ -116,8 +123,13 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
     try{
       final uid=db.auth.currentUser!.id;
       final old=await db.from('multiplayer_players').select('id').eq('room_id',r['id']).eq('user_id',uid).maybeSingle();
-      if(old==null)await db.from('multiplayer_players').insert({'room_id':r['id'],'user_id':uid,'display_name':await displayName()});
-      if(!mounted)return;setState(()=>roomId=r['id'].toString());await refreshRoom();subscribeRoom();
+      if(old==null){
+        final current=await db.from('multiplayer_players').select('id').eq('room_id',r['id']);
+        final cap=((r['max_players'] as num?)?.toInt()??50).clamp(1,50);
+        if(current.length>=cap){msg('Room sudah penuh (maksimal '+cap.toString()+' pemain).');return;}
+        await db.from('multiplayer_players').insert({'room_id':r['id'],'user_id':uid,'display_name':await displayName()});
+      }
+      if(!mounted)return;setState(()=>roomId=r['id'].toString());widget.onGameActive?.call(true);_enterImmersiveMode();await refreshRoom();subscribeRoom();
     }catch(e){msg('Gagal masuk room: '+e.toString());}
   }
   void subscribeRoom(){
@@ -165,15 +177,25 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
       s['answer_orders']=(s['question_order'] as List).map((_)=>[0,1,2,3]..shuffle(Random.secure())).toList();
     }
     if(type=='draw_guess'){secretWord=words[Random.secure().nextInt(words.length)];s['drawer_id']=db.auth.currentUser!.id;}
+    if(type=='reaction_rush'){s['tap_open']=false;s['round']=0;}
+    if(type=='this_or_that'){s['round']=0;}
     await updateState(s,status:'playing');
+  }
+  void _enterImmersiveMode(){
+    try{SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);}catch(_){}
+    try{html.document.documentElement?.requestFullscreen();}catch(_){}
+  }
+  void _exitImmersiveMode(){
+    try{if(html.document.fullscreenElement!=null)html.document.exitFullscreen();}catch(_){}
+    try{SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);}catch(_){}
   }
   Future<void> leave()async{
     final id=roomId;if(id==null)return;
     try{if(host)await db.from('multiplayer_rooms').update({'status':'finished','game_state':{...state,'phase':'finished'}}).eq('id',id);await db.from('multiplayer_players').delete().eq('room_id',id).eq('user_id',db.auth.currentUser!.id);}catch(_){}
-    await channel?.unsubscribe();if(mounted)setState(() { roomId=null; room=null; players=[]; events=[]; secretWord=null; });loadRooms();
+    await channel?.unsubscribe();_exitImmersiveMode();if(mounted)setState(() { roomId=null; room=null; players=[]; events=[]; secretWord=null; activeStroke=[]; });widget.onGameActive?.call(false);loadRooms();
   }
   Future<void> finish()async=>updateState({...state,'phase':'finished'},status:'finished');
-  String title(String key)=>key=='quiz_arena'?'Marawis Quiz Arena':key=='who_leader'?'Who Is The Leader?':'Draw & Guess';
+  String title(String key)=>key=='quiz_arena'?'Marawis Quiz Arena':key=='who_leader'?'Who Is The Leader?':key=='reaction_rush'?'Reaction Rush':key=='this_or_that'?'This or That':'Draw & Guess';
   Map<String,dynamic> player(String id)=>players.firstWhere((p)=>p['user_id']==id,orElse:()=>{});
   String playerName(String id)=>(player(id)['display_name']??'Pemain').toString();
   int score(String id)=>events.where((e){if(e['event_type']=='answer'&&e['actor_id']==id){final round=(e['payload']['round'] as num?)?.toInt()??-1;final choice=(e['payload']['choice'] as num?)?.toInt()??-1;final order=state['question_order'] is List?List<int>.from(state['question_order'] as List):List<int>.generate(questions.length,(i)=>i);final qIndex=round>=0&&round<order.length?order[round]:-1;final answerOrders=state['answer_orders'] is List?state['answer_orders'] as List:[];final answerOrder=round>=0&&round<answerOrders.length?List<int>.from(answerOrders[round] as List):[0,1,2,3];return qIndex>=0&&qIndex<questions.length&&choice>=0&&choice<answerOrder.length&&answerOrder[choice]==questions[qIndex]['c'];}return e['event_type']=='guess'&&e['payload']['accepted']==true&&e['payload']['target']==id;}).length*10;
@@ -208,6 +230,8 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
       cardGame('quiz_arena','Marawis Quiz Arena','Jawab pertanyaan secara serentak.',Icons.quiz),
       cardGame('who_leader','Who Is The Leader?','Voting pemimpin tim secara real-time.',Icons.groups),
       cardGame('draw_guess','Draw & Guess','Host menggambar, anggota menebak.',Icons.brush),
+      cardGame('reaction_rush','Reaction Rush','Adu refleks dan kumpulkan poin tercepat.',Icons.flash_on_rounded),
+      cardGame('this_or_that','This or That','Pilih cepat dan lihat pilihan seluruh room.',Icons.thumbs_up_down_rounded),
       const SizedBox(height:18),Row(children:[const Expanded(child:Text('Room tersedia',style:TextStyle(fontWeight:FontWeight.w900,fontSize:17))),IconButton(onPressed:loadRooms,icon:const Icon(Icons.refresh))]),
       if(rooms.isEmpty)const Padding(padding:EdgeInsets.all(20),child:Text('Belum ada room yang menunggu pemain.',textAlign:TextAlign.center)) else for(final r in rooms)Card(color:Colors.white,child:ListTile(title:Text(title(r['game_type'].toString())),subtitle:Text('Kode '+r['room_code'].toString()+' • Maks. '+r['max_players'].toString()+' pemain'),trailing:FilledButton(onPressed:()=>enter(r),child:const Text('Gabung')))),
       const SizedBox(height:12),OutlinedButton.icon(onPressed:()=>showModalBottomSheet(context:context,isScrollControlled:true,builder:(_)=>SizedBox(height:500,child:widget.soloGame)),icon:const Icon(Icons.person),label:const Text('Mainkan tantangan solo')),
@@ -320,6 +344,8 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
     final key=room!['game_type'].toString();
     if(key=='quiz_arena')return quizPanel();
     if(key=='who_leader')return leaderPanel();
+    if(key=='reaction_rush')return reactionPanel();
+    if(key=='this_or_that')return thisOrThatPanel();
     return drawPanel();
   }
   Widget quizPanel(){
