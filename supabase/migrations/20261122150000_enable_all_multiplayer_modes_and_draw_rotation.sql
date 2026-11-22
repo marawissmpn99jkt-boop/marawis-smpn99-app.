@@ -18,7 +18,7 @@ for insert to authenticated with check (
     where p.room_id = multiplayer_events.room_id and p.user_id = (select auth.uid())
   )
   and (
-    event_type <> 'draw' or exists (
+    event_type not in ('draw','undo','clear') or exists (
       select 1 from public.multiplayer_rooms r
       where r.id = multiplayer_events.room_id
         and r.game_state->>'drawer_id' = (select auth.uid())::text
