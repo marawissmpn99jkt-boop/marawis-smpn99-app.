@@ -181,7 +181,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
       ])))));
   }
   @override Widget build(BuildContext context){
-    if(roomId!=null)return roomPage();
+    if(roomId!=null)return AnimatedSwitcher(duration:const Duration(milliseconds:650),switchInCurve:Curves.easeOutCubic,switchOutCurve:Curves.easeInCubic,transitionBuilder:(child,animation)=>FadeTransition(opacity:animation,child:SlideTransition(position:Tween<Offset>(begin:const Offset(0,.05),end:Offset.zero).animate(animation),child:child)),child:KeyedSubtree(key:ValueKey(roomId!+"_"+(room?["status"]??"loading").toString()),child:roomPage()));
     return Scaffold(body:RefreshIndicator(onRefresh:loadRooms,child:ListView(padding:const EdgeInsets.all(16),children:[
       Container(padding:const EdgeInsets.all(22),decoration:BoxDecoration(gradient:const LinearGradient(begin:Alignment.topLeft,end:Alignment.bottomRight,colors:[Color(0xFF17113D),Color(0xFF442B87),Color(0xFF147D83)]),borderRadius:BorderRadius.circular(26),boxShadow:[BoxShadow(color:const Color(0xFF33236F).withOpacity(.24),blurRadius:22,offset:const Offset(0,10))]),child:Stack(children:[
         Positioned(right:-8,top:-12,child:Icon(Icons.sports_esports_rounded,size:112,color:Colors.white.withOpacity(.08))),
