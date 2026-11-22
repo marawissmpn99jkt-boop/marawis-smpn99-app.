@@ -93,7 +93,29 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
     {'q':"Sikap amanah dalam kehidupan sehari-hari ditunjukkan dengan...",'a':["Menjaga titipan","Membocorkan rahasia orang","Mengambil hak teman","Mengingkari tanggung jawab"],'c':0,'category':"Keislaman"},
     {'q':"Ketika berbeda pendapat, adab yang baik adalah...",'a':["Bersikap santun","Menghina","Meninggikan suara","Memutus pertemanan"],'c':0,'category':"Keislaman"},
   ];
-  final words=['REBANA','MARAWIS','KOMPAK','HAJIR','DARBUKA','LATIHAN','PANGGUNG','IRAMA','BEDUG','KARAKTER','SEPATU','PAYUNG','SEKOLAH','BUKU','PENSIL','KAMERA','KIPAS','JENDELA','SEPEDA','BOLA','KUCING','KELINCI','PISANG','SEMANGKA','KOPI','ROTI','JAM','KALENDER','KURSI','MEJA','TAS','TOPI','KACAMATA','SENDOK','GARPU','PIRING','BOTOL','PAYUNG','PESAWAT','KERETA','KAPAL','GITAR','DRUM','MIKROFON','PANGGUNG','BENDERA','MASJID','BINTANG','BULAN','MATAHARI','GUNUNG','PANTAI','POHON','BUNGA','KOMPUTER','TELEPON','KUNCI','KADO','LILIN'];
+  final words=['REBANA','MARAWIS','KOMPAK','HAJIR','DARBUKA','LATIHAN','PANGGUNG','IRAMA','BEDUG','KARAKTER','SEPATU','PAYUNG','SEKOLAH','BUKU','PENSIL','KAMERA','KIPAS','JENDELA','SEPEDA','BOLA','KUCING','KELINCI','PISANG','SEMANGKA','KOPI','ROTI','JAM','KALENDER','KURSI','MEJA','TAS','TOPI','KACAMATA','SENDOK','GARPU','PIRING','BOTOL','PESAWAT','KERETA','KAPAL','GITAR','DRUM','MIKROFON','BENDERA','MASJID','BINTANG','BULAN','MATAHARI','GUNUNG','PANTAI','POHON','BUNGA','KOMPUTER','TELEPON','KUNCI','KADO','LILIN'];
+  final wordChallenges=[
+    {'word':'REBANA','clue':'Alat musik pukul yang sering dipakai dalam marawis','emoji':'🥁🎶'},
+    {'word':'DARBUKA','clue':'Alat musik berbentuk piala yang dimainkan dengan tangan','emoji':'🥁🏆'},
+    {'word':'KOMPAS','clue':'Alat penunjuk arah','emoji':'🧭🗺️'},
+    {'word':'SEPEDA','clue':'Kendaraan roda dua yang dikayuh','emoji':'🚲💨'},
+    {'word':'MATAHARI','clue':'Benda langit yang menyinari bumi pada siang hari','emoji':'☀️🌍'},
+    {'word':'KELINCI','clue':'Hewan bertelinga panjang yang suka wortel','emoji':'🐰🥕'},
+    {'word':'PAYUNG','clue':'Benda yang dipakai saat hujan','emoji':'🌧️☂️'},
+    {'word':'KAMERA','clue':'Alat untuk mengambil foto','emoji':'📷✨'},
+    {'word':'MIKROFON','clue':'Alat untuk memperkuat suara','emoji':'🎤🔊'},
+    {'word':'PESAWAT','clue':'Kendaraan yang terbang di udara','emoji':'✈️☁️'},
+    {'word':'BINTANG','clue':'Benda langit yang tampak berkelap-kelip malam hari','emoji':'🌌⭐'},
+    {'word':'MASJID','clue':'Tempat umat Islam melaksanakan salat berjamaah','emoji':'🕌🤲'},
+    {'word':'PANGGUNG','clue':'Tempat para pemain tampil di depan penonton','emoji':'🎭🎤'},
+    {'word':'KALENDER','clue':'Benda untuk melihat tanggal dan hari','emoji':'📅🗓️'},
+    {'word':'KOMPUTER','clue':'Perangkat elektronik untuk mengolah informasi','emoji':'💻⌨️'},
+    {'word':'SEMANGKA','clue':'Buah besar berkulit hijau dan berdaging merah','emoji':'🍉🌱'},
+    {'word':'GUNUNG','clue':'Bentang alam tinggi yang menjulang','emoji':'⛰️🌲'},
+    {'word':'JENDELA','clue':'Bagian rumah untuk melihat ke luar','emoji':'🏠🪟'},
+    {'word':'BENDERA','clue':'Kain lambang negara yang dikibarkan','emoji':'🇮🇩🚩'},
+    {'word':'MIKROSKOP','clue':'Alat untuk melihat benda yang sangat kecil','emoji':'🔬🧫'},
+  ];
   List<List<Offset>> localStrokes=[];
   List<Offset> activeStroke=[];
   @override void initState(){super.initState();loadRooms();}
@@ -167,7 +189,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
         events=List<Map<String,dynamic>>.from(x[2] as List);
         if(justStarted)showGameIntro=true;
       });
-      if(nextRoom['status']=='playing'&&nextRoom['game_type']=='draw_guess')_startGameClock();else {_gameClock?.cancel();_gameClock=null;}
+      if(nextRoom['status']=='playing'&&['draw_guess','word_guess','word_scramble','emoji_guess'].contains(nextRoom['game_type']))_startGameClock();else {_gameClock?.cancel();_gameClock=null;}
       if(nextRoom['status']=='playing'&&nextRoom['game_type']=='draw_guess'&&nextDrawer==uid&&secretWord!=null){
         final allEvents=x[2] as List;
         final acceptedTargets=allEvents.where((e)=>e['event_type']=='guess'&&e['payload'] is Map&&e['payload']['accepted']==true).map((e)=>e['payload']['target']?.toString()).whereType<String>().toSet();
@@ -215,10 +237,13 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
     _gameClock=Timer.periodic(const Duration(seconds:1),(_){
       if(!mounted)return;
       setState((){});
-      if(_drawSecondsLeft<=0&&host&&!_timeoutHandled){_timeoutHandled=true;finish();}
+      if(room?['game_type']=='draw_guess'&&_drawSecondsLeft<=0&&host&&!_timeoutHandled){_timeoutHandled=true;finish();}
+      if(['word_guess','word_scramble','emoji_guess'].contains(room?['game_type'])&&_wordSecondsLeft<=0&&host&&!_timeoutHandled){_timeoutHandled=true;final round=(state['round'] as num?)?.toInt()??0;if(round>=9){finish();}else{updateState(_newWordRound(room!['game_type'].toString(),round+1));}_timeoutHandled=false;}
     });
   }
   String _formatClock(int seconds)=>(seconds~/60).toString().padLeft(2,'0')+':'+(seconds%60).toString().padLeft(2,'0');
+  int get _wordSecondsLeft{final started=DateTime.tryParse(state['round_started_at']?.toString()??'');if(started==null)return 45;return (45-DateTime.now().toUtc().difference(started.toUtc()).inSeconds).clamp(0,45);}
+  Map<String,dynamic> _newWordRound(String type,int round){final item=wordChallenges[Random.secure().nextInt(wordChallenges.length)];final answer=item['word']!.toString();final letters=answer.split('')..shuffle(Random.secure());return {'round':round,'phase':'guess','answer':answer,'clue':item['clue'],'emoji':item['emoji'],'scrambled':letters.join(''),'round_started_at':DateTime.now().toUtc().toIso8601String()};}
   Future<void> emit(String type,Map<String,dynamic> payload)async{
     try{await db.from('multiplayer_events').insert({'room_id':roomId,'actor_id':db.auth.currentUser!.id,'event_type':type,'payload':payload});}
     catch(e){msg('Aksi gagal: '+e.toString());}
@@ -236,6 +261,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
       s['answer_orders']=(s['question_order'] as List).map((_)=>[0,1,2,3]..shuffle(Random.secure())).toList();
     }
     if(type=='draw_guess'){secretWord=words[Random.secure().nextInt(words.length)];s['drawer_id']=db.auth.currentUser!.id;s['started_at']=DateTime.now().toUtc().toIso8601String();s['duration_seconds']=480;s['last_rotation_event_id']=0;_timeoutHandled=false;}
+    if(['word_guess','word_scramble','emoji_guess'].contains(type))s.addAll(_newWordRound(type,0));
     if(type=='reaction_rush'){s['tap_open']=false;s['round']=0;}
     if(type=='this_or_that'){s['round']=0;}
     await updateState(s,status:'playing');
@@ -254,7 +280,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
     await channel?.unsubscribe();_gameClock?.cancel();_gameClock=null;_syncClock?.cancel();_syncClock=null;_exitImmersiveMode();if(mounted)setState(() { roomId=null; room=null; players=[]; events=[]; secretWord=null; activeStroke=[]; });widget.onGameActive?.call(false);loadRooms();
   }
   Future<void> finish()async=>updateState({...state,'phase':'finished'},status:'finished');
-  String title(String key)=>key=='quiz_arena'?'Marawis Quiz Arena':key=='who_leader'?'Who Is The Leader?':key=='reaction_rush'?'Reaction Rush':key=='this_or_that'?'This or That':'Draw & Guess';
+  String title(String key)=>key=='quiz_arena'?'Marawis Quiz Arena':key=='who_leader'?'Who Is The Leader?':key=='reaction_rush'?'Reaction Rush':key=='this_or_that'?'This or That':key=='word_guess'?'Tebak Kata':key=='word_scramble'?'Susun Huruf':key=='emoji_guess'?'Tebak Emoji':'Draw & Guess';
   Map<String,dynamic> player(String id)=>players.firstWhere((p)=>p['user_id']==id,orElse:()=>{});
   String playerName(String id)=>(player(id)['display_name']??'Pemain').toString();
   int score(String id)=>events.where((e){if(e['event_type']=='reaction_tap'&&e['actor_id']==id)return true;if(e['event_type']=='answer'&&e['actor_id']==id){final round=(e['payload']['round'] as num?)?.toInt()??-1;final choice=(e['payload']['choice'] as num?)?.toInt()??-1;final order=state['question_order'] is List?List<int>.from(state['question_order'] as List):List<int>.generate(questions.length,(i)=>i);final qIndex=round>=0&&round<order.length?order[round]:-1;final answerOrders=state['answer_orders'] is List?state['answer_orders'] as List:[];final answerOrder=round>=0&&round<answerOrders.length?List<int>.from(answerOrders[round] as List):[0,1,2,3];return qIndex>=0&&qIndex<questions.length&&choice>=0&&choice<answerOrder.length&&answerOrder[choice]==questions[qIndex]['c'];}return e['event_type']=='guess'&&e['payload']['accepted']==true&&e['payload']['target']==id;}).length*10;
