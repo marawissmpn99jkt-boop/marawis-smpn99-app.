@@ -951,9 +951,9 @@ class _MarawisPiecePainter extends CustomPainter{
   final bool light;
   @override void paint(Canvas canvas,Size size){
     final w=size.width,h=size.height;
-    final ink=Paint()..color=light?const Color(0xFF563B54):const Color(0xFF173C45)..style=PaintingStyle.fill..isAntiAlias=true;
-    final trim=Paint()..color=light?const Color(0xFFB77B37):const Color(0xFFB9F0E6)..style=PaintingStyle.stroke..strokeWidth=w*.065..isAntiAlias=true;
-    final fill=Paint()..color=light?const Color(0xFFFFD98D):const Color(0xFF4FA99E)..style=PaintingStyle.fill..isAntiAlias=true;
+    final ink=Paint()..color=(light?const Color(0xFF563B54):const Color(0xFF173C45))..style=PaintingStyle.fill..isAntiAlias=true;
+    final trim=Paint()..color=(light?const Color(0xFFB77B37):const Color(0xFFB9F0E6))..style=PaintingStyle.stroke..strokeWidth=w*.065..isAntiAlias=true;
+    final fill=Paint()..color=(light?const Color(0xFFFFD98D):const Color(0xFF4FA99E))..style=PaintingStyle.fill..isAntiAlias=true;
     final cx=w/2;
     if(kind.contains('king')){
       canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(w*.28,h*.3,w*.44,h*.52),Radius.circular(w*.12)),fill);
@@ -966,7 +966,7 @@ class _MarawisPiecePainter extends CustomPainter{
       canvas.drawCircle(Offset(cx,h*.5),w*.34,fill);
       canvas.drawCircle(Offset(cx,h*.5),w*.27,trim);
       canvas.drawCircle(Offset(cx,h*.5),w*.08,ink);
-      for(final a in [0.0,1.57,3.14,4.71]){final p=Offset(cx+math.cos(a)*w*.17,h*.5+math.sin(a)*w*.17);canvas.drawCircle(p,w*.045,ink);}
+      for(final a in [0.0,1.57,3.14,4.71]){final p=Offset(cx+cos(a)*w*.17,h*.5+sin(a)*w*.17);canvas.drawCircle(p,w*.045,ink);}
     }else if(kind.contains('rook')){
       final p=Path()..moveTo(w*.3,h*.2)..lineTo(w*.7,h*.2)..lineTo(w*.58,h*.76)..lineTo(w*.42,h*.76)..close();
       canvas.drawPath(p,fill);canvas.drawPath(p,trim);
