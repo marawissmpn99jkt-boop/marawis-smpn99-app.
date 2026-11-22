@@ -335,15 +335,34 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
     ]));
   }
   Widget leaderPanel(){
-    final votes=events.where((e)=>e['event_type']=='vote').toList();final uid=db.auth.currentUser!.id;final mine=votes.any((e)=>e['actor_id']==uid);
-    final tally=<String,int>{};for(final e in votes){final t=e['payload']['target']?.toString();if(t!=null)tally[t]=(tally[t]??0)+1;}
+    final votes=events.where((e)=>e["event_type"]=="vote").toList();
+    final uid=db.auth.currentUser!.id;final mine=votes.any((e)=>e["actor_id"]==uid);
+    final tally=<String,int>{};for(final e in votes){final t=e["payload"]["target"]?.toString();if(t!=null)tally[t]=(tally[t]??0)+1;}
     final sorted=tally.entries.toList()..sort((a,b)=>b.value.compareTo(a.value));
-    return Card(color:Colors.white,child:Padding(padding:const EdgeInsets.all(18),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-      const Text('WHO IS THE LEADER?',style:TextStyle(fontWeight:FontWeight.w900,color:Color(0xFF4268C5))),const SizedBox(height:8),const Text('Pilih pemain yang menurutmu paling cocok memimpin tim. Setiap orang hanya punya satu suara.'),
-      if(!mine)...[for(final p in players)if(p['user_id']!=uid)ListTile(title:Text(p['display_name'].toString()),trailing:IconButton(icon:const Icon(Icons.how_to_vote),onPressed:()=>emit('vote',{'target':p['user_id']}))) ] else const Text('Suaramu sudah masuk.'),
-      Text(votes.length.toString()+'/'+players.length.toString()+' suara masuk'),const Divider(),for(final v in sorted)Text(playerName(v.key)+' — '+v.value.toString()+' suara'),
-      if(host)FilledButton(onPressed:finish,child:const Text('Tutup voting & tampilkan hasil')),
-    ])));
+    return SingleChildScrollView(padding:const EdgeInsets.fromLTRB(18,12,18,20),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+      Container(width:double.infinity,padding:const EdgeInsets.all(22),decoration:BoxDecoration(gradient:const LinearGradient(colors:[Color(0xFF087E8B),Color(0xFF3D72B7)]),borderRadius:BorderRadius.circular(25)),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+        const Icon(Icons.workspace_premium_rounded,color:Color(0xFFFFD166),size:34),
+        const SizedBox(height:14),
+        const Text("WHO IS THE\nNEXT LEADER?",style:TextStyle(color:Colors.white,fontSize:26,height:1.05,fontWeight:FontWeight.w900)),
+        const SizedBox(height:8),
+        const Text("Pilih teman yang paling cocok memimpin dan menjaga kekompakan tim.",style:TextStyle(color:Colors.white70,fontSize:12,height:1.45)),
+        const SizedBox(height:15),
+        Text(votes.length.toString()+"/"+players.length.toString()+" SUARA TERKUMPUL",style:const TextStyle(color:Color(0xFFFFD166),fontSize:10,fontWeight:FontWeight.w900,letterSpacing:1.2)),
+      ])),
+      const SizedBox(height:20),
+      const Text("PILIH SATU PEMAIN",style:TextStyle(color:Colors.white70,fontSize:10,fontWeight:FontWeight.w900,letterSpacing:1.3)),
+      const SizedBox(height:10),
+      if(!mine)for(final p in players)if(p["user_id"]!=uid)Padding(padding:const EdgeInsets.only(bottom:9),child:Material(color:Colors.white.withOpacity(.09),borderRadius:BorderRadius.circular(17),child:InkWell(onTap:()=>emit("vote",{"target":p["user_id"]}),borderRadius:BorderRadius.circular(17),child:Padding(padding:const EdgeInsets.all(13),child:Row(children:[
+        CircleAvatar(backgroundColor:const Color(0xFF70CFC4),child:Text(p["display_name"].toString().isEmpty?"?":p["display_name"].toString()[0].toUpperCase(),style:const TextStyle(color:Color(0xFF102D35),fontWeight:FontWeight.w900))),
+        const SizedBox(width:12),Expanded(child:Text(p["display_name"].toString(),style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w800))),const Icon(Icons.how_to_vote_rounded,color:Color(0xFFFFD166)),
+      ]))))),
+      if(mine)Container(width:double.infinity,padding:const EdgeInsets.all(14),decoration:BoxDecoration(color:const Color(0xFF70E2B2).withOpacity(.12),borderRadius:BorderRadius.circular(15)),child:const Text("SUARAMU SUDAH TERCATAT ✓",style:TextStyle(color:Color(0xFF70E2B2),fontWeight:FontWeight.w900,fontSize:11,letterSpacing:1))),
+      const SizedBox(height:18),
+      const Text("HASIL SEMENTARA",style:TextStyle(color:Colors.white70,fontSize:10,fontWeight:FontWeight.w900,letterSpacing:1.3)),
+      const SizedBox(height:8),
+      for(final v in sorted)Padding(padding:const EdgeInsets.only(bottom:8),child:Container(padding:const EdgeInsets.all(12),decoration:BoxDecoration(color:Colors.white.withOpacity(.07),borderRadius:BorderRadius.circular(14)),child:Row(children:[Expanded(child:Text(playerName(v.key),style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w700))),Text(v.value.toString()+" suara",style:const TextStyle(color:Color(0xFFFFD166),fontWeight:FontWeight.w900))]))),
+      if(host)Padding(padding:const EdgeInsets.only(top:12),child:SizedBox(width:double.infinity,height:52,child:FilledButton(onPressed:finish,style:FilledButton.styleFrom(backgroundColor:const Color(0xFFFFD166),foregroundColor:const Color(0xFF211744),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(16))),child:const Text("TUTUP VOTING & LIHAT HASIL")))),
+    ]));
   }
   Widget drawPanel(){
     final uid=db.auth.currentUser!.id;final drawer=state['drawer_id']?.toString();final canDraw=uid==drawer;
