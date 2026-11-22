@@ -604,7 +604,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
         lastId=(event['id'] as num?)?.toInt()??lastId;
         final payload=Map<String,dynamic>.from(event['payload']??{});
         final actor=event['actor_id']?.toString();
-        final whiteTurn=game.turn==chess_lib.WHITE;
+        final whiteTurn=game.turn==chess_lib.Color.WHITE;
         if((whiteTurn&&actor!=gs['white_id'])||(!whiteTurn&&actor!=gs['black_id']))continue;
         final from=payload['from']?.toString()??'';
         final to=payload['to']?.toString()??'';
@@ -643,11 +643,11 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
     final game=chess_lib.Chess.fromFEN((gs['fen']??chess_lib.Chess().fen).toString());
     final myWhite=uid==gs['white_id'];
     final myBlack=uid==gs['black_id'];
-    if((game.turn==chess_lib.WHITE&&!myWhite)||(game.turn==chess_lib.BLACK&&!myBlack))return;
+    if((game.turn==chess_lib.Color.WHITE&&!myWhite)||(game.turn==chess_lib.Color.BLACK&&!myBlack))return;
     final selected=_selectedChessSquare;
     final piece=game.get(square);
     if(selected==null){
-      if(piece!=null&&((piece.color==chess_lib.WHITE&&myWhite)||(piece.color==chess_lib.BLACK&&myBlack)))setState(()=>_selectedChessSquare=square);
+      if(piece!=null&&((piece.color==chess_lib.Color.WHITE&&myWhite)||(piece.color==chess_lib.Color.BLACK&&myBlack)))setState(()=>_selectedChessSquare=square);
       return;
     }
     final legal=game.moves({'square':selected,'verbose':true});
@@ -657,7 +657,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
       await emit('chess_move',{'from':selected,'to':square,'promotion':'q'});
       return;
     }
-    if(piece!=null&&((piece.color==chess_lib.WHITE&&myWhite)||(piece.color==chess_lib.BLACK&&myBlack)))setState(()=>_selectedChessSquare=square);
+    if(piece!=null&&((piece.color==chess_lib.Color.WHITE&&myWhite)||(piece.color==chess_lib.Color.BLACK&&myBlack)))setState(()=>_selectedChessSquare=square);
     else setState(()=>_selectedChessSquare=null);
   }
   Widget chessPanel(){
@@ -668,8 +668,8 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
     final blackId=gs['black_id']?.toString()??'';
     final myWhite=uid==whiteId;
     final myBlack=uid==blackId;
-    final myTurn=(game.turn==chess_lib.WHITE&&myWhite)||(game.turn==chess_lib.BLACK&&myBlack);
-    final whiteTurn=game.turn==chess_lib.WHITE;
+    final myTurn=(game.turn==chess_lib.Color.WHITE&&myWhite)||(game.turn==chess_lib.Color.BLACK&&myBlack);
+    final whiteTurn=game.turn==chess_lib.Color.WHITE;
     final selected=_selectedChessSquare;
     final selectedMoves=selected==null?<String>{}:game.moves({'square':selected,'verbose':true}).map((m)=>(m as Map)['to'].toString()).toSet();
     final log=List<String>.from(gs['move_log']??[]);
@@ -696,7 +696,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
         final light=(boardRow+boardCol).isEven;
         final isSelected=selected==square;
         final isTarget=selectedMoves.contains(square);
-        final isWhitePiece=piece?.color==chess_lib.WHITE;
+        final isWhitePiece=piece?.color==chess_lib.Color.WHITE;
         final pieceColor=piece==null?Colors.transparent:(isWhitePiece?const Color(0xFFFFE7A5):const Color(0xFF75D6CB));
         final ink=piece==null?Colors.transparent:(isWhitePiece?const Color(0xFF39254E):const Color(0xFF142B39));
         return InkWell(onTap:()=>_tapChessSquare(square),child:Container(decoration:BoxDecoration(color:isSelected?const Color(0xFFFFD166):light?const Color(0xFFE8DCC4):const Color(0xFF826C91),border:Border.all(color:Colors.black.withOpacity(.07),width:.4)),child:Stack(alignment:Alignment.center,children:[
