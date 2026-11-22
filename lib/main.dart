@@ -20,6 +20,9 @@ import 'community_hub_screen.dart';
 import 'management_hub_screen.dart';
 import 'marawis_smart_screen.dart';
 import 'voting_screen.dart';
+import 'organization_insights_screen.dart';
+import 'qr_checkin_screen.dart';
+import 'member_cards_screen.dart';
 
 const supabaseUrl = 'https://yatbnzczricrwrqhzsqr.supabase.co';
 const supabasePublishableKey = 'sb_publishable_Uz6EYSbI3Nhj28uP3lEFsw_nCbEYMHS';
@@ -1134,6 +1137,35 @@ class HomeScreen extends StatelessWidget {
               iconColor: const Color(0xFF4268C5),
               onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => MarawisSmartScreen(role: role))),
             ),
+            const SizedBox(height: 14),
+            _MenuCard(
+              icon: Icons.qr_code_scanner_rounded,
+              title: 'Check-in Kegiatan',
+              subtitle: 'Presensi menggunakan QR',
+              color: const Color(0xFFE7F4EE),
+              iconColor: const Color(0xFF167D68),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => QrCheckinScreen(role: role))),
+            ),
+            const SizedBox(height: 14),
+            _MenuCard(
+              icon: Icons.badge_rounded,
+              title: 'Kartu Identitas Digital',
+              subtitle: 'Kartu anggota dengan QR',
+              color: const Color(0xFFFFF2E3),
+              iconColor: const Color(0xFFC47A25),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => MemberCardsScreen(role: role))),
+            ),
+            if (isAdmin) ...[
+              const SizedBox(height: 14),
+              _MenuCard(
+                icon: Icons.analytics_rounded,
+                title: 'Statistik & Laporan',
+                subtitle: 'Kehadiran, keuangan & ekspor PDF',
+                color: const Color(0xFFEAF0FF),
+                iconColor: const Color(0xFF4268C5),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const OrganizationInsightsScreen())),
+              ),
+            ],
             if (isAdmin) ...[
               const SizedBox(height: 12),
               _MenuCard(
