@@ -18,12 +18,27 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
   RealtimeChannel? channel;
   bool busy=false;
   final guess=TextEditingController();
-  final questions=const [
+  final questions=<Map<String,dynamic>>[
     {'q':'Apa fungsi utama hajir dalam permainan marawis?','a':['Menjaga ketukan dasar','Mengatur kostum','Membuka acara','Mengatur mikrofon'],'c':0},
     {'q':'Sikap penting saat bermain bersama?','a':['Bermain sendiri','Saling mendengarkan','Mendahului semua','Mengabaikan aba-aba'],'c':1},
     {'q':'Sebelum tampil, kelompok sebaiknya...','a':['Tidak latihan','Menyamakan tempo','Mengubah lagu','Datang terlambat'],'c':1},
     {'q':'Darbuka dimainkan dengan cara...','a':['Dipukul tangan','Ditiup','Digesek','Dipetik'],'c':0},
     {'q':'Jika tempo tidak sama, pemain harus...','a':['Tetap sendiri','Mendengarkan pemimpin tempo','Mempercepat sendiri','Berhenti mendadak'],'c':1},
+    {'q':'Apa tujuan utama latihan bersama?','a':['Mencari siapa paling hebat','Membangun kekompakan','Mengurangi waktu tampil','Menghindari evaluasi'],'c':1},
+    {'q':'Apa yang perlu dilakukan saat salah masuk ketukan?','a':['Tetap tenang dan kembali mengikuti irama','Berhenti lalu pulang','Menyalahkan pemain lain','Mempercepat semua pukulan'],'c':0},
+    {'q':'Siapa yang memberi aba-aba awal dan akhir penampilan?','a':['Penonton','Pemimpin/dirigen kelompok','Petugas dokumentasi','Siapa saja secara acak'],'c':1},
+    {'q':'Mengapa alat musik perlu dirawat?','a':['Agar terlihat mahal','Agar awet dan tetap layak dimainkan','Supaya lebih berat','Agar tidak dipakai latihan'],'c':1},
+    {'q':'Apa sikap terbaik ketika teman sedang mendapat giliran?','a':['Mengganggu','Mendengarkan dan menghargai','Menertawakan','Berbicara keras'],'c':1},
+    {'q':'Ketika jadwal latihan berubah, anggota sebaiknya...','a':['Mengabaikan kabar','Mengecek informasi resmi','Menyebarkan rumor','Datang kapan saja'],'c':1},
+    {'q':'Apa arti menjaga dinamika musik?','a':['Mengatur keras-lembut permainan','Mengganti semua alat','Memainkan nada secara acak','Mempercepat lagu terus-menerus'],'c':0},
+    {'q':'Apa yang harus diperhatikan saat berpindah formasi?','a':['Keamanan dan aba-aba','Kecepatan berlari','Meninggalkan alat','Berjalan tanpa melihat sekitar'],'c':0},
+    {'q':'Mengapa pemain perlu memahami lagu sebelum tampil?','a':['Agar bisa mengikuti struktur dan perubahan bagian','Agar tidak perlu latihan','Agar bebas mengubah tempo','Agar tampil lebih cepat selesai'],'c':0},
+    {'q':'Apa tindakan tepat jika alat mengalami kendala?','a':['Memaksakan sampai rusak','Melapor kepada penanggung jawab','Menyembunyikannya','Melempar alat'],'c':1},
+    {'q':'Apa yang dimaksud kekompakan dalam tim?','a':['Semua bermain sesuka hati','Saling menyesuaikan dan bekerja sama','Hanya mengikuti pemain terkuat','Tidak perlu komunikasi'],'c':1},
+    {'q':'Saat menerima kritik setelah tampil, sebaiknya...','a':['Menolak semuanya','Mendengarkan dan mengevaluasi','Menyalahkan penonton','Menghindari latihan berikutnya'],'c':1},
+    {'q':'Apa manfaat pemanasan sebelum bermain?','a':['Membantu kesiapan tubuh dan tangan','Mengganti latihan inti','Membuat alat lebih keras','Mempercepat acara'],'c':0},
+    {'q':'Bagaimana cara menjaga suasana latihan tetap positif?','a':['Saling menghargai dan memberi dukungan','Mengejek kesalahan','Membandingkan anggota','Mengabaikan anggota baru'],'c':0},
+    {'q':'Apa yang sebaiknya dilakukan setelah penampilan selesai?','a':['Meninggalkan alat begitu saja','Merapikan alat dan melakukan evaluasi','Langsung membubarkan diri tanpa koordinasi','Menyalahkan tim'],'c':1},
   ];
   final words=['REBANA','MARAWIS','KOMPAK','HAJIR','DARBUKA','LATIHAN','PANGGUNG','IRAMA'];
   List<List<Offset>> localStrokes=[];
@@ -103,15 +118,33 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
   String title(String key)=>key=='quiz_arena'?'Marawis Quiz Arena':key=='who_leader'?'Who Is The Leader?':'Draw & Guess';
   Map<String,dynamic> player(String id)=>players.firstWhere((p)=>p['user_id']==id,orElse:()=>{});
   String playerName(String id)=>(player(id)['display_name']??'Pemain').toString();
-  int score(String id)=>events.where((e){if(e['event_type']=='answer'&&e['actor_id']==id){final round=(e['payload']['round'] as num?)?.toInt()??-1;final choice=(e['payload']['choice'] as num?)?.toInt()??-1;return round>=0&&round<questions.length&&choice==questions[round]['c'];}return e['event_type']=='guess'&&e['payload']['accepted']==true&&e['payload']['target']==id;}).length*10;
+  int score(String id)=>events.where((e){if(e['event_type']=='answer'&&e['actor_id']==id){final round=(e['payload']['round'] as num?)?.toInt()??-1;final choice=(e['payload']['choice'] as num?)?.toInt()??-1;final order=state['question_order'] is List?List<int>.from(state['question_order'] as List):List<int>.generate(questions.length,(i)=>i);final qIndex=round>=0&&round<order.length?order[round]:-1;return qIndex>=0&&qIndex<questions.length&&choice==questions[qIndex]['c'];}return e['event_type']=='guess'&&e['payload']['accepted']==true&&e['payload']['target']==id;}).length*10;
   Widget cardGame(String key,String name,String detail,IconData icon){
-    return Card(color:Colors.white,child:ListTile(leading:CircleAvatar(backgroundColor:const Color(0xFFE7F4EE),child:Icon(icon,color:const Color(0xFF167D68))),title:Text(name,style:const TextStyle(fontWeight:FontWeight.w900)),subtitle:Text(detail),trailing:staff?IconButton.filledTonal(onPressed:()=>createRoom(key),icon:const Icon(Icons.add),tooltip:'Buat room'):null));
+    final colors=key=='quiz_arena'?const [Color(0xFF6B4EFF),Color(0xFFAA55E8)]:key=='who_leader'?const [Color(0xFF087E8B),Color(0xFF35B6A4)]:const [Color(0xFFE46C32),Color(0xFFF2B544)];
+    return Container(
+      margin:const EdgeInsets.only(bottom:12),
+      decoration:BoxDecoration(gradient:LinearGradient(colors:colors),borderRadius:BorderRadius.circular(22),boxShadow:[BoxShadow(color:colors.first.withOpacity(.22),blurRadius:16,offset:const Offset(0,7))]),
+      child:Material(color:Colors.transparent,borderRadius:BorderRadius.circular(22),child:InkWell(borderRadius:BorderRadius.circular(22),onTap:staff?()=>createRoom(key):joinCode,child:Padding(padding:const EdgeInsets.all(17),child:Row(children:[
+        Container(width:58,height:58,decoration:BoxDecoration(color:Colors.white.withOpacity(.19),borderRadius:BorderRadius.circular(18)),child:Icon(icon,color:Colors.white,size:31)),
+        const SizedBox(width:14),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+          Text(name,style:const TextStyle(color:Colors.white,fontSize:16,fontWeight:FontWeight.w900)),
+          const SizedBox(height:4),Text(detail,style:const TextStyle(color:Colors.white70,fontSize:12)),
+          const SizedBox(height:9),Text(staff?'BUAT ROOM  →':'LIHAT & GABUNG  →',style:const TextStyle(color:Colors.white,fontSize:10,fontWeight:FontWeight.w900,letterSpacing:1.1)),
+        ])),
+        const Icon(Icons.play_circle_fill_rounded,color:Colors.white,size:34),
+      ])))));
   }
   @override Widget build(BuildContext context){
     if(roomId!=null)return roomPage();
     return Scaffold(body:RefreshIndicator(onRefresh:loadRooms,child:ListView(padding:const EdgeInsets.all(16),children:[
-      Container(padding:const EdgeInsets.all(20),decoration:BoxDecoration(gradient:const LinearGradient(colors:[Color(0xFF123F35),Color(0xFF229B7C)]),borderRadius:BorderRadius.circular(22)),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-        const Text('MARAWIS MULTIPLAYER ARENA',style:TextStyle(color:Colors.white70,fontWeight:FontWeight.w900,fontSize:10,letterSpacing:1.2)),const SizedBox(height:10),const Text('Main bareng,\nmenang bareng.',style:TextStyle(color:Colors.white,fontSize:26,fontWeight:FontWeight.w900)),const SizedBox(height:8),Text(staff?'Buat room dan bagikan kode kepada anggota.':'Gabung ke room yang dibuat Pengurus/Pembina.',style:const TextStyle(color:Colors.white70)),if(!staff)Padding(padding:const EdgeInsets.only(top:12),child:FilledButton.icon(onPressed:joinCode,icon:const Icon(Icons.login),label:const Text('Gabung dengan kode'),style:FilledButton.styleFrom(backgroundColor:Colors.white,foregroundColor:const Color(0xFF145B49)))),
+      Container(padding:const EdgeInsets.all(22),decoration:BoxDecoration(gradient:const LinearGradient(begin:Alignment.topLeft,end:Alignment.bottomRight,colors:[Color(0xFF17113D),Color(0xFF442B87),Color(0xFF147D83)]),borderRadius:BorderRadius.circular(26),boxShadow:[BoxShadow(color:const Color(0xFF33236F).withOpacity(.24),blurRadius:22,offset:const Offset(0,10))]),child:Stack(children:[
+        Positioned(right:-8,top:-12,child:Icon(Icons.sports_esports_rounded,size:112,color:Colors.white.withOpacity(.08))),
+        Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+          Row(children:[const Icon(Icons.bolt_rounded,color:Color(0xFFFFD166),size:18),const SizedBox(width:6),const Text('MARAWIS MULTIPLAYER ARENA',style:TextStyle(color:Colors.white70,fontWeight:FontWeight.w900,fontSize:10,letterSpacing:1.3))]),
+          const SizedBox(height:15),const Text('LET THE\nGAME BEGIN!',style:TextStyle(color:Colors.white,fontSize:31,height:1.0,fontWeight:FontWeight.w900,letterSpacing:-.5)),
+          const SizedBox(height:10),Text(staff?'Buat arena, undang teman, dan mulai tantangannya.':'Masuk ke arena dan main bareng satu tim.',style:const TextStyle(color:Colors.white70,fontSize:13)),
+          if(!staff)Padding(padding:const EdgeInsets.only(top:15),child:FilledButton.icon(onPressed:joinCode,icon:const Icon(Icons.key_rounded),label:const Text('Gabung pakai kode'),style:FilledButton.styleFrom(backgroundColor:const Color(0xFFFFD166),foregroundColor:const Color(0xFF211744),padding:const EdgeInsets.symmetric(horizontal:18,vertical:13)))),
+        ]),
       ])),
       const SizedBox(height:18),const Text('Pilih permainan',style:TextStyle(fontSize:18,fontWeight:FontWeight.w900)),
       cardGame('quiz_arena','Marawis Quiz Arena','Jawab pertanyaan secara serentak.',Icons.quiz),
@@ -144,7 +177,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
   }
   Widget quizPanel(){
     final i=(state['round'] as num?)?.toInt()??0;if(i>=questions.length)return results();
-    final q=questions[i];final uid=db.auth.currentUser!.id;
+    final order=state['question_order'] is List?List<int>.from(state['question_order'] as List):List<int>.generate(questions.length,(n)=>n);final qIndex=i<order.length?order[i]:i;final q=questions[qIndex];final uid=db.auth.currentUser!.id;
     final mine=events.any((e)=>e['actor_id']==uid&&e['event_type']=='answer'&&e['payload']['round']==i);
     final count=events.where((e)=>e['event_type']=='answer'&&e['payload']['round']==i).length;
     return Card(color:Colors.white,child:Padding(padding:const EdgeInsets.all(18),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
