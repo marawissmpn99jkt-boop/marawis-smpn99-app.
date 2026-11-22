@@ -365,18 +365,39 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
     ]));
   }
   Widget drawPanel(){
-    final uid=db.auth.currentUser!.id;final drawer=state['drawer_id']?.toString();final canDraw=uid==drawer;
-    final drawEvents=events.where((e)=>e['event_type']=='draw').toList();final guesses=events.where((e)=>e['event_type']=='guess'&&e['payload']['accepted']!=true).toList();
-    return Card(color:Colors.white,child:Padding(padding:const EdgeInsets.all(15),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-      const Text('DRAW & GUESS',style:TextStyle(fontWeight:FontWeight.w900,color:Color(0xFFC47A25))),const SizedBox(height:5),Text(canDraw?'Kata rahasia: '+(secretWord??'MARAWIS')+' — gambarkan!':'Lihat gambar dan kirim tebakanmu.'),
-      const SizedBox(height:10),
-      GestureDetector(onPanStart:canDraw?(d)=>setState(()=>activeStroke=[d.localPosition]):null,onPanUpdate:canDraw?(d)=>setState(()=>activeStroke.add(d.localPosition)):null,onPanEnd:canDraw?(d)async{final pts=activeStroke.map((p)=>{'x':p.dx,'y':p.dy}).toList();setState(()=>activeStroke=[]);if(pts.length>1)await emit('draw',{'points':pts});}:null,child:Container(height:250,width:double.infinity,decoration:BoxDecoration(color:const Color(0xFFFAFCFB),border:Border.all(color:const Color(0xFFDDE7E1)),borderRadius:BorderRadius.circular(12)),child:CustomPaint(painter:_GamePainter(drawEvents,activeStroke)))),
-      if(!canDraw)Row(children:[Expanded(child:TextField(controller:guess,decoration:const InputDecoration(hintText:'Tulis tebakan'))),const SizedBox(width:8),FilledButton(onPressed:()async{final v=guess.text.trim();if(v.isNotEmpty){await emit('guess',{'text':v});guess.clear();}},child:const Text('Kirim'))]),
-      if(canDraw)const Text('Kamu menggambar. Host dapat menandai tebakan yang benar.',style:TextStyle(fontSize:12,color:Colors.black54)),
-      const SizedBox(height:10),const Text('Tebakan',style:TextStyle(fontWeight:FontWeight.w800)),
-      for(final g in guesses)ListTile(dense:true,title:Text(playerName(g['actor_id'].toString())+': '+(g['payload']['text']??'').toString()),trailing:canDraw?IconButton(icon:const Icon(Icons.check_circle,color:Colors.green),onPressed:()=>emit('guess',{'accepted':true,'target':g['actor_id']})):null),
-      if(host)FilledButton(onPressed:finish,child:const Text('Akhiri permainan')),
-    ])));
+    final uid=db.auth.currentUser!.id;final drawer=state["drawer_id"]?.toString();final canDraw=uid==drawer;
+    final drawEvents=events.where((e)=>e["event_type"]=="draw").toList();
+    final guesses=events.where((e)=>e["event_type"]=="guess"&&e["payload"]["accepted"]!=true).toList();
+    return SingleChildScrollView(padding:const EdgeInsets.fromLTRB(16,10,16,20),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+      Container(width:double.infinity,padding:const EdgeInsets.all(18),decoration:BoxDecoration(gradient:const LinearGradient(colors:[Color(0xFFE46C32),Color(0xFFB64F80)]),borderRadius:BorderRadius.circular(23)),child:Row(children:[
+        const Icon(Icons.draw_rounded,color:Colors.white,size:35),const SizedBox(width:12),
+        Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text("DRAW & GUESS",style:TextStyle(color:Colors.white,fontSize:20,fontWeight:FontWeight.w900)),Text(canDraw?"Gambarkan kata rahasia untuk temanmu!":"Amati gambar, lalu tebak secepatnya.",style:const TextStyle(color:Colors.white70,fontSize:11))])),
+      ])),
+      const SizedBox(height:14),
+      if(canDraw)Container(width:double.infinity,padding:const EdgeInsets.all(12),decoration:BoxDecoration(color:const Color(0xFFFFD166).withOpacity(.13),borderRadius:BorderRadius.circular(14),border:Border.all(color:const Color(0xFFFFD166).withOpacity(.3))),child:Text("KATA RAHASIA: "+(secretWord??"MARAWIS"),style:const TextStyle(color:Color(0xFFFFD166),fontWeight:FontWeight.w900,letterSpacing:1.2))),
+      if(!canDraw)const Padding(padding:EdgeInsets.only(bottom:9),child:Text("GAMBAR RAHASIA",style:TextStyle(color:Colors.white70,fontSize:10,fontWeight:FontWeight.w900,letterSpacing:1.2))),
+      const SizedBox(height:8),
+      Container(height:270,width:double.infinity,decoration:BoxDecoration(color:const Color(0xFFFFFCF5),borderRadius:BorderRadius.circular(21),border:Border.all(color:Colors.white.withOpacity(.25)),boxShadow:[BoxShadow(color:Colors.black.withOpacity(.2),blurRadius:18,offset:const Offset(0,8))]),child:ClipRRect(borderRadius:BorderRadius.circular(21),child:GestureDetector(
+        onPanStart:canDraw?(d)=>setState(()=>activeStroke=[d.localPosition]):null,
+        onPanUpdate:canDraw?(d)=>setState(()=>activeStroke.add(d.localPosition)):null,
+        onPanEnd:canDraw?(d)async{final pts=activeStroke.map((p)=>{"x":p.dx,"y":p.dy}).toList();setState(()=>activeStroke=[]);if(pts.length>1)await emit("draw",{"points":pts});}:null,
+        child:CustomPaint(painter:_GamePainter(drawEvents,activeStroke),child:const SizedBox.expand()),
+      ))),
+      if(canDraw)Padding(padding:const EdgeInsets.only(top:8),child:Row(children:[const Icon(Icons.touch_app_rounded,color:Colors.white54,size:16),const SizedBox(width:6),const Expanded(child:Text("Sentuh dan geser untuk menggambar di kanvas.",style:TextStyle(color:Colors.white54,fontSize:10))),TextButton(onPressed:()=>setState(()=>activeStroke=[]),child:const Text("HAPUS GARIS"))])),
+      if(!canDraw)Padding(padding:const EdgeInsets.only(top:13),child:Row(children:[
+        Expanded(child:TextField(controller:guess,style:const TextStyle(color:Colors.white),decoration:InputDecoration(hintText:"Ketik tebakanmu...",hintStyle:const TextStyle(color:Colors.white38),filled:true,fillColor:Colors.white.withOpacity(.1),border:OutlineInputBorder(borderRadius:BorderRadius.circular(15),borderSide:BorderSide.none)))),
+        const SizedBox(width:8),
+        SizedBox(height:52,width:54,child:FilledButton(onPressed:()async{final v=guess.text.trim();if(v.isNotEmpty){await emit("guess",{"text":v});guess.clear();}},style:FilledButton.styleFrom(backgroundColor:const Color(0xFFFFD166),foregroundColor:const Color(0xFF211744),padding:EdgeInsets.zero,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(15))),child:const Icon(Icons.send_rounded))),
+      ])),
+      const SizedBox(height:17),const Text("TEBAKAN PEMAIN",style:TextStyle(color:Colors.white70,fontSize:10,fontWeight:FontWeight.w900,letterSpacing:1.2)),
+      const SizedBox(height:8),
+      if(guesses.isEmpty)const Text("Belum ada tebakan. Jadilah yang pertama!",style:TextStyle(color:Colors.white54,fontSize:11)),
+      for(final g in guesses)Container(margin:const EdgeInsets.only(bottom:7),padding:const EdgeInsets.symmetric(horizontal:12,vertical:9),decoration:BoxDecoration(color:Colors.white.withOpacity(.08),borderRadius:BorderRadius.circular(13)),child:Row(children:[
+        Expanded(child:Text(playerName(g["actor_id"].toString())+": "+(g["payload"]["text"]??"").toString(),style:const TextStyle(color:Colors.white,fontSize:12,fontWeight:FontWeight.w700))),
+        if(canDraw)IconButton(onPressed:()=>emit("guess",{"accepted":true,"target":g["actor_id"]}),icon:const Icon(Icons.check_circle_rounded,color:Color(0xFF70E2B2))),
+      ])),
+      if(host)Padding(padding:const EdgeInsets.only(top:10),child:SizedBox(width:double.infinity,height:50,child:FilledButton(onPressed:finish,style:FilledButton.styleFrom(backgroundColor:const Color(0xFFFFD166),foregroundColor:const Color(0xFF211744),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(15))),child:const Text("AKHIRI PERMAINAN")))),
+    ]));
   }
   Widget scoreboard(){
     final sorted=players.toList()..sort((a,b)=>score(b['user_id'].toString()).compareTo(score(a['user_id'].toString())));
