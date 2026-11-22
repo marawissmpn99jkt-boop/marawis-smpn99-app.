@@ -577,8 +577,6 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
   }
   Widget wordPanel(String type){
     final round=(state['round'] as num?)?.toInt()??0;
-    final uid=db.auth.currentUser!.id;
-    final mine=events.any((e)=>e['event_type']=='word_answer'&&e['actor_id']==uid&&e['payload']['round']==round&&e['payload']['correct']==true);
     final answers=events.where((e)=>e['event_type']=='word_answer'&&e['payload']['round']==round).toList();
     final seconds=_wordSecondsLeft;
     final prompt=type=='word_guess'?(state['clue']??'').toString():type=='word_scramble'?(state['scrambled']??'').toString().split('').join('  '):(state['emoji']??'').toString();
