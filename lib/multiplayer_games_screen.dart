@@ -295,18 +295,44 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
     return drawPanel();
   }
   Widget quizPanel(){
-    final i=(state['round'] as num?)?.toInt()??0;if(i>=questions.length)return results();
-    final order=state['question_order'] is List?List<int>.from(state['question_order'] as List):List<int>.generate(questions.length,(n)=>n);final qIndex=i<order.length?order[i]:i;final q=questions[qIndex];final answerOrders=state['answer_orders'] is List?state['answer_orders'] as List:[];final answerOrder=i<answerOrders.length?List<int>.from(answerOrders[i] as List):[0,1,2,3];final uid=db.auth.currentUser!.id;
-    final mine=events.any((e)=>e['actor_id']==uid&&e['event_type']=='answer'&&e['payload']['round']==i);
-    final count=events.where((e)=>e['event_type']=='answer'&&e['payload']['round']==i).length;
-    return Card(color:Colors.white,child:Padding(padding:const EdgeInsets.all(18),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-      Text('SOAL '+(i+1).toString()+'/'+questions.length.toString(),style:const TextStyle(color:Color(0xFF167D68),fontWeight:FontWeight.w900)),const SizedBox(height:10),Text(q['q'].toString(),style:const TextStyle(fontSize:19,fontWeight:FontWeight.w900)),
-      if(q['category']!=null)Padding(padding:const EdgeInsets.only(bottom:7),child:Text('KATEGORI: '+q['category'].toString().toUpperCase(),style:const TextStyle(fontSize:10,fontWeight:FontWeight.w900,color:Color(0xFF8A6AE8),letterSpacing:1))),
-      if(!mine)for(var n=0;n<answerOrder.length;n++)SizedBox(width:double.infinity,child:Padding(padding:const EdgeInsets.only(top:7),child:OutlinedButton(onPressed:()=>emit('answer',{'round':i,'choice':n}),child:Text((q['a'] as List)[answerOrder[n]].toString())))) else const Padding(padding:EdgeInsets.all(12),child:Text('Jawaban terkirim! Menunggu pemain lain.')),
-      Text(count.toString()+'/'+players.length.toString()+' pemain menjawab'),
-      if(host)FilledButton(onPressed:()=>i+1<questions.length?updateState({...state,'round':i+1}):finish(),child:Text(i+1<questions.length?'Soal berikutnya':'Akhiri Quiz')),
-      scoreboard(),
-    ])));
+    final i=(state["round"] as num?)?.toInt()??0;
+    final order=state["question_order"] is List?List<int>.from(state["question_order"] as List):List<int>.generate(questions.length,(n)=>n);
+    if(i>=order.length)return results();
+    final qIndex=order[i];final q=questions[qIndex];
+    final answerOrders=state["answer_orders"] is List?state["answer_orders"] as List:[];
+    final answerOrder=i<answerOrders.length?List<int>.from(answerOrders[i] as List):[0,1,2,3];
+    final uid=db.auth.currentUser!.id;
+    final mine=events.any((e)=>e["actor_id"]==uid&&e["event_type"]=="answer"&&e["payload"]["round"]==i);
+    final count=events.where((e)=>e["event_type"]=="answer"&&e["payload"]["round"]==i).length;
+    return SingleChildScrollView(padding:const EdgeInsets.fromLTRB(18,8,18,20),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+      Row(children:[Text("ROUND "+(i+1).toString().padLeft(2,"0"),style:const TextStyle(color:Color(0xFFFFD166),fontSize:11,fontWeight:FontWeight.w900,letterSpacing:1.5)),const Spacer(),Text((i+1).toString()+"/"+order.length.toString(),style:const TextStyle(color:Colors.white70,fontWeight:FontWeight.w900))]),
+      const SizedBox(height:10),
+      ClipRRect(borderRadius:BorderRadius.circular(20),child:LinearProgressIndicator(value:(i+1)/order.length,minHeight:7,backgroundColor:Colors.white12,color:const Color(0xFFFFD166))),
+      const SizedBox(height:22),
+      Container(width:double.infinity,padding:const EdgeInsets.all(22),decoration:BoxDecoration(gradient:const LinearGradient(begin:Alignment.topLeft,end:Alignment.bottomRight,colors:[Color(0xFF7256D9),Color(0xFF453E9A)]),borderRadius:BorderRadius.circular(26),boxShadow:[BoxShadow(color:const Color(0xFF6D54D8).withOpacity(.2),blurRadius:24,offset:const Offset(0,10))]),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+        Row(children:[const Icon(Icons.bolt_rounded,color:Color(0xFFFFD166),size:17),const SizedBox(width:6),Text((q["category"]??"MARAWIS CHALLENGE").toString().toUpperCase(),style:const TextStyle(color:Colors.white70,fontSize:9,fontWeight:FontWeight.w900,letterSpacing:1.2))]),
+        const SizedBox(height:18),
+        Text(q["q"].toString(),style:const TextStyle(color:Colors.white,fontSize:23,height:1.25,fontWeight:FontWeight.w900)),
+        const SizedBox(height:15),
+        Row(children:[const Icon(Icons.people_alt_rounded,color:Colors.white60,size:16),const SizedBox(width:6),Text(count.toString()+" dari "+players.length.toString()+" pemain sudah menjawab",style:const TextStyle(color:Colors.white70,fontSize:11,fontWeight:FontWeight.w700))]),
+      ])),
+      const SizedBox(height:20),
+      const Text("PILIH JAWABANMU",style:TextStyle(color:Colors.white70,fontSize:10,fontWeight:FontWeight.w900,letterSpacing:1.4)),
+      const SizedBox(height:10),
+      for(var n=0;n<answerOrder.length;n++)Padding(padding:const EdgeInsets.only(bottom:10),child:Material(color:Colors.transparent,borderRadius:BorderRadius.circular(17),child:InkWell(
+        onTap:mine?null:()=>emit("answer",{"round":i,"choice":n}),
+        borderRadius:BorderRadius.circular(17),
+        child:Container(padding:const EdgeInsets.symmetric(horizontal:15,vertical:15),decoration:BoxDecoration(color:mine?Colors.white.withOpacity(.055):Colors.white.withOpacity(.11),borderRadius:BorderRadius.circular(17),border:Border.all(color:mine?Colors.white.withOpacity(.08):const Color(0xFF8B80E8).withOpacity(.55),width:1.2)),child:Row(children:[
+          Container(width:34,height:34,alignment:Alignment.center,decoration:BoxDecoration(color:const Color(0xFF8174E6).withOpacity(.3),borderRadius:BorderRadius.circular(11)),child:Text(String.fromCharCode(65+n),style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900))),
+          const SizedBox(width:12),Expanded(child:Text((q["a"] as List)[answerOrder[n]].toString(),style:const TextStyle(color:Colors.white,fontSize:14,fontWeight:FontWeight.w700))),
+          Icon(mine?Icons.lock_outline_rounded:Icons.arrow_forward_rounded,color:Colors.white54,size:18),
+        ])),
+      ))),
+      if(mine)Container(width:double.infinity,padding:const EdgeInsets.all(14),decoration:BoxDecoration(color:const Color(0xFF70E2B2).withOpacity(.12),borderRadius:BorderRadius.circular(15),border:Border.all(color:const Color(0xFF70E2B2).withOpacity(.25))),child:const Row(children:[Icon(Icons.check_circle_rounded,color:Color(0xFF70E2B2)),SizedBox(width:9),Expanded(child:Text("Jawaban terkirim! Tunggu host melanjutkan ronde.",style:TextStyle(color:Color(0xFFB7F4D8),fontWeight:FontWeight.w700,fontSize:12)))])),
+      const SizedBox(height:18),
+      if(host)SizedBox(width:double.infinity,height:52,child:FilledButton.icon(onPressed:()=>i+1<order.length?updateState({...state,"round":i+1}):finish(),icon:const Icon(Icons.skip_next_rounded),label:Text(i+1<order.length?"RONDE BERIKUTNYA":"LIHAT HASIL AKHIR"),style:FilledButton.styleFrom(backgroundColor:const Color(0xFFFFD166),foregroundColor:const Color(0xFF211744),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(16))))),
+      const SizedBox(height:10),scoreboard(),
+    ]));
   }
   Widget leaderPanel(){
     final votes=events.where((e)=>e['event_type']=='vote').toList();final uid=db.auth.currentUser!.id;final mine=votes.any((e)=>e['actor_id']==uid);
