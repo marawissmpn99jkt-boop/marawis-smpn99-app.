@@ -206,7 +206,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
         final processed=(gs['last_rotation_event_id'] as num?)?.toInt()??0;
         final accepted=(x[2] as List).where((e)=>e['event_type']=='guess'&&e['payload'] is Map&&e['payload']['accepted']==true&&((e['id'] as num?)?.toInt()??0)>processed).toList();
         if(accepted.isNotEmpty){
-          final event=accepted.last;
+          final event=accepted.first;
           final target=event['payload']['target']?.toString();
           final eventId=(event['id'] as num?)?.toInt()??processed;
           if(target!=null&&target!=gs['drawer_id']?.toString()){_rotatingDraw=true;Future.microtask(()async{await updateState({...gs,'drawer_id':target,'round':((gs['round'] as num?)?.toInt()??0)+1,'last_rotation_event_id':eventId,'phase':'draw'});_rotatingDraw=false;});}
@@ -443,7 +443,6 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
     if(key=='reaction_rush')return reactionPanel();
     if(key=='this_or_that')return thisOrThatPanel();
     if(key=='word_guess'||key=='word_scramble'||key=='emoji_guess')return wordPanel(key);
-    if(key=='word_guess'||key=='word_scramble'||key=='emoji_guess')return wordPanel(key);
     return drawPanel();
   }
   Widget quizPanel(){
@@ -536,8 +535,8 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
         Wrap(spacing:9,runSpacing:8,children:[
           for(final color in palette)GestureDetector(onTap:()=>setState((){brushColor=color;eraser=false;}),child:Container(width:35,height:35,decoration:BoxDecoration(color:color,shape:BoxShape.circle,border:Border.all(color:brushColor==color&&!eraser?Colors.white:Colors.white30,width:brushColor==color&&!eraser?3:1)))),
           GestureDetector(onTap:()=>setState(()=>eraser=!eraser),child:Container(width:34,height:27,decoration:BoxDecoration(color:eraser?const Color(0xFFFFD166):Colors.white12,borderRadius:BorderRadius.circular(8)),child:Icon(Icons.auto_fix_high_rounded,color:eraser?const Color(0xFF241B43):Colors.white,size:17))),
-          GestureDetector(onTap:()=>setState(()=>brushSize=(brushSize+2).clamp(2,16)),child:Container(width:34,height:27,decoration:BoxDecoration(color:Colors.white12,borderRadius:BorderRadius.circular(8)),child:const Icon(Icons.add_rounded,color:Colors.white,size:17))),
-          GestureDetector(onTap:()=>setState(()=>brushSize=(brushSize-2).clamp(2,16)),child:Container(width:34,height:27,decoration:BoxDecoration(color:Colors.white12,borderRadius:BorderRadius.circular(8)),child:const Icon(Icons.remove_rounded,color:Colors.white,size:17))),
+          GestureDetector(onTap:()=>setState(()=>brushSize=(brushSize+2).clamp(2,24)),child:Container(width:34,height:27,decoration:BoxDecoration(color:Colors.white12,borderRadius:BorderRadius.circular(8)),child:const Icon(Icons.add_rounded,color:Colors.white,size:17))),
+          GestureDetector(onTap:()=>setState(()=>brushSize=(brushSize-2).clamp(2,24)),child:Container(width:34,height:27,decoration:BoxDecoration(color:Colors.white12,borderRadius:BorderRadius.circular(8)),child:const Icon(Icons.remove_rounded,color:Colors.white,size:17))),
         ]),
         const SizedBox(height:7),
         Slider(value:brushSize,min:2,max:24,divisions:11,onChanged:(v)=>setState(()=>brushSize=v),activeColor:const Color(0xFFFFD166),inactiveColor:Colors.white24),
@@ -579,7 +578,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
   Widget wordPanel(String type){
     final round=(state['round'] as num?)?.toInt()??0;
     final uid=db.auth.currentUser!.id;
-    final mine=events.any((e)=>e['event_type']=='word_answer'&&e['actor_id']==uid&&e['payload']['round']==round);
+    final mine=events.any((e)=>e['event_type']=='word_answer'&&e['actor_id']==uid&&e['payload']['round']==round&&e['payload']['correct']==true);
     final answers=events.where((e)=>e['event_type']=='word_answer'&&e['payload']['round']==round).toList();
     final seconds=_wordSecondsLeft;
     final prompt=type=='word_guess'?(state['clue']??'').toString():type=='word_scramble'?(state['scrambled']??'').toString().split('').join('  '):(state['emoji']??'').toString();
@@ -592,10 +591,10 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
         const SizedBox(height:12),Text(type=='word_guess'?'Baca petunjuk lalu tebak katanya.':type=='word_scramble'?'Susun huruf acak menjadi kata yang benar.':'Tebak kata dari kombinasi emoji.',textAlign:TextAlign.center,style:const TextStyle(color:Colors.white70,fontSize:12)),
       ])),
       const SizedBox(height:18),
-      if(!mine)Row(children:[
+      Row(children:[
         Expanded(child:TextField(controller:guess,onSubmitted:(v)=>_submitWordAnswer(v,round),textCapitalization:TextCapitalization.characters,style:const TextStyle(color:Colors.white,fontSize:18,fontWeight:FontWeight.w800),decoration:InputDecoration(hintText:'Tulis jawabanmu...',hintStyle:const TextStyle(color:Colors.white54,fontSize:14),filled:true,fillColor:Colors.white.withOpacity(.1),contentPadding:const EdgeInsets.symmetric(horizontal:16,vertical:17),border:OutlineInputBorder(borderRadius:BorderRadius.circular(15),borderSide:BorderSide.none)))),
         const SizedBox(width:8),SizedBox(height:55,width:58,child:FilledButton(onPressed:()=>_submitWordAnswer(guess.text,round),style:FilledButton.styleFrom(backgroundColor:const Color(0xFFFFD166),foregroundColor:const Color(0xFF211744),padding:EdgeInsets.zero,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(15))),child:const Icon(Icons.send_rounded,size:23))),
-      ]) else const Text('Jawabanmu sudah masuk. Tunggu ronde berikutnya!',style:TextStyle(color:Color(0xFF70E2B2),fontWeight:FontWeight.w800)),
+      ]),
       const SizedBox(height:18),Align(alignment:Alignment.centerLeft,child:Text('JAWABAN PEMAIN  ${answers.length}/${players.length}',style:const TextStyle(color:Colors.white70,fontSize:11,fontWeight:FontWeight.w900,letterSpacing:1))),
       const SizedBox(height:8),
       for(final e in answers)Container(width:double.infinity,margin:const EdgeInsets.only(bottom:7),padding:const EdgeInsets.all(12),decoration:BoxDecoration(color:Colors.white.withOpacity(.08),borderRadius:BorderRadius.circular(13)),child:Row(children:[Expanded(child:Text(playerName(e['actor_id'].toString()),style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w800))),Text((e['payload']['text']??'').toString(),style:const TextStyle(color:Color(0xFFFFD166),fontWeight:FontWeight.w900))])),
