@@ -39,6 +39,47 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
     {'q':'Apa manfaat pemanasan sebelum bermain?','a':['Membantu kesiapan tubuh dan tangan','Mengganti latihan inti','Membuat alat lebih keras','Mempercepat acara'],'c':0},
     {'q':'Bagaimana cara menjaga suasana latihan tetap positif?','a':['Saling menghargai dan memberi dukungan','Mengejek kesalahan','Membandingkan anggota','Mengabaikan anggota baru'],'c':0},
     {'q':'Apa yang sebaiknya dilakukan setelah penampilan selesai?','a':['Meninggalkan alat begitu saja','Merapikan alat dan melakukan evaluasi','Langsung membubarkan diri tanpa koordinasi','Menyalahkan tim'],'c':1},
+    {'q':"Apa nama alat musik yang umum menjadi bagian dari kelompok marawis?",'a':["Rebana","Biola","Saksofon","Piano"],'c':0,'category':"Alat musik"},
+    {'q':"Dalam kelompok, apa fungsi pemain bass?",'a':["Memberi dasar ritmis","Mengatur lampu","Membaca pengumuman","Merekam video"],'c':0,'category':"Alat musik"},
+    {'q':"Apa yang dimaksud tempo dalam musik?",'a':["Kecepatan ketukan","Warna kostum","Jumlah penonton","Ukuran panggung"],'c':0,'category':"Musik"},
+    {'q':"Mengapa pemain perlu menghitung ketukan?",'a':["Agar masuk dan berhenti bersama","Agar tampil lebih lama","Agar bebas mengubah lagu","Agar tidak perlu aba-aba"],'c':0,'category':"Musik"},
+    {'q':"Apa arti dinamika forte?",'a':["Dimainkan keras","Dimainkan sangat pelan","Dihentikan","Dipercepat"],'c':0,'category':"Musik"},
+    {'q':"Apa arti dinamika piano dalam musik?",'a':["Dimainkan lembut","Dimainkan keras","Dimainkan makin cepat","Dimainkan tanpa irama"],'c':0,'category':"Musik"},
+    {'q':"Apa yang sebaiknya dilakukan sebelum meminjam alat?",'a':["Meminta izin penanggung jawab","Langsung mengambil","Menyembunyikan alat","Membawa pulang tanpa kabar"],'c':0,'category':"Peralatan"},
+    {'q':"Setelah memakai alat, kita harus...",'a':["Mengembalikan dan merapikannya","Meninggalkannya di lantai","Menumpuk sembarangan","Memberikannya ke orang lain"],'c':0,'category':"Peralatan"},
+    {'q':"Jika ada anggota baru belum memahami pola, sikap terbaik adalah...",'a':["Membantu menjelaskan","Mengejeknya","Mengabaikannya","Melarang ikut latihan"],'c':0,'category':"Kerja sama"},
+    {'q':"Apa manfaat evaluasi setelah latihan?",'a':["Mengetahui hal yang perlu diperbaiki","Mencari kambing hitam","Mengurangi kekompakan","Mengganti semua anggota"],'c':0,'category':"Kerja sama"},
+    {'q':"Ketika pemimpin memberi aba-aba, anggota sebaiknya...",'a':["Memperhatikan dan mengikuti","Tetap berbicara","Bermain sesuka hati","Mengabaikannya"],'c':0,'category':"Disiplin"},
+    {'q':"Apa contoh tanggung jawab anggota?",'a':["Hadir sesuai jadwal dan memberi kabar jika berhalangan","Datang kapan saja","Meminjam alat tanpa izin","Meninggalkan tugas"],'c':0,'category':"Disiplin"},
+    {'q':"Jika dua anggota berbeda pendapat, sebaiknya...",'a':["Berdiskusi dengan saling menghormati","Saling menyalahkan","Membuat kelompok sendiri","Menghentikan latihan selamanya"],'c':0,'category':"Kerja sama"},
+    {'q':"Apa arti solidaritas dalam tim?",'a':["Saling mendukung dan peduli","Bersaing dengan menjatuhkan","Bekerja sendiri","Menghindari komunikasi"],'c':0,'category':"Kerja sama"},
+    {'q':"Mengapa komunikasi penting saat tampil?",'a':["Agar koordinasi berjalan baik","Agar semua bermain berbeda","Agar aba-aba tidak terdengar","Agar latihan berhenti"],'c':0,'category':"Kerja sama"},
+    {'q':"Apa yang harus dilakukan jika terlambat latihan?",'a':["Memberi kabar dan meminta arahan","Masuk tanpa izin lalu mengganggu","Menyalahkan teman","Tidak perlu memberi tahu"],'c':0,'category':"Disiplin"},
+    {'q':"Sikap yang tepat saat menerima tugas kepanitiaan adalah...",'a':["Menjalankan tugas dengan tanggung jawab","Mengabaikan sampai diingatkan","Melimpahkan semuanya","Menghilang saat acara"],'c':0,'category':"Organisasi"},
+    {'q':"Notulen rapat berguna untuk...",'a':["Mencatat pembahasan dan keputusan","Menghias ruangan","Menggantikan daftar hadir","Mengatur suara alat"],'c':0,'category':"Organisasi"},
+    {'q':"Apa tujuan pembagian tugas dalam acara?",'a':["Pekerjaan lebih teratur dan jelas","Semua orang mengerjakan hal yang sama","Tidak ada yang bertanggung jawab","Acara berjalan tanpa koordinasi"],'c':0,'category':"Organisasi"},
+    {'q':"Jika informasi kegiatan berubah, anggota sebaiknya...",'a':["Memeriksa pengumuman resmi terbaru","Mengikuti kabar yang belum jelas","Menyebarkan dugaan","Mengabaikan perubahan"],'c':0,'category':"Organisasi"},
+    {'q':"Sikap jujur saat melakukan kesalahan adalah...",'a':["Mengakui dan memperbaikinya","Menyalahkan orang lain","Menyembunyikan semuanya","Menghapus bukti"],'c':0,'category':"Karakter"},
+    {'q':"Menghargai perbedaan pendapat berarti...",'a':["Mendengarkan tanpa merendahkan","Memaksa semua setuju","Menertawakan pendapat","Tidak memberi kesempatan bicara"],'c':0,'category':"Karakter"},
+    {'q':"Contoh sikap amanah adalah...",'a':["Menjaga kepercayaan dan menjalankan tugas","Mengingkari janji","Mengabaikan titipan","Menggunakan barang tanpa izin"],'c':0,'category':"Karakter"},
+    {'q':"Apa makna disiplin waktu?",'a':["Menghargai waktu dan hadir sesuai jadwal","Datang sesuka hati","Menunda semua tugas","Pulang sebelum kegiatan selesai"],'c':0,'category':"Karakter"},
+    {'q':"Saat teman sedang berbicara, kita sebaiknya...",'a':["Mendengarkan dengan baik","Memotong terus-menerus","Bermain sendiri","Mengejek ucapannya"],'c':0,'category':"Karakter"},
+    {'q':"Apa yang dimaksud musyawarah?",'a':["Membahas persoalan untuk mencapai keputusan bersama","Memaksakan kehendak","Memilih tanpa mendengar pendapat","Menghindari masalah"],'c':0,'category':"Karakter"},
+    {'q':"Berapa hasil 12 × 8?",'a':["96","86","108","ан"],'c':0,'category':"Logika"},
+    {'q':"Jika latihan dimulai pukul 15.30 dan berlangsung 90 menit, selesai pukul...",'a':["17.00","16.00","16.30","17.30"],'c':0,'category':"Logika"},
+    {'q':"Urutan angka 2, 4, 8, 16, ... berikutnya adalah...",'a':["32","24","18","20"],'c':0,'category':"Logika"},
+    {'q':"Jika satu tim berisi 5 orang dan ada 4 tim, jumlah anggota seluruhnya...",'a':["20","15","25","10"],'c':0,'category':"Logika"},
+    {'q':"Apa ibu kota Indonesia?",'a':["Jakarta","Bandung","Surabaya","Medan"],'c':0,'category':"Pengetahuan umum"},
+    {'q':"Planet yang dikenal sebagai Planet Merah adalah...",'a':["Mars","Venus","Jupiter","Saturnus"],'c':0,'category':"Pengetahuan umum"},
+    {'q':"Alat untuk mengukur suhu disebut...",'a':["Termometer","Barometer","Kompas","Stopwatch"],'c':0,'category':"Pengetahuan umum"},
+    {'q':"Dalam satu jam terdapat berapa menit?",'a':["60","30","90","100"],'c':0,'category':"Pengetahuan umum"},
+    {'q':"Apa nama proses tumbuhan membuat makanan dengan bantuan cahaya?",'a':["Fotosintesis","Evaporasi","Kondensasi","Fermentasi"],'c':0,'category':"Pengetahuan umum"},
+    {'q':"Apa nama arah mata angin yang berlawanan dengan utara?",'a':["Selatan","Timur","Barat","Tenggara"],'c':0,'category':"Pengetahuan umum"},
+    {'q':"Sikap tabayyun mengajarkan kita untuk...",'a':["Memeriksa kebenaran informasi","Langsung menyebarkan kabar","Memercayai semua rumor","Mengabaikan fakta"],'c':0,'category':"Keislaman"},
+    {'q':"Sebelum memulai kegiatan yang baik, umat Islam dianjurkan...",'a':["Berdoa","Berlomba menyalahkan","Mengabaikan niat","Menunda tanpa alasan"],'c':0,'category':"Keislaman"},
+    {'q':"Apa makna ukhuwah?",'a':["Persaudaraan","Persaingan","Perpecahan","Perdebatan"],'c':0,'category':"Keislaman"},
+    {'q':"Sikap amanah dalam kehidupan sehari-hari ditunjukkan dengan...",'a':["Menjaga titipan","Membocorkan rahasia orang","Mengambil hak teman","Mengingkari tanggung jawab"],'c':0,'category':"Keislaman"},
+    {'q':"Ketika berbeda pendapat, adab yang baik adalah...",'a':["Bersikap santun","Menghina","Meninggikan suara","Memutus pertemanan"],'c':0,'category':"Keislaman"},
   ];
   final words=['REBANA','MARAWIS','KOMPAK','HAJIR','DARBUKA','LATIHAN','PANGGUNG','IRAMA'];
   List<List<Offset>> localStrokes=[];
@@ -106,6 +147,11 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
   Future<void> start()async{
     if(!host)return;final type=room!['game_type'];
     final s=<String,dynamic>{'round':0,'phase':type=='quiz_arena'?'quiz':type=='who_leader'?'vote':'draw'};
+    if(type=='quiz_arena'){
+      final order=List<int>.generate(questions.length,(i)=>i)..shuffle(Random.secure());
+      s['question_order']=order.take(20).toList();
+      s['answer_orders']=(s['question_order'] as List).map((_)=>[0,1,2,3]..shuffle(Random.secure())).toList();
+    }
     if(type=='draw_guess'){secretWord=words[Random.secure().nextInt(words.length)];s['drawer_id']=db.auth.currentUser!.id;}
     await updateState(s,status:'playing');
   }
@@ -118,7 +164,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
   String title(String key)=>key=='quiz_arena'?'Marawis Quiz Arena':key=='who_leader'?'Who Is The Leader?':'Draw & Guess';
   Map<String,dynamic> player(String id)=>players.firstWhere((p)=>p['user_id']==id,orElse:()=>{});
   String playerName(String id)=>(player(id)['display_name']??'Pemain').toString();
-  int score(String id)=>events.where((e){if(e['event_type']=='answer'&&e['actor_id']==id){final round=(e['payload']['round'] as num?)?.toInt()??-1;final choice=(e['payload']['choice'] as num?)?.toInt()??-1;final order=state['question_order'] is List?List<int>.from(state['question_order'] as List):List<int>.generate(questions.length,(i)=>i);final qIndex=round>=0&&round<order.length?order[round]:-1;return qIndex>=0&&qIndex<questions.length&&choice==questions[qIndex]['c'];}return e['event_type']=='guess'&&e['payload']['accepted']==true&&e['payload']['target']==id;}).length*10;
+  int score(String id)=>events.where((e){if(e['event_type']=='answer'&&e['actor_id']==id){final round=(e['payload']['round'] as num?)?.toInt()??-1;final choice=(e['payload']['choice'] as num?)?.toInt()??-1;final order=state['question_order'] is List?List<int>.from(state['question_order'] as List):List<int>.generate(questions.length,(i)=>i);final qIndex=round>=0&&round<order.length?order[round]:-1;final answerOrders=state['answer_orders'] is List?state['answer_orders'] as List:[];final answerOrder=round>=0&&round<answerOrders.length?List<int>.from(answerOrders[round] as List):[0,1,2,3];return qIndex>=0&&qIndex<questions.length&&choice>=0&&choice<answerOrder.length&&answerOrder[choice]==questions[qIndex]['c'];}return e['event_type']=='guess'&&e['payload']['accepted']==true&&e['payload']['target']==id;}).length*10;
   Widget cardGame(String key,String name,String detail,IconData icon){
     final colors=key=='quiz_arena'?const [Color(0xFF6B4EFF),Color(0xFFAA55E8)]:key=='who_leader'?const [Color(0xFF087E8B),Color(0xFF35B6A4)]:const [Color(0xFFE46C32),Color(0xFFF2B544)];
     return Container(
@@ -177,12 +223,13 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
   }
   Widget quizPanel(){
     final i=(state['round'] as num?)?.toInt()??0;if(i>=questions.length)return results();
-    final order=state['question_order'] is List?List<int>.from(state['question_order'] as List):List<int>.generate(questions.length,(n)=>n);final qIndex=i<order.length?order[i]:i;final q=questions[qIndex];final uid=db.auth.currentUser!.id;
+    final order=state['question_order'] is List?List<int>.from(state['question_order'] as List):List<int>.generate(questions.length,(n)=>n);final qIndex=i<order.length?order[i]:i;final q=questions[qIndex];final answerOrders=state['answer_orders'] is List?state['answer_orders'] as List:[];final answerOrder=i<answerOrders.length?List<int>.from(answerOrders[i] as List):[0,1,2,3];final uid=db.auth.currentUser!.id;
     final mine=events.any((e)=>e['actor_id']==uid&&e['event_type']=='answer'&&e['payload']['round']==i);
     final count=events.where((e)=>e['event_type']=='answer'&&e['payload']['round']==i).length;
     return Card(color:Colors.white,child:Padding(padding:const EdgeInsets.all(18),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
       Text('SOAL '+(i+1).toString()+'/'+questions.length.toString(),style:const TextStyle(color:Color(0xFF167D68),fontWeight:FontWeight.w900)),const SizedBox(height:10),Text(q['q'].toString(),style:const TextStyle(fontSize:19,fontWeight:FontWeight.w900)),
-      if(!mine)for(var n=0;n<4;n++)SizedBox(width:double.infinity,child:Padding(padding:const EdgeInsets.only(top:7),child:OutlinedButton(onPressed:()=>emit('answer',{'round':i,'choice':n}),child:Text((q['a'] as List)[n].toString())))) else const Padding(padding:EdgeInsets.all(12),child:Text('Jawaban terkirim! Menunggu pemain lain.')),
+      if(q['category']!=null)Padding(padding:const EdgeInsets.only(bottom:7),child:Text('KATEGORI: '+q['category'].toString().toUpperCase(),style:const TextStyle(fontSize:10,fontWeight:FontWeight.w900,color:Color(0xFF8A6AE8),letterSpacing:1))),
+      if(!mine)for(var n=0;n<answerOrder.length;n++)SizedBox(width:double.infinity,child:Padding(padding:const EdgeInsets.only(top:7),child:OutlinedButton(onPressed:()=>emit('answer',{'round':i,'choice':n}),child:Text((q['a'] as List)[answerOrder[n] as int].toString())))) else const Padding(padding:EdgeInsets.all(12),child:Text('Jawaban terkirim! Menunggu pemain lain.')),
       Text(count.toString()+'/'+players.length.toString()+' pemain menjawab'),
       if(host)FilledButton(onPressed:()=>i+1<questions.length?updateState({...state,'round':i+1}):finish(),child:Text(i+1<questions.length?'Soal berikutnya':'Akhiri Quiz')),
       scoreboard(),
