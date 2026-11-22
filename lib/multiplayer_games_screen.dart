@@ -195,20 +195,23 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
       if(nextRoom['status']=='playing'&&['draw_guess','word_guess','word_scramble','emoji_guess','marawis_chess'].contains(nextRoom['game_type']))_startGameClock();else {_gameClock?.cancel();_gameClock=null;}
       if(nextRoom['status']=='playing'&&nextRoom['game_type']=='draw_guess'&&nextDrawer==uid&&secretWord!=null){
         final allEvents=x[2] as List;
-        final acceptedTargets=allEvents.where((e)=>e['event_type']=='guess'&&e['payload'] is Map&&e['payload']['accepted']==true).map((e)=>e['payload']['target']?.toString()).whereType<String>().toSet();
-        final secret=secretWord!.trim().toLowerCase().replaceAll(RegExp(r'\s+'),'');
+        final currentRound=((nextGameState is Map ? nextGameState['round'] : null) as num?)?.toInt()??0;
+        // Guess eligibility resets for every drawing round, not for the whole room.
+        final acceptedTargets=allEvents.where((e)=>e['event_type']=='guess'&&e['payload'] is Map&&e['payload']['accepted']==true&&(e['payload']['round'] as num?)?.toInt()==currentRound).map((e)=>e['payload']['target']?.toString()).whereType<String>().toSet();
+        final secret=secretWord!.trim().toLowerCase().replaceAll(RegExp(r'\\s+'),'');
         final correct=allEvents.where((e){
-          if(e['event_type']!='guess'||e['payload'] is! Map||e['actor_id']==uid)return false;
-          final text=e['payload']['text']?.toString().trim().toLowerCase().replaceAll(RegExp(r'\s+'),'')??'';
+          if(e['event_type']!='guess'||e['payload'] is! Map||e['payload']['accepted']==true||e['actor_id']==uid)return false;
+          final text=e['payload']['text']?.toString().trim().toLowerCase().replaceAll(RegExp(r'\\s+'),'')??'';
           return text==secret&&!acceptedTargets.contains(e['actor_id'].toString());
         }).toList();
-        if(correct.isNotEmpty){final winner=correct.first['actor_id'].toString();Future.microtask(()=>emit('guess',{'accepted':true,'target':winner}));}
+        if(correct.isNotEmpty){final winner=correct.first['actor_id'].toString();Future.microtask(()=>emit('guess',{'accepted':true,'target':winner,'round':currentRound}));}
       }
       if(host&&nextRoom['game_type']=='marawis_chess'&&!_processingChess){Future.microtask(()=>_processChessMoves(nextRoom,List<Map<String,dynamic>>.from(x[2] as List)));}
       if(host&&nextRoom['game_type']=='draw_guess'&&!_rotatingDraw){
         final gs=Map<String,dynamic>.from(nextRoom['game_state']??{});
         final processed=(gs['last_rotation_event_id'] as num?)?.toInt()??0;
-        final accepted=(x[2] as List).where((e)=>e['event_type']=='guess'&&e['payload'] is Map&&e['payload']['accepted']==true&&((e['id'] as num?)?.toInt()??0)>processed).toList();
+        final currentRound=(gs['round'] as num?)?.toInt()??0;
+        final accepted=(x[2] as List).where((e)=>e['event_type']=='guess'&&e['payload'] is Map&&e['payload']['accepted']==true&&(e['payload']['round'] as num?)?.toInt()==currentRound&&((e['id'] as num?)?.toInt()??0)>processed).toList();
         if(accepted.isNotEmpty){
           final event=accepted.first;
           final target=event['payload']['target']?.toString();
