@@ -22,7 +22,10 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
   bool busy=false;
   bool showGameIntro=false;
   Timer? _gameClock;
+  Timer? _syncClock;
+  bool _refreshing=false;
   bool _timeoutHandled=false;
+  bool _rotatingDraw=false;
   Color brushColor=const Color(0xFF167D68);
   double brushSize=5;
   bool eraser=false;
@@ -94,7 +97,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
   List<List<Offset>> localStrokes=[];
   List<Offset> activeStroke=[];
   @override void initState(){super.initState();loadRooms();}
-  @override void dispose(){channel?.unsubscribe();_gameClock?.cancel();guess.dispose();super.dispose();}
+  @override void dispose(){channel?.unsubscribe();_gameClock?.cancel();_syncClock?.cancel();guess.dispose();super.dispose();}
   void msg(String s){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(s)));}
   Future<String> displayName()async{
     final id=db.auth.currentUser!.id;
@@ -141,11 +144,14 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
       ..onPostgresChanges(event:PostgresChangeEvent.all,schema:'public',table:'multiplayer_players',filter:PostgresChangeFilter(type:PostgresChangeFilterType.eq,column:'room_id',value:id),callback:(_)=>refreshRoom())
       ..onPostgresChanges(event:PostgresChangeEvent.all,schema:'public',table:'multiplayer_events',filter:PostgresChangeFilter(type:PostgresChangeFilterType.eq,column:'room_id',value:id),callback:(_)=>refreshRoom())
       ..subscribe();
+    _syncClock?.cancel();
+    _syncClock=Timer.periodic(const Duration(milliseconds:1400),(_)=>refreshRoom());
   }
   Future<void> refreshRoom()async{
-    final id=roomId;if(id==null)return;
+    final id=roomId;if(id==null||_refreshing)return;
+    _refreshing=true;
     try{
-      final x=await Future.wait([db.from('multiplayer_rooms').select().eq('id',id).single(),db.from('multiplayer_players').select().eq('room_id',id).order('joined_at'),db.from('multiplayer_events').select().eq('room_id',id).order('created_at')]);
+      final x=await Future.wait([db.from('multiplayer_rooms').select().eq('id',id).single(),db.from('multiplayer_players').select().eq('room_id',id).order('joined_at'),db.from('multiplayer_events').select().eq('room_id',id).order('id')]);
       if(!mounted)return;
       final nextRoom=Map<String,dynamic>.from(x[0] as Map);
       final justStarted=room?["status"]!="playing"&&nextRoom["status"]=="playing";
@@ -173,7 +179,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
         }).toList();
         if(correct.isNotEmpty){final winner=correct.first['actor_id'].toString();Future.microtask(()=>emit('guess',{'accepted':true,'target':winner}));}
       }
-      if(host&&nextRoom['game_type']=='draw_guess'){
+      if(host&&nextRoom['game_type']=='draw_guess'&&!_rotatingDraw){
         final gs=Map<String,dynamic>.from(nextRoom['game_state']??{});
         final processed=(gs['last_rotation_event_id'] as num?)?.toInt()??0;
         final accepted=(x[2] as List).where((e)=>e['event_type']=='guess'&&e['payload'] is Map&&e['payload']['accepted']==true&&((e['id'] as num?)?.toInt()??0)>processed).toList();
@@ -181,13 +187,14 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
           final event=accepted.last;
           final target=event['payload']['target']?.toString();
           final eventId=(event['id'] as num?)?.toInt()??processed;
-          if(target!=null&&target!=gs['drawer_id']?.toString())Future.microtask(()=>updateState({...gs,'drawer_id':target,'round':((gs['round'] as num?)?.toInt()??0)+1,'last_rotation_event_id':eventId,'phase':'draw'}));
+          if(target!=null&&target!=gs['drawer_id']?.toString()){_rotatingDraw=true;Future.microtask(()async{await updateState({...gs,'drawer_id':target,'round':((gs['round'] as num?)?.toInt()??0)+1,'last_rotation_event_id':eventId,'phase':'draw'});_rotatingDraw=false;});}
         }
       }
       if(justStarted)Future.delayed(const Duration(milliseconds:1700),(){
         if(mounted)setState(()=>showGameIntro=false);
       });
     }catch(e){msg('Sinkronisasi gagal: '+e.toString());}
+    finally{_refreshing=false;}
   }
   bool get host=>room?['host_id']==db.auth.currentUser?.id;
   Map<String,dynamic> get state=>Map<String,dynamic>.from(room?['game_state']??{});
@@ -244,7 +251,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
   Future<void> leave()async{
     final id=roomId;if(id==null)return;
     try{if(host)await db.from('multiplayer_rooms').update({'status':'finished','game_state':{...state,'phase':'finished'}}).eq('id',id);await db.from('multiplayer_players').delete().eq('room_id',id).eq('user_id',db.auth.currentUser!.id);}catch(_){}
-    await channel?.unsubscribe();_gameClock?.cancel();_gameClock=null;_exitImmersiveMode();if(mounted)setState(() { roomId=null; room=null; players=[]; events=[]; secretWord=null; activeStroke=[]; });widget.onGameActive?.call(false);loadRooms();
+    await channel?.unsubscribe();_gameClock?.cancel();_gameClock=null;_syncClock?.cancel();_syncClock=null;_exitImmersiveMode();if(mounted)setState(() { roomId=null; room=null; players=[]; events=[]; secretWord=null; activeStroke=[]; });widget.onGameActive?.call(false);loadRooms();
   }
   Future<void> finish()async=>updateState({...state,'phase':'finished'},status:'finished');
   String title(String key)=>key=='quiz_arena'?'Marawis Quiz Arena':key=='who_leader'?'Who Is The Leader?':key=='reaction_rush'?'Reaction Rush':key=='this_or_that'?'This or That':'Draw & Guess';
@@ -284,6 +291,9 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
       cardGame('draw_guess','Draw & Guess','Host menggambar, anggota menebak.',Icons.brush),
       cardGame('reaction_rush','Reaction Rush','Adu refleks dan kumpulkan poin tercepat.',Icons.flash_on_rounded),
       cardGame('this_or_that','This or That','Pilih cepat dan lihat pilihan seluruh room.',Icons.thumbs_up_down_rounded),
+      cardGame('word_guess','Tebak Kata','Pecahkan petunjuk sebelum waktu habis.',Icons.psychology_alt_rounded),
+      cardGame('word_scramble','Susun Huruf','Acak huruf jadi kata yang benar.',Icons.sort_by_alpha_rounded),
+      cardGame('emoji_guess','Tebak Emoji','Tebak kata dari kombinasi emoji.',Icons.emoji_emotions_rounded),
       const SizedBox(height:18),Row(children:[const Expanded(child:Text('Room tersedia',style:TextStyle(fontWeight:FontWeight.w900,fontSize:17))),IconButton(onPressed:loadRooms,icon:const Icon(Icons.refresh))]),
       if(rooms.isEmpty)const Padding(padding:EdgeInsets.all(20),child:Text('Belum ada room yang menunggu pemain.',textAlign:TextAlign.center)) else for(final r in rooms)Card(color:Colors.white,child:ListTile(title:Text(title(r['game_type'].toString())),subtitle:Text('Kode '+r['room_code'].toString()+' • Maks. '+r['max_players'].toString()+' pemain'),trailing:FilledButton(onPressed:()=>enter(r),child:const Text('Gabung')))),
       const SizedBox(height:12),OutlinedButton.icon(onPressed:()=>showModalBottomSheet(context:context,isScrollControlled:true,builder:(_)=>SizedBox(height:500,child:widget.soloGame)),icon:const Icon(Icons.person),label:const Text('Mainkan tantangan solo')),
@@ -398,6 +408,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
     if(key=='who_leader')return leaderPanel();
     if(key=='reaction_rush')return reactionPanel();
     if(key=='this_or_that')return thisOrThatPanel();
+    if(key=='word_guess'||key=='word_scramble'||key=='emoji_guess')return wordPanel(key);
     return drawPanel();
   }
   Widget quizPanel(){
@@ -472,7 +483,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
   }
   Widget drawPanel(){
     final uid=db.auth.currentUser!.id;final drawer=state["drawer_id"]?.toString();final canDraw=uid==drawer;
-    final drawEvents=events.where((e)=>["draw","undo","clear"].contains(e["event_type"])).toList();
+    final drawEvents=events.where((e)=>["draw","undo","clear"].contains(e["event_type"])).toList()..sort((a,b)=>(a['id'] as num).compareTo(b['id'] as num));
     final guesses=events.where((e)=>e["event_type"]=="guess"&&e["payload"]["accepted"]!=true).toList();
     const palette=[Color(0xFF167D68),Color(0xFF252525),Color(0xFFE64B4B),Color(0xFF3678E8),Color(0xFFFFB52E),Color(0xFF9856D8),Color(0xFFFF70A6),Color(0xFF8B5A2B)];
     return SingleChildScrollView(padding:const EdgeInsets.fromLTRB(14,8,14,18),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
@@ -488,16 +499,16 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
         Row(children:[const Text("WARNA",style:TextStyle(color:Colors.white70,fontSize:9,fontWeight:FontWeight.w900,letterSpacing:1)),const Spacer(),Text(eraser?"PENGHAPUS":"KUAS "+brushSize.toStringAsFixed(0),style:const TextStyle(color:Colors.white70,fontSize:9,fontWeight:FontWeight.w800))]),
         const SizedBox(height:8),
         Wrap(spacing:9,runSpacing:8,children:[
-          for(final color in palette)GestureDetector(onTap:()=>setState((){brushColor=color;eraser=false;}),child:Container(width:27,height:27,decoration:BoxDecoration(color:color,shape:BoxShape.circle,border:Border.all(color:brushColor==color&&!eraser?Colors.white:Colors.white30,width:brushColor==color&&!eraser?3:1)))),
+          for(final color in palette)GestureDetector(onTap:()=>setState((){brushColor=color;eraser=false;}),child:Container(width:35,height:35,decoration:BoxDecoration(color:color,shape:BoxShape.circle,border:Border.all(color:brushColor==color&&!eraser?Colors.white:Colors.white30,width:brushColor==color&&!eraser?3:1)))),
           GestureDetector(onTap:()=>setState(()=>eraser=!eraser),child:Container(width:34,height:27,decoration:BoxDecoration(color:eraser?const Color(0xFFFFD166):Colors.white12,borderRadius:BorderRadius.circular(8)),child:Icon(Icons.auto_fix_high_rounded,color:eraser?const Color(0xFF241B43):Colors.white,size:17))),
           GestureDetector(onTap:()=>setState(()=>brushSize=(brushSize+2).clamp(2,16)),child:Container(width:34,height:27,decoration:BoxDecoration(color:Colors.white12,borderRadius:BorderRadius.circular(8)),child:const Icon(Icons.add_rounded,color:Colors.white,size:17))),
           GestureDetector(onTap:()=>setState(()=>brushSize=(brushSize-2).clamp(2,16)),child:Container(width:34,height:27,decoration:BoxDecoration(color:Colors.white12,borderRadius:BorderRadius.circular(8)),child:const Icon(Icons.remove_rounded,color:Colors.white,size:17))),
         ]),
         const SizedBox(height:7),
-        Slider(value:brushSize,min:2,max:16,divisions:7,onChanged:(v)=>setState(()=>brushSize=v),activeColor:const Color(0xFFFFD166),inactiveColor:Colors.white24),
+        Slider(value:brushSize,min:2,max:24,divisions:11,onChanged:(v)=>setState(()=>brushSize=v),activeColor:const Color(0xFFFFD166),inactiveColor:Colors.white24),
       ])),
       const SizedBox(height:9),
-      Container(height:300,width:double.infinity,decoration:BoxDecoration(color:const Color(0xFFFFFCF5),borderRadius:BorderRadius.circular(23),border:Border.all(color:Colors.white.withOpacity(.3)),boxShadow:[BoxShadow(color:Colors.black.withOpacity(.2),blurRadius:18,offset:const Offset(0,8))]),child:ClipRRect(borderRadius:BorderRadius.circular(23),child:LayoutBuilder(builder:(context,box)=>GestureDetector(
+      Container(height:MediaQuery.of(context).size.width>600?440:380,width:double.infinity,decoration:BoxDecoration(color:const Color(0xFFFFFCF5),borderRadius:BorderRadius.circular(23),border:Border.all(color:Colors.white.withOpacity(.3)),boxShadow:[BoxShadow(color:Colors.black.withOpacity(.2),blurRadius:18,offset:const Offset(0,8))]),child:ClipRRect(borderRadius:BorderRadius.circular(23),child:LayoutBuilder(builder:(context,box)=>GestureDetector(
         behavior:HitTestBehavior.opaque,
         onPanStart:canDraw?(d)=>setState(()=>activeStroke=[Offset((d.localPosition.dx/box.maxWidth).clamp(0,1),(d.localPosition.dy/box.maxHeight).clamp(0,1))]):null,
         onPanUpdate:canDraw?(d)=>setState(()=>activeStroke.add(Offset((d.localPosition.dx/box.maxWidth).clamp(0,1),(d.localPosition.dy/box.maxHeight).clamp(0,1)))):null,
@@ -524,7 +535,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
       const SizedBox(height:8),
       if(guesses.isEmpty)const Text("Belum ada tebakan. Jadilah yang pertama!",style:TextStyle(color:Colors.white54,fontSize:11)),
       for(final g in guesses)Container(margin:const EdgeInsets.only(bottom:7),padding:const EdgeInsets.symmetric(horizontal:12,vertical:9),decoration:BoxDecoration(color:Colors.white.withOpacity(.08),borderRadius:BorderRadius.circular(13)),child:Row(children:[
-        Expanded(child:Text(playerName(g["actor_id"].toString())+": "+(g["payload"]["text"]??"").toString(),style:const TextStyle(color:Colors.white,fontSize:12,fontWeight:FontWeight.w700))),
+        Expanded(child:Text(playerName(g["actor_id"].toString())+": "+(g["payload"]["text"]??"").toString(),style:const TextStyle(color:Colors.white,fontSize:15,fontWeight:FontWeight.w800))),
         if(canDraw)IconButton(onPressed:()=>emit("guess",{"accepted":true,"target":g["actor_id"]}),icon:const Icon(Icons.check_circle_rounded,color:Color(0xFF70E2B2))),
       ])),
       if(host)Padding(padding:const EdgeInsets.only(top:10),child:SizedBox(width:double.infinity,height:50,child:FilledButton(onPressed:finish,style:FilledButton.styleFrom(backgroundColor:const Color(0xFFFFD166),foregroundColor:const Color(0xFF211744),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(15))),child:const Text("AKHIRI PERMAINAN")))),
