@@ -212,6 +212,14 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
           if(target!=null&&target!=gs['drawer_id']?.toString()){_rotatingDraw=true;Future.microtask(()async{await updateState({...gs,'drawer_id':target,'round':((gs['round'] as num?)?.toInt()??0)+1,'last_rotation_event_id':eventId,'phase':'draw'});_rotatingDraw=false;});}
         }
       }
+      if(host&&['word_guess','word_scramble','emoji_guess'].contains(nextRoom['game_type'])){
+        final gs=Map<String,dynamic>.from(nextRoom['game_state']??{});
+        final round=(gs['round'] as num?)?.toInt()??0;
+        final answer=(gs['answer']??'').toString().toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'),'');
+        final alreadyScored=(x[2] as List).any((e)=>e['event_type']=='word_answer'&&e['payload'] is Map&&e['payload']['round']==round&&e['payload']['correct']==true);
+        final correct=(x[2] as List).where((e){if(e['event_type']!='word_answer'||e['payload'] is! Map||e['payload']['round']!=round)return false;return (e['payload']['text']??'').toString().toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'),'')==answer;}).toList();
+        if(correct.isNotEmpty&&!alreadyScored&&!_rotatingDraw){_rotatingDraw=true;final win=correct.first;Future.microtask(()async{await db.from('multiplayer_events').insert({'room_id':id,'actor_id':win['actor_id'],'event_type':'word_answer','payload':{'round':round,'text':win['payload']['text'],'correct':true}});final next=round+1;if(next>=10){await finish();}else{await updateState(_newWordRound(nextRoom['game_type'].toString(),next));}_rotatingDraw=false;});}
+      }
       if(justStarted)Future.delayed(const Duration(milliseconds:1700),(){
         if(mounted)setState(()=>showGameIntro=false);
       });
@@ -435,6 +443,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
     if(key=='reaction_rush')return reactionPanel();
     if(key=='this_or_that')return thisOrThatPanel();
     if(key=='word_guess'||key=='word_scramble'||key=='emoji_guess')return wordPanel(key);
+    if(key=='word_guess'||key=='word_scramble'||key=='emoji_guess')return wordPanel(key);
     return drawPanel();
   }
   Widget quizPanel(){
@@ -567,6 +576,33 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
       if(host)Padding(padding:const EdgeInsets.only(top:10),child:SizedBox(width:double.infinity,height:50,child:FilledButton(onPressed:finish,style:FilledButton.styleFrom(backgroundColor:const Color(0xFFFFD166),foregroundColor:const Color(0xFF211744),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(15))),child:const Text("AKHIRI PERMAINAN")))),
     ]));
   }
+  Widget wordPanel(String type){
+    final round=(state['round'] as num?)?.toInt()??0;
+    final uid=db.auth.currentUser!.id;
+    final mine=events.any((e)=>e['event_type']=='word_answer'&&e['actor_id']==uid&&e['payload']['round']==round);
+    final answers=events.where((e)=>e['event_type']=='word_answer'&&e['payload']['round']==round).toList();
+    final seconds=_wordSecondsLeft;
+    final prompt=type=='word_guess'?(state['clue']??'').toString():type=='word_scramble'?(state['scrambled']??'').toString().split('').join('  '):(state['emoji']??'').toString();
+    final heading=type=='word_guess'?'TEBAK KATA':type=='word_scramble'?'SUSUN HURUF':'TEBAK EMOJI';
+    return SingleChildScrollView(padding:const EdgeInsets.fromLTRB(18,12,18,20),child:Column(children:[
+      Container(width:double.infinity,padding:const EdgeInsets.all(22),decoration:BoxDecoration(gradient:const LinearGradient(colors:[Color(0xFF43258F),Color(0xFF087E83)]),borderRadius:BorderRadius.circular(25)),child:Column(children:[
+        Row(children:[Expanded(child:Text(heading,style:const TextStyle(color:Colors.white,fontSize:21,fontWeight:FontWeight.w900,letterSpacing:1))),Container(padding:const EdgeInsets.symmetric(horizontal:13,vertical:9),decoration:BoxDecoration(color:Colors.black.withOpacity(.2),borderRadius:BorderRadius.circular(13)),child:Column(children:[const Text('WAKTU',style:TextStyle(color:Colors.white70,fontSize:9,fontWeight:FontWeight.w900)),Text(_formatClock(seconds),style:TextStyle(color:seconds<=10?const Color(0xFFFF8A80):const Color(0xFFFFD166),fontSize:22,fontWeight:FontWeight.w900))]))]),
+        const SizedBox(height:18),Text('RONDE ROUND_PLACEHOLDER / 10'.replaceAll('ROUND_PLACEHOLDER',(round+1).toString()),style:const TextStyle(color:Colors.white70,fontSize:11,fontWeight:FontWeight.w900,letterSpacing:1.5)),
+        const SizedBox(height:18),Container(width:double.infinity,padding:const EdgeInsets.symmetric(horizontal:15,vertical:24),decoration:BoxDecoration(color:Colors.white.withOpacity(.12),borderRadius:BorderRadius.circular(18)),child:Text(prompt,textAlign:TextAlign.center,style:TextStyle(color:Colors.white,fontSize:type=='word_scramble'?29:type=='emoji_guess'?47:20,fontWeight:FontWeight.w900,height:1.35,letterSpacing:type=='word_scramble'?4:0))),
+        const SizedBox(height:12),Text(type=='word_guess'?'Baca petunjuk lalu tebak katanya.':type=='word_scramble'?'Susun huruf acak menjadi kata yang benar.':'Tebak kata dari kombinasi emoji.',textAlign:TextAlign.center,style:const TextStyle(color:Colors.white70,fontSize:12)),
+      ])),
+      const SizedBox(height:18),
+      if(!mine)Row(children:[
+        Expanded(child:TextField(controller:guess,onSubmitted:(v)=>_submitWordAnswer(v,round),textCapitalization:TextCapitalization.characters,style:const TextStyle(color:Colors.white,fontSize:18,fontWeight:FontWeight.w800),decoration:InputDecoration(hintText:'Tulis jawabanmu...',hintStyle:const TextStyle(color:Colors.white54,fontSize:14),filled:true,fillColor:Colors.white.withOpacity(.1),contentPadding:const EdgeInsets.symmetric(horizontal:16,vertical:17),border:OutlineInputBorder(borderRadius:BorderRadius.circular(15),borderSide:BorderSide.none)))),
+        const SizedBox(width:8),SizedBox(height:55,width:58,child:FilledButton(onPressed:()=>_submitWordAnswer(guess.text,round),style:FilledButton.styleFrom(backgroundColor:const Color(0xFFFFD166),foregroundColor:const Color(0xFF211744),padding:EdgeInsets.zero,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(15))),child:const Icon(Icons.send_rounded,size:23))),
+      ]) else const Text('Jawabanmu sudah masuk. Tunggu ronde berikutnya!',style:TextStyle(color:Color(0xFF70E2B2),fontWeight:FontWeight.w800)),
+      const SizedBox(height:18),Align(alignment:Alignment.centerLeft,child:Text('JAWABAN PEMAIN  ${answers.length}/${players.length}',style:const TextStyle(color:Colors.white70,fontSize:11,fontWeight:FontWeight.w900,letterSpacing:1))),
+      const SizedBox(height:8),
+      for(final e in answers)Container(width:double.infinity,margin:const EdgeInsets.only(bottom:7),padding:const EdgeInsets.all(12),decoration:BoxDecoration(color:Colors.white.withOpacity(.08),borderRadius:BorderRadius.circular(13)),child:Row(children:[Expanded(child:Text(playerName(e['actor_id'].toString()),style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w800))),Text((e['payload']['text']??'').toString(),style:const TextStyle(color:Color(0xFFFFD166),fontWeight:FontWeight.w900))])),
+      scoreboard(),
+    ]));
+  }
+  Future<void> _submitWordAnswer(String value,int round)async{final text=value.trim();if(text.isEmpty)return;guess.clear();await emit('word_answer',{'round':round,'text':text});}
   Widget reactionPanel(){
     final round=(state["round"] as num?)?.toInt()??0;
     final open=state["tap_open"]==true;
