@@ -40,6 +40,26 @@ class _LeadershipToolsScreenState extends State<LeadershipToolsScreen> {
     for(final c in controllers) { c.dispose(); }
   }
 
+  Future<void> editMinutes(Map<String,dynamic> meeting) async {
+    final minutes=TextEditingController(text:(meeting['minutes']??'').toString());
+    final decisions=TextEditingController(text:(meeting['decisions']??'').toString());
+    await showDialog(context:context,builder:(ctx)=>AlertDialog(
+      title:const Text('Notulensi & keputusan rapat'),
+      content:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,children:[
+        TextField(controller:minutes,minLines:3,maxLines:6,decoration:const InputDecoration(labelText:'Catatan / notulensi')),
+        const SizedBox(height:10),
+        TextField(controller:decisions,minLines:2,maxLines:5,decoration:const InputDecoration(labelText:'Keputusan rapat')),
+      ])),
+      actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('Batal')),FilledButton(onPressed:() async {
+        try {
+          await db.from('marawis_meetings').update({'minutes':minutes.text.trim(),'decisions':decisions.text.trim(),'updated_at':DateTime.now().toUtc().toIso8601String()}).eq('id',meeting['id']);
+          if(ctx.mounted)Navigator.pop(ctx); message('Notulensi berhasil disimpan.'); await refresh();
+        } catch(e){message('Gagal menyimpan notulensi: $e');}
+      },child:const Text('Simpan'))],
+    ));
+    minutes.dispose(); decisions.dispose();
+  }
+
   Future<void> submitLetter(Map<String,dynamic> row, String status) async {
     final note=TextEditingController();
     await showDialog(context:context,builder:(ctx)=>AlertDialog(
@@ -84,7 +104,7 @@ class _LeadershipToolsScreenState extends State<LeadershipToolsScreen> {
           if(s.hasError)return Text('Gagal memuat: ${s.error}');
           if(!s.hasData)return const Center(child:CircularProgressIndicator());
           final rows=s.data!; if(rows.isEmpty)return const Text('Belum ada agenda rapat.');
-          return Column(children:[for(final row in rows) ListTile(contentPadding:EdgeInsets.zero,title:Text(row['title']??'',style:const TextStyle(fontWeight:FontWeight.w800)),subtitle:Text('${row['meeting_at']}\n${row['agenda']}',maxLines:3,overflow:TextOverflow.ellipsis),trailing:row['meeting_url']==null?null:IconButton(icon:const Icon(Icons.video_call),onPressed:()=>launchMeeting(context,row['meeting_url'].toString())))]);
+          return Column(children:[for(final row in rows) ListTile(contentPadding:EdgeInsets.zero,title:Text(row['title']??'',style:const TextStyle(fontWeight:FontWeight.w800)),subtitle:Text('${row['meeting_at']}\n${row['agenda']}',maxLines:3,overflow:TextOverflow.ellipsis),trailing:staff?Wrap(mainAxisSize:MainAxisSize.min,children:[IconButton(tooltip:'Notulensi',icon:const Icon(Icons.edit_note_rounded),onPressed:()=>editMinutes(row)),if(row['meeting_url']!=null)IconButton(icon:const Icon(Icons.video_call),onPressed:()=>launchMeeting(context,row['meeting_url'].toString()))]):(row['meeting_url']==null?null:IconButton(icon:const Icon(Icons.video_call),onPressed:()=>launchMeeting(context,row['meeting_url'].toString()))))]);
         }),
         action:staff?IconButton(onPressed:()=>form(title:'Jadwalkan rapat',table:'marawis_meetings',fields:['title','agenda','meeting_at','meeting_url'],labels:['Nama rapat','Agenda','Waktu (ISO: 2026-12-01T15:00:00+07:00)','Link Google Meet'],extra:{}),icon:const Icon(Icons.add_circle_outline)):null),
       panel('Emergency Announcement','Informasi mendesak untuk audiens terpilih.',Icons.campaign_rounded,
