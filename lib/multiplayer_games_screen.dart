@@ -17,6 +17,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
   List<Map<String,dynamic>> rooms=[],players=[],events=[];
   RealtimeChannel? channel;
   bool busy=false;
+  bool showGameIntro=false;
   final guess=TextEditingController();
   final questions=<Map<String,dynamic>>[
     {'q':'Apa fungsi utama hajir dalam permainan marawis?','a':['Menjaga ketukan dasar','Mengatur kostum','Membuka acara','Mengatur mikrofon'],'c':0},
@@ -131,7 +132,18 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
     final id=roomId;if(id==null)return;
     try{
       final x=await Future.wait([db.from('multiplayer_rooms').select().eq('id',id).single(),db.from('multiplayer_players').select().eq('room_id',id).order('joined_at'),db.from('multiplayer_events').select().eq('room_id',id).order('created_at')]);
-      if(!mounted)return;setState(() { room=Map<String,dynamic>.from(x[0] as Map); players=List<Map<String,dynamic>>.from(x[1] as List); events=List<Map<String,dynamic>>.from(x[2] as List); });
+      if(!mounted)return;
+      final nextRoom=Map<String,dynamic>.from(x[0] as Map);
+      final justStarted=room?["status"]!="playing"&&nextRoom["status"]=="playing";
+      setState(() {
+        room=nextRoom;
+        players=List<Map<String,dynamic>>.from(x[1] as List);
+        events=List<Map<String,dynamic>>.from(x[2] as List);
+        if(justStarted)showGameIntro=true;
+      });
+      if(justStarted)Future.delayed(const Duration(milliseconds:1700),(){
+        if(mounted)setState(()=>showGameIntro=false);
+      });
     }catch(e){msg('Sinkronisasi gagal: '+e.toString());}
   }
   bool get host=>room?['host_id']==db.auth.currentUser?.id;
@@ -181,7 +193,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
       ])))));
   }
   @override Widget build(BuildContext context){
-    if(roomId!=null)return roomPage();
+    if(roomId!=null)return AnimatedSwitcher(duration:const Duration(milliseconds:650),switchInCurve:Curves.easeOutCubic,switchOutCurve:Curves.easeInCubic,transitionBuilder:(child,animation)=>FadeTransition(opacity:animation,child:SlideTransition(position:Tween<Offset>(begin:const Offset(0,.05),end:Offset.zero).animate(animation),child:child)),child:KeyedSubtree(key:ValueKey(roomId!+"_"+(room?["status"]??"loading").toString()),child:roomPage()));
     return Scaffold(body:RefreshIndicator(onRefresh:loadRooms,child:ListView(padding:const EdgeInsets.all(16),children:[
       Container(padding:const EdgeInsets.all(22),decoration:BoxDecoration(gradient:const LinearGradient(begin:Alignment.topLeft,end:Alignment.bottomRight,colors:[Color(0xFF17113D),Color(0xFF442B87),Color(0xFF147D83)]),borderRadius:BorderRadius.circular(26),boxShadow:[BoxShadow(color:const Color(0xFF33236F).withOpacity(.24),blurRadius:22,offset:const Offset(0,10))]),child:Stack(children:[
         Positioned(right:-8,top:-12,child:Icon(Icons.sports_esports_rounded,size:112,color:Colors.white.withOpacity(.08))),
@@ -202,19 +214,108 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
     ])));
   }
   Widget roomPage(){
-    final r=room;if(r==null)return const Scaffold(body:Center(child:CircularProgressIndicator()));
-    final status=r['status'].toString();
-    return Scaffold(appBar:AppBar(title:Text('Room '+r['room_code'].toString()),leading:IconButton(onPressed:leave,icon:const Icon(Icons.arrow_back)),actions:[IconButton(onPressed:refreshRoom,icon:const Icon(Icons.refresh))]),body:ListView(padding:const EdgeInsets.all(16),children:[
-      Card(color:Colors.white,child:Padding(padding:const EdgeInsets.all(16),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-        Text(title(r['game_type'].toString()),style:const TextStyle(fontSize:19,fontWeight:FontWeight.w900)),Text('Kode: '+r['room_code'].toString(),style:const TextStyle(fontSize:22,color:Color(0xFF167D68),fontWeight:FontWeight.w900,letterSpacing:2)),Text(players.length.toString()+'/'+r['max_players'].toString()+' pemain • '+(status=='waiting'?'Menunggu':status=='playing'?'Berlangsung':'Selesai')),
-        for(final p in players)ListTile(dense:true,leading:CircleAvatar(child:Text(p['display_name'].toString().isEmpty?'?':p['display_name'].toString()[0].toUpperCase())),title:Text(p['display_name'].toString()),trailing:p['user_id']==r['host_id']?const Chip(label:Text('HOST')):null),
-        if(status=='waiting'&&host)SizedBox(width:double.infinity,child:FilledButton(onPressed:players.length<2?null:start,child:const Text('Mulai permainan • min. 2 pemain'))),
-        if(status=='waiting'&&!host)const Text('Menunggu host memulai permainan...'),
-      ]))),
-      if(status=='playing')gamePanel(),
-      if(status=='finished')results(),
+    final r=room;
+    if(r==null)return const Scaffold(backgroundColor:Color(0xFF111329),body:Center(child:CircularProgressIndicator(color:Color(0xFFFFD166))));
+    final status=r["status"].toString();
+    if(status=="playing")return gameplayPage();
+    if(status=="finished")return results();
+    return Scaffold(
+      backgroundColor:const Color(0xFF111329),
+      body:Container(
+        decoration:const BoxDecoration(gradient:LinearGradient(begin:Alignment.topLeft,end:Alignment.bottomRight,colors:[Color(0xFF17152F),Color(0xFF28204F),Color(0xFF123C43)])),
+        child:SafeArea(child:Column(children:[
+          Padding(padding:const EdgeInsets.all(16),child:Row(children:[
+            _roundAction(Icons.close_rounded,leave),
+            const SizedBox(width:12),
+            const Expanded(child:Text("GAME ROOM",style:TextStyle(color:Colors.white70,fontWeight:FontWeight.w900,letterSpacing:2))),
+            _livePill("LOBBY"),
+          ])),
+          Expanded(child:ListView(padding:const EdgeInsets.fromLTRB(20,12,20,24),children:[
+            Container(padding:const EdgeInsets.all(22),decoration:BoxDecoration(gradient:const LinearGradient(colors:[Color(0xFF694BDF),Color(0xFF9B54D8)]),borderRadius:BorderRadius.circular(27)),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+              Text(title(r["game_type"].toString()).toUpperCase(),style:const TextStyle(color:Colors.white70,fontWeight:FontWeight.w900,fontSize:10,letterSpacing:1.5)),
+              const SizedBox(height:12),
+              const Text("Siap-siap\nmain bareng!",style:TextStyle(color:Colors.white,fontSize:31,height:1.05,fontWeight:FontWeight.w900)),
+              const SizedBox(height:18),
+              Row(children:[
+                Container(padding:const EdgeInsets.symmetric(horizontal:14,vertical:10),decoration:BoxDecoration(color:Colors.black.withOpacity(.18),borderRadius:BorderRadius.circular(14)),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+                  const Text("KODE ROOM",style:TextStyle(color:Colors.white70,fontSize:9,fontWeight:FontWeight.w800)),
+                  Text(r["room_code"].toString(),style:const TextStyle(color:Colors.white,fontSize:22,fontWeight:FontWeight.w900,letterSpacing:4)),
+                ])),
+                const Spacer(),
+                Text(players.length.toString()+"/"+r["max_players"].toString()+" pemain",style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w800)),
+              ]),
+            ])),
+            const SizedBox(height:24),
+            Row(children:[const Expanded(child:Text("Pemain di arena",style:TextStyle(color:Colors.white,fontSize:19,fontWeight:FontWeight.w900))),Text(players.length.toString()+" ONLINE",style:const TextStyle(color:Color(0xFF70E2B2),fontSize:10,fontWeight:FontWeight.w900))]),
+            const SizedBox(height:12),
+            for(final p in players)Container(margin:const EdgeInsets.only(bottom:9),padding:const EdgeInsets.all(12),decoration:BoxDecoration(color:Colors.white.withOpacity(.08),borderRadius:BorderRadius.circular(17),border:Border.all(color:Colors.white.withOpacity(.1))),child:Row(children:[
+              CircleAvatar(backgroundColor:p["user_id"]==r["host_id"]?const Color(0xFFFFD166):const Color(0xFF7069D9),child:Text(p["display_name"].toString().isEmpty?"?":p["display_name"].toString()[0].toUpperCase(),style:const TextStyle(color:Color(0xFF17152F),fontWeight:FontWeight.w900))),
+              const SizedBox(width:12),
+              Expanded(child:Text(p["display_name"].toString(),style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w800))),
+              if(p["user_id"]==r["host_id"])const Text("HOST",style:TextStyle(color:Color(0xFFFFD166),fontSize:10,fontWeight:FontWeight.w900)),
+            ])),
+            const SizedBox(height:12),
+            Container(padding:const EdgeInsets.all(15),decoration:BoxDecoration(color:Colors.white.withOpacity(.07),borderRadius:BorderRadius.circular(17)),child:Row(children:[
+              const Icon(Icons.tips_and_updates_rounded,color:Color(0xFFFFD166)),
+              const SizedBox(width:10),
+              Expanded(child:Text(host?"Mulai permainan saat minimal dua pemain sudah masuk.":"Tunggu host memulai permainan. Layar game akan terbuka otomatis untuk semua pemain.",style:const TextStyle(color:Colors.white70,fontSize:12,height:1.4))),
+            ])),
+            const SizedBox(height:18),
+            if(host)SizedBox(width:double.infinity,height:56,child:FilledButton.icon(onPressed:players.length<2?null:start,icon:const Icon(Icons.play_arrow_rounded,size:25),label:const Text("MULAI PERMAINAN",style:TextStyle(fontWeight:FontWeight.w900,letterSpacing:1)),style:FilledButton.styleFrom(backgroundColor:const Color(0xFFFFD166),foregroundColor:const Color(0xFF211744),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(17))))),
+            if(!host)const Center(child:Text("HOST SEDANG MENYIAPKAN GAME...",style:TextStyle(color:Colors.white54,fontSize:10,fontWeight:FontWeight.w900,letterSpacing:1.2))),
+          ])),
+        ])),
+      ),
+    );
+  }
+  Widget _roundAction(IconData icon,VoidCallback action)=>Material(color:Colors.white.withOpacity(.1),shape:const CircleBorder(),child:InkWell(customBorder:const CircleBorder(),onTap:action,child:SizedBox(width:42,height:42,child:Icon(icon,color:Colors.white,size:20))));
+  Widget _livePill(String label)=>Container(padding:const EdgeInsets.symmetric(horizontal:11,vertical:7),decoration:BoxDecoration(color:const Color(0xFF70E2B2).withOpacity(.14),borderRadius:BorderRadius.circular(30),border:Border.all(color:const Color(0xFF70E2B2).withOpacity(.35))),child:Row(mainAxisSize:MainAxisSize.min,children:[const Icon(Icons.circle,size:7,color:Color(0xFF70E2B2)),const SizedBox(width:6),Text(label,style:const TextStyle(color:Color(0xFF70E2B2),fontSize:9,fontWeight:FontWeight.w900,letterSpacing:1))]));
+  Widget gameplayPage(){
+    final r=room!;
+    return Scaffold(backgroundColor:const Color(0xFF111329),body:Stack(children:[
+      Container(
+        decoration:const BoxDecoration(gradient:LinearGradient(begin:Alignment.topLeft,end:Alignment.bottomRight,colors:[Color(0xFF17152F),Color(0xFF211D45),Color(0xFF123C43)])),
+        child:SafeArea(child:Column(children:[
+          Padding(padding:const EdgeInsets.fromLTRB(14,10,14,12),child:Row(children:[
+            _roundAction(Icons.close_rounded,leave),
+            const SizedBox(width:10),
+            Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+              Text(title(r["game_type"].toString()),maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900,fontSize:14)),
+              Text("ROOM "+r["room_code"].toString(),style:const TextStyle(color:Colors.white54,fontSize:9,fontWeight:FontWeight.w800,letterSpacing:1.3)),
+            ])),
+            _livePill("LIVE"),
+            const SizedBox(width:8),
+            Container(padding:const EdgeInsets.symmetric(horizontal:10,vertical:8),decoration:BoxDecoration(color:Colors.white.withOpacity(.1),borderRadius:BorderRadius.circular(30)),child:Row(children:[const Icon(Icons.people_alt_rounded,color:Colors.white70,size:15),const SizedBox(width:5),Text(players.length.toString(),style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900))])),
+          ])),
+          Expanded(child:AnimatedSwitcher(duration:const Duration(milliseconds:420),child:KeyedSubtree(key:ValueKey(state["phase"].toString()+"_"+(state["round"]??0).toString()),child:gamePanel()))),
+          _playerStrip(),
+        ])),
+      ),
+      if(showGameIntro)Positioned.fill(child:IgnorePointer(child:AnimatedOpacity(
+        opacity:showGameIntro?1:0,duration:const Duration(milliseconds:250),
+        child:Container(color:const Color(0xEE111329),child:Center(child:TweenAnimationBuilder<double>(
+          tween:Tween<double>(begin:.72,end:1),duration:const Duration(milliseconds:650),curve:Curves.elasticOut,
+          builder:(context,value,child)=>Transform.scale(scale:value,child:child),
+          child:Column(mainAxisSize:MainAxisSize.min,children:[
+            const Icon(Icons.bolt_rounded,color:Color(0xFFFFD166),size:66),
+            const SizedBox(height:12),
+            const Text("GAME START!",style:TextStyle(color:Colors.white,fontSize:31,fontWeight:FontWeight.w900,letterSpacing:2)),
+            const SizedBox(height:8),
+            Text(title(r["game_type"].toString()).toUpperCase(),style:const TextStyle(color:Colors.white70,fontSize:11,fontWeight:FontWeight.w900,letterSpacing:1.5)),
+          ]),
+        ))),
+      ))),
     ]));
   }
+  Widget _playerStrip()=>Container(height:82,padding:const EdgeInsets.fromLTRB(14,9,14,10),decoration:BoxDecoration(color:Colors.black.withOpacity(.2),border:Border(top:BorderSide(color:Colors.white.withOpacity(.08)))),child:ListView.separated(scrollDirection:Axis.horizontal,itemCount:players.length,separatorBuilder:(_,__)=>const SizedBox(width:12),itemBuilder:(context,index){
+    final p=players[index];final name=p["display_name"].toString();final isMe=p["user_id"]==db.auth.currentUser?.id;
+    return SizedBox(width:62,child:Column(children:[
+      CircleAvatar(radius:21,backgroundColor:isMe?const Color(0xFFFFD166):const Color(0xFF7069D9),child:Text(name.isEmpty?"?":name[0].toUpperCase(),style:const TextStyle(color:Color(0xFF17152F),fontWeight:FontWeight.w900))),
+      const SizedBox(height:5),
+      Text(name,maxLines:1,overflow:TextOverflow.ellipsis,style:TextStyle(color:isMe?const Color(0xFFFFD166):Colors.white70,fontSize:9,fontWeight:FontWeight.w800)),
+      Text(score(p["user_id"].toString()).toString()+" PTS",style:const TextStyle(color:Colors.white38,fontSize:8,fontWeight:FontWeight.w700)),
+    ]));
+  }));
   Widget gamePanel(){
     final key=room!['game_type'].toString();
     if(key=='quiz_arena')return quizPanel();
@@ -222,49 +323,139 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
     return drawPanel();
   }
   Widget quizPanel(){
-    final i=(state['round'] as num?)?.toInt()??0;if(i>=questions.length)return results();
-    final order=state['question_order'] is List?List<int>.from(state['question_order'] as List):List<int>.generate(questions.length,(n)=>n);final qIndex=i<order.length?order[i]:i;final q=questions[qIndex];final answerOrders=state['answer_orders'] is List?state['answer_orders'] as List:[];final answerOrder=i<answerOrders.length?List<int>.from(answerOrders[i] as List):[0,1,2,3];final uid=db.auth.currentUser!.id;
-    final mine=events.any((e)=>e['actor_id']==uid&&e['event_type']=='answer'&&e['payload']['round']==i);
-    final count=events.where((e)=>e['event_type']=='answer'&&e['payload']['round']==i).length;
-    return Card(color:Colors.white,child:Padding(padding:const EdgeInsets.all(18),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-      Text('SOAL '+(i+1).toString()+'/'+questions.length.toString(),style:const TextStyle(color:Color(0xFF167D68),fontWeight:FontWeight.w900)),const SizedBox(height:10),Text(q['q'].toString(),style:const TextStyle(fontSize:19,fontWeight:FontWeight.w900)),
-      if(q['category']!=null)Padding(padding:const EdgeInsets.only(bottom:7),child:Text('KATEGORI: '+q['category'].toString().toUpperCase(),style:const TextStyle(fontSize:10,fontWeight:FontWeight.w900,color:Color(0xFF8A6AE8),letterSpacing:1))),
-      if(!mine)for(var n=0;n<answerOrder.length;n++)SizedBox(width:double.infinity,child:Padding(padding:const EdgeInsets.only(top:7),child:OutlinedButton(onPressed:()=>emit('answer',{'round':i,'choice':n}),child:Text((q['a'] as List)[answerOrder[n]].toString())))) else const Padding(padding:EdgeInsets.all(12),child:Text('Jawaban terkirim! Menunggu pemain lain.')),
-      Text(count.toString()+'/'+players.length.toString()+' pemain menjawab'),
-      if(host)FilledButton(onPressed:()=>i+1<questions.length?updateState({...state,'round':i+1}):finish(),child:Text(i+1<questions.length?'Soal berikutnya':'Akhiri Quiz')),
-      scoreboard(),
-    ])));
+    final i=(state["round"] as num?)?.toInt()??0;
+    final order=state["question_order"] is List?List<int>.from(state["question_order"] as List):List<int>.generate(questions.length,(n)=>n);
+    if(i>=order.length)return results();
+    final qIndex=order[i];final q=questions[qIndex];
+    final answerOrders=state["answer_orders"] is List?state["answer_orders"] as List:[];
+    final answerOrder=i<answerOrders.length?List<int>.from(answerOrders[i] as List):[0,1,2,3];
+    final uid=db.auth.currentUser!.id;
+    final mine=events.any((e)=>e["actor_id"]==uid&&e["event_type"]=="answer"&&e["payload"]["round"]==i);
+    final count=events.where((e)=>e["event_type"]=="answer"&&e["payload"]["round"]==i).length;
+    return SingleChildScrollView(padding:const EdgeInsets.fromLTRB(18,8,18,20),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+      Row(children:[Text("ROUND "+(i+1).toString().padLeft(2,"0"),style:const TextStyle(color:Color(0xFFFFD166),fontSize:11,fontWeight:FontWeight.w900,letterSpacing:1.5)),const Spacer(),Text((i+1).toString()+"/"+order.length.toString(),style:const TextStyle(color:Colors.white70,fontWeight:FontWeight.w900))]),
+      const SizedBox(height:10),
+      ClipRRect(borderRadius:BorderRadius.circular(20),child:LinearProgressIndicator(value:(i+1)/order.length,minHeight:7,backgroundColor:Colors.white12,color:const Color(0xFFFFD166))),
+      const SizedBox(height:22),
+      Container(width:double.infinity,padding:const EdgeInsets.all(22),decoration:BoxDecoration(gradient:const LinearGradient(begin:Alignment.topLeft,end:Alignment.bottomRight,colors:[Color(0xFF7256D9),Color(0xFF453E9A)]),borderRadius:BorderRadius.circular(26),boxShadow:[BoxShadow(color:const Color(0xFF6D54D8).withOpacity(.2),blurRadius:24,offset:const Offset(0,10))]),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+        Row(children:[const Icon(Icons.bolt_rounded,color:Color(0xFFFFD166),size:17),const SizedBox(width:6),Text((q["category"]??"MARAWIS CHALLENGE").toString().toUpperCase(),style:const TextStyle(color:Colors.white70,fontSize:9,fontWeight:FontWeight.w900,letterSpacing:1.2))]),
+        const SizedBox(height:18),
+        Text(q["q"].toString(),style:const TextStyle(color:Colors.white,fontSize:23,height:1.25,fontWeight:FontWeight.w900)),
+        const SizedBox(height:15),
+        Row(children:[const Icon(Icons.people_alt_rounded,color:Colors.white60,size:16),const SizedBox(width:6),Text(count.toString()+" dari "+players.length.toString()+" pemain sudah menjawab",style:const TextStyle(color:Colors.white70,fontSize:11,fontWeight:FontWeight.w700))]),
+      ])),
+      const SizedBox(height:20),
+      const Text("PILIH JAWABANMU",style:TextStyle(color:Colors.white70,fontSize:10,fontWeight:FontWeight.w900,letterSpacing:1.4)),
+      const SizedBox(height:10),
+      for(var n=0;n<answerOrder.length;n++)Padding(padding:const EdgeInsets.only(bottom:10),child:Material(color:Colors.transparent,borderRadius:BorderRadius.circular(17),child:InkWell(
+        onTap:mine?null:()=>emit("answer",{"round":i,"choice":n}),
+        borderRadius:BorderRadius.circular(17),
+        child:Container(padding:const EdgeInsets.symmetric(horizontal:15,vertical:15),decoration:BoxDecoration(color:mine?Colors.white.withOpacity(.055):Colors.white.withOpacity(.11),borderRadius:BorderRadius.circular(17),border:Border.all(color:mine?Colors.white.withOpacity(.08):const Color(0xFF8B80E8).withOpacity(.55),width:1.2)),child:Row(children:[
+          Container(width:34,height:34,alignment:Alignment.center,decoration:BoxDecoration(color:const Color(0xFF8174E6).withOpacity(.3),borderRadius:BorderRadius.circular(11)),child:Text(String.fromCharCode(65+n),style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900))),
+          const SizedBox(width:12),Expanded(child:Text((q["a"] as List)[answerOrder[n]].toString(),style:const TextStyle(color:Colors.white,fontSize:14,fontWeight:FontWeight.w700))),
+          Icon(mine?Icons.lock_outline_rounded:Icons.arrow_forward_rounded,color:Colors.white54,size:18),
+        ])),
+      ))),
+      if(mine)Container(width:double.infinity,padding:const EdgeInsets.all(14),decoration:BoxDecoration(color:const Color(0xFF70E2B2).withOpacity(.12),borderRadius:BorderRadius.circular(15),border:Border.all(color:const Color(0xFF70E2B2).withOpacity(.25))),child:const Row(children:[Icon(Icons.check_circle_rounded,color:Color(0xFF70E2B2)),SizedBox(width:9),Expanded(child:Text("Jawaban terkirim! Tunggu host melanjutkan ronde.",style:TextStyle(color:Color(0xFFB7F4D8),fontWeight:FontWeight.w700,fontSize:12)))])),
+      const SizedBox(height:18),
+      if(host)SizedBox(width:double.infinity,height:52,child:FilledButton.icon(onPressed:()=>i+1<order.length?updateState({...state,"round":i+1}):finish(),icon:const Icon(Icons.skip_next_rounded),label:Text(i+1<order.length?"RONDE BERIKUTNYA":"LIHAT HASIL AKHIR"),style:FilledButton.styleFrom(backgroundColor:const Color(0xFFFFD166),foregroundColor:const Color(0xFF211744),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(16))))),
+      const SizedBox(height:10),scoreboard(),
+    ]));
   }
   Widget leaderPanel(){
-    final votes=events.where((e)=>e['event_type']=='vote').toList();final uid=db.auth.currentUser!.id;final mine=votes.any((e)=>e['actor_id']==uid);
-    final tally=<String,int>{};for(final e in votes){final t=e['payload']['target']?.toString();if(t!=null)tally[t]=(tally[t]??0)+1;}
+    final votes=events.where((e)=>e["event_type"]=="vote").toList();
+    final uid=db.auth.currentUser!.id;final mine=votes.any((e)=>e["actor_id"]==uid);
+    final tally=<String,int>{};for(final e in votes){final t=e["payload"]["target"]?.toString();if(t!=null)tally[t]=(tally[t]??0)+1;}
     final sorted=tally.entries.toList()..sort((a,b)=>b.value.compareTo(a.value));
-    return Card(color:Colors.white,child:Padding(padding:const EdgeInsets.all(18),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-      const Text('WHO IS THE LEADER?',style:TextStyle(fontWeight:FontWeight.w900,color:Color(0xFF4268C5))),const SizedBox(height:8),const Text('Pilih pemain yang menurutmu paling cocok memimpin tim. Setiap orang hanya punya satu suara.'),
-      if(!mine)...[for(final p in players)if(p['user_id']!=uid)ListTile(title:Text(p['display_name'].toString()),trailing:IconButton(icon:const Icon(Icons.how_to_vote),onPressed:()=>emit('vote',{'target':p['user_id']}))) ] else const Text('Suaramu sudah masuk.'),
-      Text(votes.length.toString()+'/'+players.length.toString()+' suara masuk'),const Divider(),for(final v in sorted)Text(playerName(v.key)+' — '+v.value.toString()+' suara'),
-      if(host)FilledButton(onPressed:finish,child:const Text('Tutup voting & tampilkan hasil')),
-    ])));
+    return SingleChildScrollView(padding:const EdgeInsets.fromLTRB(18,12,18,20),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+      Container(width:double.infinity,padding:const EdgeInsets.all(22),decoration:BoxDecoration(gradient:const LinearGradient(colors:[Color(0xFF087E8B),Color(0xFF3D72B7)]),borderRadius:BorderRadius.circular(25)),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+        const Icon(Icons.workspace_premium_rounded,color:Color(0xFFFFD166),size:34),
+        const SizedBox(height:14),
+        const Text("WHO IS THE\nNEXT LEADER?",style:TextStyle(color:Colors.white,fontSize:26,height:1.05,fontWeight:FontWeight.w900)),
+        const SizedBox(height:8),
+        const Text("Pilih teman yang paling cocok memimpin dan menjaga kekompakan tim.",style:TextStyle(color:Colors.white70,fontSize:12,height:1.45)),
+        const SizedBox(height:15),
+        Text(votes.length.toString()+"/"+players.length.toString()+" SUARA TERKUMPUL",style:const TextStyle(color:Color(0xFFFFD166),fontSize:10,fontWeight:FontWeight.w900,letterSpacing:1.2)),
+      ])),
+      const SizedBox(height:20),
+      const Text("PILIH SATU PEMAIN",style:TextStyle(color:Colors.white70,fontSize:10,fontWeight:FontWeight.w900,letterSpacing:1.3)),
+      const SizedBox(height:10),
+      if(!mine)for(final p in players)if(p["user_id"]!=uid)Padding(padding:const EdgeInsets.only(bottom:9),child:Material(color:Colors.white.withOpacity(.09),borderRadius:BorderRadius.circular(17),child:InkWell(onTap:()=>emit("vote",{"target":p["user_id"]}),borderRadius:BorderRadius.circular(17),child:Padding(padding:const EdgeInsets.all(13),child:Row(children:[
+        CircleAvatar(backgroundColor:const Color(0xFF70CFC4),child:Text(p["display_name"].toString().isEmpty?"?":p["display_name"].toString()[0].toUpperCase(),style:const TextStyle(color:Color(0xFF102D35),fontWeight:FontWeight.w900))),
+        const SizedBox(width:12),Expanded(child:Text(p["display_name"].toString(),style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w800))),const Icon(Icons.how_to_vote_rounded,color:Color(0xFFFFD166)),
+      ]))))),
+      if(mine)Container(width:double.infinity,padding:const EdgeInsets.all(14),decoration:BoxDecoration(color:const Color(0xFF70E2B2).withOpacity(.12),borderRadius:BorderRadius.circular(15)),child:const Text("SUARAMU SUDAH TERCATAT ✓",style:TextStyle(color:Color(0xFF70E2B2),fontWeight:FontWeight.w900,fontSize:11,letterSpacing:1))),
+      const SizedBox(height:18),
+      const Text("HASIL SEMENTARA",style:TextStyle(color:Colors.white70,fontSize:10,fontWeight:FontWeight.w900,letterSpacing:1.3)),
+      const SizedBox(height:8),
+      for(final v in sorted)Padding(padding:const EdgeInsets.only(bottom:8),child:Container(padding:const EdgeInsets.all(12),decoration:BoxDecoration(color:Colors.white.withOpacity(.07),borderRadius:BorderRadius.circular(14)),child:Row(children:[Expanded(child:Text(playerName(v.key),style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w700))),Text(v.value.toString()+" suara",style:const TextStyle(color:Color(0xFFFFD166),fontWeight:FontWeight.w900))]))),
+      if(host)Padding(padding:const EdgeInsets.only(top:12),child:SizedBox(width:double.infinity,height:52,child:FilledButton(onPressed:finish,style:FilledButton.styleFrom(backgroundColor:const Color(0xFFFFD166),foregroundColor:const Color(0xFF211744),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(16))),child:const Text("TUTUP VOTING & LIHAT HASIL")))),
+    ]));
   }
   Widget drawPanel(){
-    final uid=db.auth.currentUser!.id;final drawer=state['drawer_id']?.toString();final canDraw=uid==drawer;
-    final drawEvents=events.where((e)=>e['event_type']=='draw').toList();final guesses=events.where((e)=>e['event_type']=='guess'&&e['payload']['accepted']!=true).toList();
-    return Card(color:Colors.white,child:Padding(padding:const EdgeInsets.all(15),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-      const Text('DRAW & GUESS',style:TextStyle(fontWeight:FontWeight.w900,color:Color(0xFFC47A25))),const SizedBox(height:5),Text(canDraw?'Kata rahasia: '+(secretWord??'MARAWIS')+' — gambarkan!':'Lihat gambar dan kirim tebakanmu.'),
-      const SizedBox(height:10),
-      GestureDetector(onPanStart:canDraw?(d)=>setState(()=>activeStroke=[d.localPosition]):null,onPanUpdate:canDraw?(d)=>setState(()=>activeStroke.add(d.localPosition)):null,onPanEnd:canDraw?(d)async{final pts=activeStroke.map((p)=>{'x':p.dx,'y':p.dy}).toList();setState(()=>activeStroke=[]);if(pts.length>1)await emit('draw',{'points':pts});}:null,child:Container(height:250,width:double.infinity,decoration:BoxDecoration(color:const Color(0xFFFAFCFB),border:Border.all(color:const Color(0xFFDDE7E1)),borderRadius:BorderRadius.circular(12)),child:CustomPaint(painter:_GamePainter(drawEvents,activeStroke)))),
-      if(!canDraw)Row(children:[Expanded(child:TextField(controller:guess,decoration:const InputDecoration(hintText:'Tulis tebakan'))),const SizedBox(width:8),FilledButton(onPressed:()async{final v=guess.text.trim();if(v.isNotEmpty){await emit('guess',{'text':v});guess.clear();}},child:const Text('Kirim'))]),
-      if(canDraw)const Text('Kamu menggambar. Host dapat menandai tebakan yang benar.',style:TextStyle(fontSize:12,color:Colors.black54)),
-      const SizedBox(height:10),const Text('Tebakan',style:TextStyle(fontWeight:FontWeight.w800)),
-      for(final g in guesses)ListTile(dense:true,title:Text(playerName(g['actor_id'].toString())+': '+(g['payload']['text']??'').toString()),trailing:canDraw?IconButton(icon:const Icon(Icons.check_circle,color:Colors.green),onPressed:()=>emit('guess',{'accepted':true,'target':g['actor_id']})):null),
-      if(host)FilledButton(onPressed:finish,child:const Text('Akhiri permainan')),
-    ])));
+    final uid=db.auth.currentUser!.id;final drawer=state["drawer_id"]?.toString();final canDraw=uid==drawer;
+    final drawEvents=events.where((e)=>e["event_type"]=="draw").toList();
+    final guesses=events.where((e)=>e["event_type"]=="guess"&&e["payload"]["accepted"]!=true).toList();
+    return SingleChildScrollView(padding:const EdgeInsets.fromLTRB(16,10,16,20),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+      Container(width:double.infinity,padding:const EdgeInsets.all(18),decoration:BoxDecoration(gradient:const LinearGradient(colors:[Color(0xFFE46C32),Color(0xFFB64F80)]),borderRadius:BorderRadius.circular(23)),child:Row(children:[
+        const Icon(Icons.draw_rounded,color:Colors.white,size:35),const SizedBox(width:12),
+        Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text("DRAW & GUESS",style:TextStyle(color:Colors.white,fontSize:20,fontWeight:FontWeight.w900)),Text(canDraw?"Gambarkan kata rahasia untuk temanmu!":"Amati gambar, lalu tebak secepatnya.",style:const TextStyle(color:Colors.white70,fontSize:11))])),
+      ])),
+      const SizedBox(height:14),
+      if(canDraw)Container(width:double.infinity,padding:const EdgeInsets.all(12),decoration:BoxDecoration(color:const Color(0xFFFFD166).withOpacity(.13),borderRadius:BorderRadius.circular(14),border:Border.all(color:const Color(0xFFFFD166).withOpacity(.3))),child:Text("KATA RAHASIA: "+(secretWord??"MARAWIS"),style:const TextStyle(color:Color(0xFFFFD166),fontWeight:FontWeight.w900,letterSpacing:1.2))),
+      if(!canDraw)const Padding(padding:EdgeInsets.only(bottom:9),child:Text("GAMBAR RAHASIA",style:TextStyle(color:Colors.white70,fontSize:10,fontWeight:FontWeight.w900,letterSpacing:1.2))),
+      const SizedBox(height:8),
+      Container(height:270,width:double.infinity,decoration:BoxDecoration(color:const Color(0xFFFFFCF5),borderRadius:BorderRadius.circular(21),border:Border.all(color:Colors.white.withOpacity(.25)),boxShadow:[BoxShadow(color:Colors.black.withOpacity(.2),blurRadius:18,offset:const Offset(0,8))]),child:ClipRRect(borderRadius:BorderRadius.circular(21),child:GestureDetector(
+        onPanStart:canDraw?(d)=>setState(()=>activeStroke=[d.localPosition]):null,
+        onPanUpdate:canDraw?(d)=>setState(()=>activeStroke.add(d.localPosition)):null,
+        onPanEnd:canDraw?(d)async{final pts=activeStroke.map((p)=>{"x":p.dx,"y":p.dy}).toList();setState(()=>activeStroke=[]);if(pts.length>1)await emit("draw",{"points":pts});}:null,
+        child:CustomPaint(painter:_GamePainter(drawEvents,activeStroke),child:const SizedBox.expand()),
+      ))),
+      if(canDraw)Padding(padding:const EdgeInsets.only(top:8),child:Row(children:[const Icon(Icons.touch_app_rounded,color:Colors.white54,size:16),const SizedBox(width:6),const Expanded(child:Text("Sentuh dan geser untuk menggambar di kanvas.",style:TextStyle(color:Colors.white54,fontSize:10))),TextButton(onPressed:()=>setState(()=>activeStroke=[]),child:const Text("HAPUS GARIS"))])),
+      if(!canDraw)Padding(padding:const EdgeInsets.only(top:13),child:Row(children:[
+        Expanded(child:TextField(controller:guess,style:const TextStyle(color:Colors.white),decoration:InputDecoration(hintText:"Ketik tebakanmu...",hintStyle:const TextStyle(color:Colors.white38),filled:true,fillColor:Colors.white.withOpacity(.1),border:OutlineInputBorder(borderRadius:BorderRadius.circular(15),borderSide:BorderSide.none)))),
+        const SizedBox(width:8),
+        SizedBox(height:52,width:54,child:FilledButton(onPressed:()async{final v=guess.text.trim();if(v.isNotEmpty){await emit("guess",{"text":v});guess.clear();}},style:FilledButton.styleFrom(backgroundColor:const Color(0xFFFFD166),foregroundColor:const Color(0xFF211744),padding:EdgeInsets.zero,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(15))),child:const Icon(Icons.send_rounded))),
+      ])),
+      const SizedBox(height:17),const Text("TEBAKAN PEMAIN",style:TextStyle(color:Colors.white70,fontSize:10,fontWeight:FontWeight.w900,letterSpacing:1.2)),
+      const SizedBox(height:8),
+      if(guesses.isEmpty)const Text("Belum ada tebakan. Jadilah yang pertama!",style:TextStyle(color:Colors.white54,fontSize:11)),
+      for(final g in guesses)Container(margin:const EdgeInsets.only(bottom:7),padding:const EdgeInsets.symmetric(horizontal:12,vertical:9),decoration:BoxDecoration(color:Colors.white.withOpacity(.08),borderRadius:BorderRadius.circular(13)),child:Row(children:[
+        Expanded(child:Text(playerName(g["actor_id"].toString())+": "+(g["payload"]["text"]??"").toString(),style:const TextStyle(color:Colors.white,fontSize:12,fontWeight:FontWeight.w700))),
+        if(canDraw)IconButton(onPressed:()=>emit("guess",{"accepted":true,"target":g["actor_id"]}),icon:const Icon(Icons.check_circle_rounded,color:Color(0xFF70E2B2))),
+      ])),
+      if(host)Padding(padding:const EdgeInsets.only(top:10),child:SizedBox(width:double.infinity,height:50,child:FilledButton(onPressed:finish,style:FilledButton.styleFrom(backgroundColor:const Color(0xFFFFD166),foregroundColor:const Color(0xFF211744),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(15))),child:const Text("AKHIRI PERMAINAN")))),
+    ]));
   }
   Widget scoreboard(){
-    final sorted=players.toList()..sort((a,b)=>score(b['user_id'].toString()).compareTo(score(a['user_id'].toString())));
-    return Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const SizedBox(height:12),const Text('Papan skor',style:TextStyle(fontWeight:FontWeight.w900)),for(final p in sorted)ListTile(dense:true,title:Text(p['display_name'].toString()),trailing:Text(score(p['user_id'].toString()).toString()+' poin',style:const TextStyle(fontWeight:FontWeight.w900)))]);
+    final sorted=players.toList()..sort((a,b)=>score(b["user_id"].toString()).compareTo(score(a["user_id"].toString())));
+    return Container(padding:const EdgeInsets.all(14),decoration:BoxDecoration(color:Colors.white.withOpacity(.07),borderRadius:BorderRadius.circular(18),border:Border.all(color:Colors.white.withOpacity(.08))),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+      const Row(children:[Icon(Icons.leaderboard_rounded,color:Color(0xFFFFD166),size:17),SizedBox(width:7),Text("LIVE SCOREBOARD",style:TextStyle(color:Colors.white,fontSize:10,fontWeight:FontWeight.w900,letterSpacing:1.2))]),
+      const SizedBox(height:8),
+      for(var i=0;i<sorted.length;i++)Padding(padding:const EdgeInsets.symmetric(vertical:5),child:Row(children:[
+        SizedBox(width:24,child:Text((i+1).toString(),style:TextStyle(color:i==0?const Color(0xFFFFD166):Colors.white54,fontWeight:FontWeight.w900))),
+        Expanded(child:Text(sorted[i]["display_name"].toString(),style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w700,fontSize:12))),
+        Text(score(sorted[i]["user_id"].toString()).toString()+" PTS",style:const TextStyle(color:Color(0xFF70E2B2),fontWeight:FontWeight.w900,fontSize:11)),
+      ])),
+    ]));
   }
-  Widget results()=>Card(color:Colors.white,child:Padding(padding:const EdgeInsets.all(18),child:Column(children:[const Icon(Icons.emoji_events,size:48,color:Color(0xFFC58B2A)),const Text('Permainan selesai!',style:TextStyle(fontSize:21,fontWeight:FontWeight.w900)),scoreboard(),OutlinedButton(onPressed:leave,child:const Text('Kembali ke lobby'))])));
+  Widget results()=>Scaffold(
+    backgroundColor:const Color(0xFF111329),
+    body:Container(
+      decoration:const BoxDecoration(gradient:LinearGradient(begin:Alignment.topLeft,end:Alignment.bottomRight,colors:[Color(0xFF17152F),Color(0xFF34265F),Color(0xFF124A4B)])),
+      child:SafeArea(child:Center(child:SingleChildScrollView(padding:const EdgeInsets.all(20),child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[
+        Container(width:92,height:92,decoration:BoxDecoration(color:const Color(0xFFFFD166).withOpacity(.16),shape:BoxShape.circle,border:Border.all(color:const Color(0xFFFFD166).withOpacity(.5),width:2)),child:const Icon(Icons.emoji_events_rounded,color:Color(0xFFFFD166),size:54)),
+        const SizedBox(height:18),
+        const Text("GAME OVER!",style:TextStyle(color:Colors.white,fontSize:31,fontWeight:FontWeight.w900,letterSpacing:1.4)),
+        const SizedBox(height:7),
+        Text(title(room?["game_type"].toString()??""),style:const TextStyle(color:Colors.white70,fontWeight:FontWeight.w700)),
+        const SizedBox(height:24),
+        scoreboard(),
+        const SizedBox(height:22),
+        SizedBox(width:double.infinity,height:54,child:FilledButton.icon(onPressed:leave,icon:const Icon(Icons.home_rounded),label:const Text("KEMBALI KE LOBBY"),style:FilledButton.styleFrom(backgroundColor:const Color(0xFFFFD166),foregroundColor:const Color(0xFF211744),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(16))))),
+      ])))),
+    ),
+  );
 }
 class _GamePainter extends CustomPainter{
   _GamePainter(this.events,this.current);final List<Map<String,dynamic>> events;final List<Offset> current;
