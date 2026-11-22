@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 import 'dart:html' as html;
 import 'package:flutter/services.dart';
+import 'package:chess/chess.dart' as chess_lib;
 import 'package:material_ui/material_ui.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -26,6 +27,8 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
   bool _refreshing=false;
   bool _timeoutHandled=false;
   bool _rotatingDraw=false;
+  bool _processingChess=false;
+  String? _selectedChessSquare;
   Color brushColor=const Color(0xFF167D68);
   double brushSize=5;
   bool eraser=false;
@@ -134,7 +137,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
     if(!staff)return;
     try{
       final code=List.generate(6,(_)=>Random.secure().nextInt(10)).join();
-      final x=await db.from('multiplayer_rooms').insert({'room_code':code,'game_type':game,'host_id':db.auth.currentUser!.id,'max_players':50,'game_state':{}}).select().single();
+      final x=await db.from('multiplayer_rooms').insert({'room_code':code,'game_type':game,'host_id':db.auth.currentUser!.id,'max_players':game=='marawis_chess'?2:50,'game_state':{}}).select().single();
       _enterImmersiveMode();
       await enter(Map<String,dynamic>.from(x));
     }catch(e){msg('Gagal membuat room: '+e.toString());}
@@ -152,7 +155,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
       final old=await db.from('multiplayer_players').select('id').eq('room_id',r['id']).eq('user_id',uid).maybeSingle();
       if(old==null){
         final current=await db.from('multiplayer_players').select('id').eq('room_id',r['id']);
-        final cap=((r['max_players'] as num?)?.toInt()??50).clamp(1,50);
+        final cap=r['game_type']=='marawis_chess'?2:((r['max_players'] as num?)?.toInt()??50).clamp(1,50);
         if(current.length>=cap){msg('Room sudah penuh (maksimal '+cap.toString()+' pemain).');return;}
         await db.from('multiplayer_players').insert({'room_id':r['id'],'user_id':uid,'display_name':await displayName()});
       }
@@ -189,7 +192,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
         events=List<Map<String,dynamic>>.from(x[2] as List);
         if(justStarted)showGameIntro=true;
       });
-      if(nextRoom['status']=='playing'&&['draw_guess','word_guess','word_scramble','emoji_guess'].contains(nextRoom['game_type']))_startGameClock();else {_gameClock?.cancel();_gameClock=null;}
+      if(nextRoom['status']=='playing'&&['draw_guess','word_guess','word_scramble','emoji_guess','marawis_chess'].contains(nextRoom['game_type']))_startGameClock();else {_gameClock?.cancel();_gameClock=null;}
       if(nextRoom['status']=='playing'&&nextRoom['game_type']=='draw_guess'&&nextDrawer==uid&&secretWord!=null){
         final allEvents=x[2] as List;
         final acceptedTargets=allEvents.where((e)=>e['event_type']=='guess'&&e['payload'] is Map&&e['payload']['accepted']==true).map((e)=>e['payload']['target']?.toString()).whereType<String>().toSet();
@@ -201,6 +204,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
         }).toList();
         if(correct.isNotEmpty){final winner=correct.first['actor_id'].toString();Future.microtask(()=>emit('guess',{'accepted':true,'target':winner}));}
       }
+      if(host&&nextRoom['game_type']=='marawis_chess'&&!_processingChess){Future.microtask(()=>_processChessMoves(nextRoom,List<Map<String,dynamic>>.from(x[2] as List)));}
       if(host&&nextRoom['game_type']=='draw_guess'&&!_rotatingDraw){
         final gs=Map<String,dynamic>.from(nextRoom['game_state']??{});
         final processed=(gs['last_rotation_event_id'] as num?)?.toInt()??0;
@@ -245,10 +249,12 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
       if(!mounted)return;
       setState((){});
       if(room?['game_type']=='draw_guess'&&_drawSecondsLeft<=0&&host&&!_timeoutHandled){_timeoutHandled=true;finish();}
+      if(room?['game_type']=='marawis_chess'&&_chessSecondsLeft<=0&&host&&!_timeoutHandled){_timeoutHandled=true;finish();}
       if(['word_guess','word_scramble','emoji_guess'].contains(room?['game_type'])&&_wordSecondsLeft<=0&&host&&!_timeoutHandled){_timeoutHandled=true;final round=(state['round'] as num?)?.toInt()??0;Future.microtask(()async{if(round>=9){await finish();}else{await updateState(_newWordRound(room!['game_type'].toString(),round+1));}_timeoutHandled=false;});}
     });
   }
   String _formatClock(int seconds)=>(seconds~/60).toString().padLeft(2,'0')+':'+(seconds%60).toString().padLeft(2,'0');
+  int get _chessSecondsLeft{final started=DateTime.tryParse(state['turn_started_at']?.toString()??'');if(started==null)return 300;return (300-DateTime.now().toUtc().difference(started.toUtc()).inSeconds).clamp(0,300);}
   int get _wordSecondsLeft{final started=DateTime.tryParse(state['round_started_at']?.toString()??'');if(started==null)return 45;return (45-DateTime.now().toUtc().difference(started.toUtc()).inSeconds).clamp(0,45);}
   Map<String,dynamic> _newWordRound(String type,int round){final item=wordChallenges[Random.secure().nextInt(wordChallenges.length)];final answer=item['word']!.toString();final letters=answer.split('')..shuffle(Random.secure());return {'round':round,'phase':'guess','answer':answer,'clue':item['clue'],'emoji':item['emoji'],'scrambled':letters.join(''),'round_started_at':DateTime.now().toUtc().toIso8601String()};}
   Future<void> emit(String type,Map<String,dynamic> payload)async{
@@ -269,6 +275,12 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
     }
     if(type=='draw_guess'){secretWord=words[Random.secure().nextInt(words.length)];s['drawer_id']=db.auth.currentUser!.id;s['started_at']=DateTime.now().toUtc().toIso8601String();s['duration_seconds']=480;s['last_rotation_event_id']=0;_timeoutHandled=false;}
     if(['word_guess','word_scramble','emoji_guess'].contains(type))s.addAll(_newWordRound(type,0));
+    if(type=='marawis_chess'){
+      if(players.length<2){msg('Catur butuh 2 pemain. Undang satu teman dulu!');return;}
+      final opponent=players.firstWhere((p)=>p['user_id']!=db.auth.currentUser!.id);
+      s.addAll({'fen':chess_lib.Chess().fen,'white_id':db.auth.currentUser!.id,'black_id':opponent['user_id'],'turn_started_at':DateTime.now().toUtc().toIso8601String(),'last_chess_event_id':0,'move_log':[],'phase':'playing'});
+      _timeoutHandled=false;
+    }
     if(type=='reaction_rush'){s['tap_open']=false;s['round']=0;}
     if(type=='this_or_that'){s['round']=0;}
     await updateState(s,status:'playing');
@@ -287,7 +299,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
     await channel?.unsubscribe();_gameClock?.cancel();_gameClock=null;_syncClock?.cancel();_syncClock=null;_exitImmersiveMode();if(mounted)setState(() { roomId=null; room=null; players=[]; events=[]; secretWord=null; activeStroke=[]; });widget.onGameActive?.call(false);loadRooms();
   }
   Future<void> finish()async=>updateState({...state,'phase':'finished'},status:'finished');
-  String title(String key)=>key=='quiz_arena'?'Marawis Quiz Arena':key=='who_leader'?'Who Is The Leader?':key=='reaction_rush'?'Reaction Rush':key=='this_or_that'?'This or That':key=='word_guess'?'Tebak Kata':key=='word_scramble'?'Susun Huruf':key=='emoji_guess'?'Tebak Emoji':'Draw & Guess';
+  String title(String key)=>key=='quiz_arena'?'Marawis Quiz Arena':key=='who_leader'?'Who Is The Leader?':key=='reaction_rush'?'Reaction Rush':key=='this_or_that'?'This or That':key=='word_guess'?'Tebak Kata':key=='word_scramble'?'Susun Huruf':key=='emoji_guess'?'Tebak Emoji':key=='marawis_chess'?'Marawis Chess Arena':'Draw & Guess';
   Map<String,dynamic> player(String id)=>players.firstWhere((p)=>p['user_id']==id,orElse:()=>{});
   String playerName(String id)=>(player(id)['display_name']??'Pemain').toString();
   int score(String id)=>events.where((e){if(e['event_type']=='word_answer'&&e['actor_id']==id&&e['payload']['correct']==true)return true;if(e['event_type']=='reaction_tap'&&e['actor_id']==id)return true;if(e['event_type']=='answer'&&e['actor_id']==id){final round=(e['payload']['round'] as num?)?.toInt()??-1;final choice=(e['payload']['choice'] as num?)?.toInt()??-1;final order=state['question_order'] is List?List<int>.from(state['question_order'] as List):List<int>.generate(questions.length,(i)=>i);final qIndex=round>=0&&round<order.length?order[round]:-1;final answerOrders=state['answer_orders'] is List?state['answer_orders'] as List:[];final answerOrder=round>=0&&round<answerOrders.length?List<int>.from(answerOrders[round] as List):[0,1,2,3];return qIndex>=0&&qIndex<questions.length&&choice>=0&&choice<answerOrder.length&&answerOrder[choice]==questions[qIndex]['c'];}return e['event_type']=='guess'&&e['payload']['accepted']==true&&e['payload']['target']==id;}).length*10;
@@ -327,6 +339,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
       cardGame('word_guess','Tebak Kata','Pecahkan petunjuk sebelum waktu habis.',Icons.psychology_alt_rounded),
       cardGame('word_scramble','Susun Huruf','Acak huruf jadi kata yang benar.',Icons.sort_by_alpha_rounded),
       cardGame('emoji_guess','Tebak Emoji','Tebak kata dari kombinasi emoji.',Icons.emoji_emotions_rounded),
+      cardGame('marawis_chess','Marawis Chess Arena','Catur klasik dengan bidak alat musik Marawis.',Icons.grid_4x4_rounded),
       const SizedBox(height:18),Row(children:[const Expanded(child:Text('Room tersedia',style:TextStyle(fontWeight:FontWeight.w900,fontSize:17))),IconButton(onPressed:loadRooms,icon:const Icon(Icons.refresh))]),
       if(rooms.isEmpty)const Padding(padding:EdgeInsets.all(20),child:Text('Belum ada room yang menunggu pemain.',textAlign:TextAlign.center)) else for(final r in rooms)Card(color:Colors.white,child:ListTile(title:Text(title(r['game_type'].toString())),subtitle:Text('Kode '+r['room_code'].toString()+' • Maks. '+r['max_players'].toString()+' pemain'),trailing:FilledButton(onPressed:()=>enter(r),child:const Text('Gabung')))),
       const SizedBox(height:12),OutlinedButton.icon(onPressed:()=>showModalBottomSheet(context:context,isScrollControlled:true,builder:(_)=>SizedBox(height:500,child:widget.soloGame)),icon:const Icon(Icons.person),label:const Text('Mainkan tantangan solo')),
@@ -436,6 +449,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
     ]));
   }));
   Widget gamePanel(){
+    if(room!['game_type']=='marawis_chess')return chessPanel();
     final key=room!['game_type'].toString();
     if(key=='quiz_arena')return quizPanel();
     if(key=='who_leader')return leaderPanel();
@@ -574,6 +588,140 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
       if(host)Padding(padding:const EdgeInsets.only(top:10),child:SizedBox(width:double.infinity,height:50,child:FilledButton(onPressed:finish,style:FilledButton.styleFrom(backgroundColor:const Color(0xFFFFD166),foregroundColor:const Color(0xFF211744),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(15))),child:const Text("AKHIRI PERMAINAN")))),
     ]));
   }
+  Future<void> _processChessMoves(Map<String,dynamic> liveRoom,List<Map<String,dynamic>> liveEvents)async{
+    if(_processingChess||!host||roomId==null)return;
+    _processingChess=true;
+    try{
+      final gs=Map<String,dynamic>.from(liveRoom['game_state']??{});
+      final last=(gs['last_chess_event_id'] as num?)?.toInt()??0;
+      final game=chess_lib.Chess.fromFEN((gs['fen']??chess_lib.Chess().fen).toString());
+      var lastId=last;
+      var changed=false;
+      var ended=false;
+      final log=List<String>.from(gs['move_log']??[]);
+      final ordered=liveEvents.where((e)=>e['event_type']=='chess_move'&&((e['id'] as num?)?.toInt()??0)>last).toList()..sort((a,b)=>(a['id'] as num).compareTo(b['id'] as num));
+      for(final event in ordered){
+        lastId=(event['id'] as num?)?.toInt()??lastId;
+        final payload=Map<String,dynamic>.from(event['payload']??{});
+        final actor=event['actor_id']?.toString();
+        final whiteTurn=game.turn==chess_lib.Color.WHITE;
+        if((whiteTurn&&actor!=gs['white_id'])||(!whiteTurn&&actor!=gs['black_id']))continue;
+        final from=payload['from']?.toString()??'';
+        final to=payload['to']?.toString()??'';
+        if(from.length!=2||to.length!=2)continue;
+        final legal=game.moves({'square':from,'verbose':true});
+        final matching=legal.where((m)=>m is Map&&m['to']==to).toList();
+        if(matching.isEmpty)continue;
+        final san=(matching.first['san']??(from+'-'+to)).toString();
+        if(!game.move({'from':from,'to':to,'promotion':payload['promotion']??'q'}))continue;
+        log.add(san);
+        changed=true;
+        if(game.game_over){ended=true;break;}
+      }
+      if(changed||lastId>last){
+        final next={...gs,'fen':game.fen,'last_chess_event_id':lastId,'move_log':log,'turn_started_at':DateTime.now().toUtc().toIso8601String(),'phase':ended?'finished':'playing'};
+        await db.from('multiplayer_rooms').update({'game_state':next,'status':ended?'finished':'playing'}).eq('id',roomId!);
+        if(ended)_timeoutHandled=true;
+      }
+    }catch(e){msg('Langkah catur gagal disinkronkan: '+e.toString());}
+    finally{_processingChess=false;}
+  }
+  String _chessPieceLabel(chess_lib.Piece? piece){
+    if(piece==null)return '';
+    final type=piece.type.toString().toLowerCase();
+    if(type.contains('king'))return 'BEDUG';
+    if(type.contains('queen'))return 'REBANA';
+    if(type.contains('rook'))return 'DARBUKA';
+    if(type.contains('knight'))return 'MARAWIS';
+    if(type.contains('bishop'))return 'KECREK';
+    return 'MINI';
+  }
+  Future<void> _tapChessSquare(String square)async{
+    if(room==null||room!['status']!='playing')return;
+    final uid=db.auth.currentUser!.id;
+    final gs=state;
+    final game=chess_lib.Chess.fromFEN((gs['fen']??chess_lib.Chess().fen).toString());
+    final myWhite=uid==gs['white_id'];
+    final myBlack=uid==gs['black_id'];
+    if((game.turn==chess_lib.Color.WHITE&&!myWhite)||(game.turn==chess_lib.Color.BLACK&&!myBlack))return;
+    final selected=_selectedChessSquare;
+    final piece=game.get(square);
+    if(selected==null){
+      if(piece!=null&&((piece.color==chess_lib.Color.WHITE&&myWhite)||(piece.color==chess_lib.Color.BLACK&&myBlack)))setState(()=>_selectedChessSquare=square);
+      return;
+    }
+    final legal=game.moves({'square':selected,'verbose':true});
+    final target=legal.where((m)=>m is Map&&m['to']==square).toList();
+    if(target.isNotEmpty){
+      setState(()=>_selectedChessSquare=null);
+      await emit('chess_move',{'from':selected,'to':square,'promotion':'q'});
+      return;
+    }
+    if(piece!=null&&((piece.color==chess_lib.Color.WHITE&&myWhite)||(piece.color==chess_lib.Color.BLACK&&myBlack)))setState(()=>_selectedChessSquare=square);
+    else setState(()=>_selectedChessSquare=null);
+  }
+  Widget chessPanel(){
+    final gs=state;
+    final uid=db.auth.currentUser!.id;
+    final game=chess_lib.Chess.fromFEN((gs['fen']??chess_lib.Chess().fen).toString());
+    final whiteId=gs['white_id']?.toString()??'';
+    final blackId=gs['black_id']?.toString()??'';
+    final myWhite=uid==whiteId;
+    final myBlack=uid==blackId;
+    final myTurn=(game.turn==chess_lib.Color.WHITE&&myWhite)||(game.turn==chess_lib.Color.BLACK&&myBlack);
+    final whiteTurn=game.turn==chess_lib.Color.WHITE;
+    final selected=_selectedChessSquare;
+    final selectedMoves=selected==null?<String>{}:game.moves({'square':selected,'verbose':true}).map((m)=>(m as Map)['to'].toString()).toSet();
+    final log=List<String>.from(gs['move_log']??[]);
+    final seconds=_chessSecondsLeft;
+    final side=whiteTurn?'PUTIH • TIM BEDUG':'HITAM • TIM REBANA';
+    final activeName=whiteTurn?playerName(whiteId):playerName(blackId);
+    return SingleChildScrollView(padding:const EdgeInsets.fromLTRB(14,12,14,24),child:Column(children:[
+      Container(width:double.infinity,padding:const EdgeInsets.all(16),decoration:BoxDecoration(gradient:const LinearGradient(colors:[Color(0xFF17113D),Color(0xFF086D70)]),borderRadius:BorderRadius.circular(22)),child:Column(children:[
+        Row(children:[const Icon(Icons.music_note_rounded,color:Color(0xFFFFD166),size:22),const SizedBox(width:8),const Expanded(child:Text('MARAWIS CHESS ARENA',style:TextStyle(color:Colors.white,fontWeight:FontWeight.w900,fontSize:14,letterSpacing:1))),Text(_formatClock(seconds),style:TextStyle(color:seconds<=30?const Color(0xFFFF8A80):const Color(0xFFFFD166),fontWeight:FontWeight.w900,fontSize:19))]),
+        const SizedBox(height:13),Row(children:[
+          Expanded(child:_chessPlayerChip('BEDUG • PUTIH',playerName(whiteId),myWhite,const Color(0xFFFFD166))),
+          const SizedBox(width:8),Expanded(child:_chessPlayerChip('REBANA • HITAM',playerName(blackId),myBlack,const Color(0xFF77D8CE))),
+        ]),
+        const SizedBox(height:12),Container(width:double.infinity,padding:const EdgeInsets.all(10),decoration:BoxDecoration(color:Colors.white.withOpacity(.1),borderRadius:BorderRadius.circular(12)),child:Row(children:[Icon(Icons.circle,size:10,color:whiteTurn?const Color(0xFFFFD166):const Color(0xFF77D8CE)),const SizedBox(width:8),Expanded(child:Text(side+' • '+activeName,style:const TextStyle(color:Colors.white,fontSize:11,fontWeight:FontWeight.w900))),if(game.king_attacked(game.turn))const Text('SKAK!',style:TextStyle(color:Color(0xFFFF8A80),fontWeight:FontWeight.w900))])),
+      ])),
+      const SizedBox(height:14),
+      AspectRatio(aspectRatio:1,child:Container(padding:const EdgeInsets.all(5),decoration:BoxDecoration(color:const Color(0xFF30234C),borderRadius:BorderRadius.circular(15),boxShadow:[BoxShadow(color:Colors.black.withOpacity(.25),blurRadius:16,offset:const Offset(0,7))]),child:GridView.builder(physics:const NeverScrollableScrollPhysics(),gridDelegate:const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount:8),itemCount:64,itemBuilder:(context,index){
+        final row=index~/8;
+        final col=index%8;
+        final boardRow=myBlack?7-row:row;
+        final boardCol=myBlack?7-col:col;
+        final square='abcdefgh'[boardCol]+(8-boardRow).toString();
+        final piece=game.get(square);
+        final light=(boardRow+boardCol).isEven;
+        final isSelected=selected==square;
+        final isTarget=selectedMoves.contains(square);
+        final isWhitePiece=piece?.color==chess_lib.Color.WHITE;
+        final pieceColor=piece==null?Colors.transparent:(isWhitePiece?const Color(0xFFFFE7A5):const Color(0xFF75D6CB));
+        final ink=piece==null?Colors.transparent:(isWhitePiece?const Color(0xFF39254E):const Color(0xFF142B39));
+        return InkWell(onTap:()=>_tapChessSquare(square),child:Container(decoration:BoxDecoration(color:isSelected?const Color(0xFFFFD166):light?const Color(0xFFE8DCC4):const Color(0xFF826C91),border:Border.all(color:Colors.black.withOpacity(.07),width:.4)),child:Stack(alignment:Alignment.center,children:[
+          if(isTarget)Container(width:piece==null?12:30,height:piece==null?12:30,decoration:BoxDecoration(color:const Color(0xFF30C69A).withOpacity(piece==null ? 0.65 : 0.22),shape:BoxShape.circle,border:piece==null?null:Border.all(color:const Color(0xFF30C69A),width:2))),
+          if(piece!=null)Column(mainAxisAlignment:MainAxisAlignment.center,children:[
+            Container(width:MediaQuery.of(context).size.width/11,height:MediaQuery.of(context).size.width/11,constraints:const BoxConstraints(maxWidth:43,maxHeight:43,minWidth:20,minHeight:20),decoration:BoxDecoration(color:pieceColor,shape:BoxShape.circle,border:Border.all(color:ink.withOpacity(.45),width:1.4),boxShadow:[BoxShadow(color:Colors.black.withOpacity(.18),blurRadius:3,offset:const Offset(0,2))]),child:CustomPaint(painter:_MarawisPiecePainter(piece.type.toString().toLowerCase(),isWhitePiece),size:Size.infinite)),
+            if(MediaQuery.of(context).size.width>390)Text(_chessPieceLabel(piece),maxLines:1,overflow:TextOverflow.clip,style:TextStyle(color:ink,fontSize:6,fontWeight:FontWeight.w900)),
+          ]),
+          if(col==0)Positioned(left:2,top:1,child:Text((8-boardRow).toString(),style:TextStyle(fontSize:8,color:light?const Color(0xFF6B5876):Colors.white70,fontWeight:FontWeight.w900))),
+          if(row==7)Positioned(right:2,bottom:0,child:Text('abcdefgh'[boardCol],style:TextStyle(fontSize:8,color:light?const Color(0xFF6B5876):Colors.white70,fontWeight:FontWeight.w900))),
+        ])));
+      }))),
+      const SizedBox(height:12),
+      Text(myTurn?'GILIRAN KAMU • Pilih bidak lalu kotak tujuan':'Menunggu lawan menyelesaikan langkah...',style:TextStyle(color:myTurn?const Color(0xFFFFD166):Colors.white70,fontSize:12,fontWeight:FontWeight.w800),textAlign:TextAlign.center),
+      const SizedBox(height:14),
+      Container(width:double.infinity,padding:const EdgeInsets.all(14),decoration:BoxDecoration(color:Colors.white.withOpacity(.07),borderRadius:BorderRadius.circular(16)),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+        const Text('RIWAYAT LANGKAH',style:TextStyle(color:Colors.white,fontSize:11,fontWeight:FontWeight.w900,letterSpacing:1)),
+        const SizedBox(height:8),if(log.isEmpty)const Text('Langkah pertama menanti...',style:TextStyle(color:Colors.white54,fontSize:12)),
+        Wrap(spacing:8,runSpacing:6,children:[for(var i=0;i<log.length;i++)Container(padding:const EdgeInsets.symmetric(horizontal:8,vertical:5),decoration:BoxDecoration(color:Colors.white.withOpacity(.09),borderRadius:BorderRadius.circular(8)),child:Text((i+1).toString()+'. '+log[i],style:const TextStyle(color:Colors.white70,fontSize:10,fontWeight:FontWeight.w700)))]),
+      ])),
+      if(game.game_over)Padding(padding:const EdgeInsets.only(top:12),child:Text(game.moves().isEmpty&&game.king_attacked(game.turn)?'SKAKMAT! Pertandingan selesai.':'Pertandingan selesai • remis.',style:const TextStyle(color:Color(0xFFFFD166),fontWeight:FontWeight.w900,fontSize:16))),
+      if(host)Padding(padding:const EdgeInsets.only(top:12),child:TextButton(onPressed:finish,child:const Text('AKHIRI PERTANDINGAN'))),
+    ]));
+  }
+  Widget _chessPlayerChip(String title,String name,bool mine,Color accent)=>Container(padding:const EdgeInsets.all(10),decoration:BoxDecoration(color:accent.withOpacity(.13),borderRadius:BorderRadius.circular(13),border:Border.all(color:accent.withOpacity(.45))),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(title,style:TextStyle(color:accent,fontSize:9,fontWeight:FontWeight.w900)),const SizedBox(height:4),Text(name+(mine?' • KAMU':''),maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:Colors.white,fontSize:11,fontWeight:FontWeight.w800))]));
   Widget wordPanel(String type){
     final round=(state['round'] as num?)?.toInt()??0;
     final answers=events.where((e)=>e['event_type']=='word_answer'&&e['payload']['round']==round).toList();
@@ -794,4 +942,56 @@ class _GamePainter extends CustomPainter{
     if(current.length>1)stroke(canvas,size,current.map((p)=>{'x':p.dx,'y':p.dy}).toList(),currentColor,currentWidth);
   }
   @override bool shouldRepaint(covariant _GamePainter old)=>true;
+}
+
+
+class _MarawisPiecePainter extends CustomPainter{
+  _MarawisPiecePainter(this.kind,this.light);
+  final String kind;
+  final bool light;
+  @override void paint(Canvas canvas,Size size){
+    final w=size.width,h=size.height;
+    final ink=Paint()..color=(light?const Color(0xFF563B54):const Color(0xFF173C45))..style=PaintingStyle.fill..isAntiAlias=true;
+    final trim=Paint()..color=(light?const Color(0xFFB77B37):const Color(0xFFB9F0E6))..style=PaintingStyle.stroke..strokeWidth=w*.065..isAntiAlias=true;
+    final fill=Paint()..color=(light?const Color(0xFFFFD98D):const Color(0xFF4FA99E))..style=PaintingStyle.fill..isAntiAlias=true;
+    final cx=w/2;
+    if(kind.contains('king')){
+      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(w*.28,h*.3,w*.44,h*.52),Radius.circular(w*.12)),fill);
+      canvas.drawOval(Rect.fromLTWH(w*.25,h*.23,w*.5,h*.16),trim);
+      canvas.drawLine(Offset(w*.32,h*.3),Offset(w*.68,h*.3),trim);
+      final crown=Path()..moveTo(w*.3,h*.22)..lineTo(w*.34,h*.06)..lineTo(w*.48,h*.16)..lineTo(w*.62,h*.06)..lineTo(w*.7,h*.22)..close();
+      canvas.drawPath(crown,ink);canvas.drawPath(crown,trim);
+      canvas.drawRect(Rect.fromLTWH(w*.22,h*.82,w*.56,h*.08),ink);
+    }else if(kind.contains('queen')){
+      canvas.drawCircle(Offset(cx,h*.5),w*.34,fill);
+      canvas.drawCircle(Offset(cx,h*.5),w*.27,trim);
+      canvas.drawCircle(Offset(cx,h*.5),w*.08,ink);
+      for(final a in [0.0,1.57,3.14,4.71]){final p=Offset(cx+cos(a)*w*.17,h*.5+sin(a)*w*.17);canvas.drawCircle(p,w*.045,ink);}
+    }else if(kind.contains('rook')){
+      final p=Path()..moveTo(w*.3,h*.2)..lineTo(w*.7,h*.2)..lineTo(w*.58,h*.76)..lineTo(w*.42,h*.76)..close();
+      canvas.drawPath(p,fill);canvas.drawPath(p,trim);
+      canvas.drawOval(Rect.fromLTWH(w*.27,h*.12,w*.46,h*.16),ink);canvas.drawOval(Rect.fromLTWH(w*.27,h*.12,w*.46,h*.16),trim);
+      canvas.drawLine(Offset(w*.38,h*.46),Offset(w*.62,h*.46),trim);
+      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(w*.27,h*.78,w*.46,h*.1),Radius.circular(w*.04)),ink);
+    }else if(kind.contains('knight')){
+      for(final x in [w*.25,w*.58]){
+        canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(x,h*.27,w*.2,h*.48),Radius.circular(w*.07)),fill);
+        canvas.drawOval(Rect.fromLTWH(x-w*.025,h*.2,w*.25,h*.15),trim);
+        canvas.drawLine(Offset(x+w*.1,h*.35),Offset(x+w*.1,h*.68),trim);
+      }
+      canvas.drawLine(Offset(w*.2,h*.78),Offset(w*.82,h*.78),ink..strokeWidth=w*.07..strokeCap=StrokeCap.round);
+    }else if(kind.contains('bishop')){
+      canvas.drawLine(Offset(cx,h*.23),Offset(cx,h*.8),ink..strokeWidth=w*.09..strokeCap=StrokeCap.round);
+      canvas.drawCircle(Offset(w*.37,h*.36),w*.19,fill);canvas.drawCircle(Offset(w*.63,h*.36),w*.19,fill);
+      canvas.drawCircle(Offset(w*.37,h*.36),w*.19,trim);canvas.drawCircle(Offset(w*.63,h*.36),w*.19,trim);
+      canvas.drawCircle(Offset(w*.37,h*.36),w*.045,ink);canvas.drawCircle(Offset(w*.63,h*.36),w*.045,ink);
+      canvas.drawRect(Rect.fromLTWH(w*.24,h*.79,w*.52,h*.09),ink);
+    }else{
+      canvas.drawCircle(Offset(cx,h*.48),w*.3,fill);
+      canvas.drawCircle(Offset(cx,h*.48),w*.23,trim);
+      canvas.drawCircle(Offset(cx,h*.48),w*.07,ink);
+      canvas.drawRect(Rect.fromLTWH(w*.28,h*.79,w*.44,h*.09),ink);
+    }
+  }
+  @override bool shouldRepaint(covariant _MarawisPiecePainter old)=>old.kind!=kind||old.light!=light;
 }
