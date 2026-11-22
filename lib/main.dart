@@ -1236,14 +1236,57 @@ class _DraggableMarwi extends StatefulWidget {
 
 class _DraggableMarwiState extends State<_DraggableMarwi> {
   Offset? _position;
+  Timer? _typingTimer;
+  String _typedGreeting = '';
+  late String _fullGreeting;
+
+  @override
+  void initState() {
+    super.initState();
+    _startGreeting();
+  }
+
+  @override
+  void didUpdateWidget(covariant _DraggableMarwi oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.displayName != widget.displayName) _startGreeting();
+  }
+
+  void _startGreeting() {
+    _typingTimer?.cancel();
+    _fullGreeting = 'Assalamualaikum, ${widget.displayName}! Gimana kabar antum hari ini, sehat?';
+    _typedGreeting = '';
+    var index = 0;
+    _typingTimer = Timer.periodic(const Duration(milliseconds: 38), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (index >= _fullGreeting.length) {
+        timer.cancel();
+        return;
+      }
+      setState(() {
+        index++;
+        _typedGreeting = _fullGreeting.substring(0, index);
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _typingTimer?.cancel();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
-      const itemWidth = 196.0;
-      const itemHeight = 208.0;
+      const itemWidth = 224.0;
+      const itemHeight = 174.0;
       final maxLeft = (constraints.maxWidth - itemWidth).clamp(0.0, double.infinity).toDouble();
       final maxTop = (constraints.maxHeight - itemHeight).clamp(0.0, double.infinity).toDouble();
-      final current = _position ?? Offset(maxLeft - 4, (maxTop - 12).clamp(0.0, double.infinity).toDouble());
+      final current = _position ?? Offset(maxLeft - 2, (maxTop - 8).clamp(0.0, double.infinity).toDouble());
       return Stack(children: [
         Positioned(
           left: current.dx.clamp(0.0, maxLeft).toDouble(),
@@ -1257,30 +1300,60 @@ class _DraggableMarwiState extends State<_DraggableMarwi> {
             }),
             child: SizedBox(
               width: itemWidth,
-              child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.end, children: [
-                Container(
-                  width: 190,
-                  margin: const EdgeInsets.only(right: 3, bottom: 4),
-                  padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(17),
-                    border: Border.all(color: const Color(0xFFB9DED1)),
-                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 14, offset: const Offset(0, 5))],
+              height: itemHeight,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Positioned(
+                    left: 0,
+                    top: 4,
+                    child: AnimatedOpacity(
+                      opacity: _typedGreeting.isEmpty ? 0 : 1,
+                      duration: const Duration(milliseconds: 220),
+                      child: Container(
+                        width: 166,
+                        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFFB9DED1)),
+                          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.13), blurRadius: 12, offset: const Offset(0, 4))],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text("MA'RWI", style: TextStyle(color: Color(0xFF167D68), fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                            const SizedBox(height: 3),
+                            Text(
+                              _typedGreeting.isEmpty ? ' ' : '$_typedGreeting${_typedGreeting.length < _fullGreeting.length ? '▍' : ''}',
+                              maxLines: 4,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(color: Color(0xFF263B34), fontSize: 11, height: 1.28, fontWeight: FontWeight.w700),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                    const Text("MA'RWI", style: TextStyle(color: Color(0xFF167D68), fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
-                    const SizedBox(height: 3),
-                    Text('Assalamualaikum, ${widget.displayName}! Gimana kabar antum hari ini, sehat?', maxLines: 4, overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: Color(0xFF263B34), fontSize: 12, height: 1.3, fontWeight: FontWeight.w700)),
-                  ]),
-                ),
-                GestureDetector(
-                  onTap: widget.onTap,
-                  child: SizedBox(width: 116, height: 128, child: Image.asset('assets/images/marwi.jpg', fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => const Icon(Icons.music_note_rounded, size: 72, color: Color(0xFF167D68)))),
-                ),
-              ]),
+                  Positioned(
+                    right: 0,
+                    bottom: 0,
+                    child: GestureDetector(
+                      onTap: widget.onTap,
+                      child: SizedBox(
+                        width: 116,
+                        height: 132,
+                        child: Image.asset(
+                          'assets/images/marwi.jpg',
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) => const Icon(Icons.music_note_rounded, size: 72, color: Color(0xFF167D68)),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
