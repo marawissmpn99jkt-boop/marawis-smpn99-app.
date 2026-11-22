@@ -103,7 +103,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
   String title(String key)=>key=='quiz_arena'?'Marawis Quiz Arena':key=='who_leader'?'Who Is The Leader?':'Draw & Guess';
   Map<String,dynamic> player(String id)=>players.firstWhere((p)=>p['user_id']==id,orElse:()=>{});
   String playerName(String id)=>(player(id)['display_name']??'Pemain').toString();
-  int score(String id)=>events.where((e)=>(e['event_type']=='answer'&&e['actor_id']==id&&e['payload']['correct']==true)||(e['event_type']=='guess'&&e['payload']['accepted']==true&&e['payload']['target']==id)).length*10;
+  int score(String id)=>events.where((e){if(e['event_type']=='answer'&&e['actor_id']==id){final round=(e['payload']['round'] as num?)?.toInt()??-1;final choice=(e['payload']['choice'] as num?)?.toInt()??-1;return round>=0&&round<questions.length&&choice==questions[round]['c'];}return e['event_type']=='guess'&&e['payload']['accepted']==true&&e['payload']['target']==id;}).length*10;
   Widget cardGame(String key,String name,String detail,IconData icon){
     return Card(color:Colors.white,child:ListTile(leading:CircleAvatar(backgroundColor:const Color(0xFFE7F4EE),child:Icon(icon,color:const Color(0xFF167D68))),title:Text(name,style:const TextStyle(fontWeight:FontWeight.w900)),subtitle:Text(detail),trailing:staff?IconButton.filledTonal(onPressed:()=>createRoom(key),icon:const Icon(Icons.add),tooltip:'Buat room'):null));
   }
@@ -149,7 +149,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
     final count=events.where((e)=>e['event_type']=='answer'&&e['payload']['round']==i).length;
     return Card(color:Colors.white,child:Padding(padding:const EdgeInsets.all(18),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
       Text('SOAL '+(i+1).toString()+'/'+questions.length.toString(),style:const TextStyle(color:Color(0xFF167D68),fontWeight:FontWeight.w900)),const SizedBox(height:10),Text(q['q'].toString(),style:const TextStyle(fontSize:19,fontWeight:FontWeight.w900)),
-      if(!mine)for(var n=0;n<4;n++)SizedBox(width:double.infinity,child:Padding(padding:const EdgeInsets.only(top:7),child:OutlinedButton(onPressed:()=>emit('answer',{'round':i,'choice':n,'correct':n==q['c']}),child:Text((q['a'] as List)[n].toString())))) else const Padding(padding:EdgeInsets.all(12),child:Text('Jawaban terkirim! Menunggu pemain lain.')),
+      if(!mine)for(var n=0;n<4;n++)SizedBox(width:double.infinity,child:Padding(padding:const EdgeInsets.only(top:7),child:OutlinedButton(onPressed:()=>emit('answer',{'round':i,'choice':n}),child:Text((q['a'] as List)[n].toString())))) else const Padding(padding:EdgeInsets.all(12),child:Text('Jawaban terkirim! Menunggu pemain lain.')),
       Text(count.toString()+'/'+players.length.toString()+' pemain menjawab'),
       if(host)FilledButton(onPressed:()=>i+1<questions.length?updateState({...state,'round':i+1}):finish(),child:Text(i+1<questions.length?'Soal berikutnya':'Akhiri Quiz')),
       scoreboard(),
