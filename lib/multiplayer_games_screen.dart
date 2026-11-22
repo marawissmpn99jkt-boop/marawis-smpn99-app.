@@ -162,6 +162,17 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
         if(justStarted)showGameIntro=true;
       });
       if(nextRoom['status']=='playing'&&nextRoom['game_type']=='draw_guess')_startGameClock();else {_gameClock?.cancel();_gameClock=null;}
+      if(nextRoom['status']=='playing'&&nextRoom['game_type']=='draw_guess'&&nextDrawer==uid&&secretWord!=null){
+        final allEvents=x[2] as List;
+        final acceptedTargets=allEvents.where((e)=>e['event_type']=='guess'&&e['payload'] is Map&&e['payload']['accepted']==true).map((e)=>e['payload']['target']?.toString()).whereType<String>().toSet();
+        final secret=secretWord!.trim().toLowerCase().replaceAll(RegExp(r'\s+'),'');
+        final correct=allEvents.where((e){
+          if(e['event_type']!='guess'||e['payload'] is! Map||e['actor_id']==uid)return false;
+          final text=e['payload']['text']?.toString().trim().toLowerCase().replaceAll(RegExp(r'\s+'),'')??'';
+          return text==secret&&!acceptedTargets.contains(e['actor_id'].toString());
+        }).toList();
+        if(correct.isNotEmpty){final winner=correct.first['actor_id'].toString();Future.microtask(()=>emit('guess',{'accepted':true,'target':winner}));}
+      }
       if(host&&nextRoom['game_type']=='draw_guess'){
         final gs=Map<String,dynamic>.from(nextRoom['game_state']??{});
         final processed=(gs['last_rotation_event_id'] as num?)?.toInt()??0;
