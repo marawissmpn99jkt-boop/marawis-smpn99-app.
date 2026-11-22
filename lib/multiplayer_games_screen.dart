@@ -96,14 +96,14 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
   }
   Future<void> leave()async{
     final id=roomId;if(id==null)return;
-    try{await db.from('multiplayer_players').delete().eq('room_id',id).eq('user_id',db.auth.currentUser!.id);}catch(_){}
+    try{if(host)await db.from('multiplayer_rooms').update({'status':'finished','game_state':{...state,'phase':'finished'}}).eq('id',id);await db.from('multiplayer_players').delete().eq('room_id',id).eq('user_id',db.auth.currentUser!.id);}catch(_){}
     await channel?.unsubscribe();if(mounted)setState(()=>{roomId=null,room=null,players=[],events=[],secretWord=null});loadRooms();
   }
   Future<void> finish()async=>updateState({...state,'phase':'finished'},status:'finished');
   String title(String key)=>key=='quiz_arena'?'Marawis Quiz Arena':key=='who_leader'?'Who Is The Leader?':'Draw & Guess';
   Map<String,dynamic> player(String id)=>players.firstWhere((p)=>p['user_id']==id,orElse:()=>{});
   String playerName(String id)=>(player(id)['display_name']??'Pemain').toString();
-  int score(String id)=>events.where((e)=>e['actor_id']==id&&((e['event_type']=='answer'&&e['payload']['correct']==true)||(e['event_type']=='guess'&&e['payload']['accepted']==true))).length*10;
+  int score(String id)=>events.where((e)=>(e['event_type']=='answer'&&e['actor_id']==id&&e['payload']['correct']==true)||(e['event_type']=='guess'&&e['payload']['accepted']==true&&e['payload']['target']==id)).length*10;
   Widget cardGame(String key,String name,String detail,IconData icon){
     return Card(color:Colors.white,child:ListTile(leading:CircleAvatar(backgroundColor:const Color(0xFFE7F4EE),child:Icon(icon,color:const Color(0xFF167D68))),title:Text(name,style:const TextStyle(fontWeight:FontWeight.w900)),subtitle:Text(detail),trailing:staff?IconButton.filledTonal(onPressed:()=>createRoom(key),icon:const Icon(Icons.add),tooltip:'Buat room'):null));
   }
@@ -161,7 +161,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
     final sorted=tally.entries.toList()..sort((a,b)=>b.value.compareTo(a.value));
     return Card(color:Colors.white,child:Padding(padding:const EdgeInsets.all(18),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
       const Text('WHO IS THE LEADER?',style:TextStyle(fontWeight:FontWeight.w900,color:Color(0xFF4268C5))),const SizedBox(height:8),const Text('Pilih pemain yang menurutmu paling cocok memimpin tim. Setiap orang hanya punya satu suara.'),
-      if(!mine)for(final p in players)if(p['user_id']!=uid)ListTile(title:Text(p['display_name'].toString()),trailing:IconButton(icon:const Icon(Icons.how_to_vote),onPressed:()=>emit('vote',{'target':p['user_id']}))) else const Text('Suaramu sudah masuk.'),
+      if(!mine)...[for(final p in players)if(p['user_id']!=uid)ListTile(title:Text(p['display_name'].toString()),trailing:IconButton(icon:const Icon(Icons.how_to_vote),onPressed:()=>emit('vote',{'target':p['user_id']}))) ] else const Text('Suaramu sudah masuk.'),
       Text(votes.length.toString()+'/'+players.length.toString()+' suara masuk'),const Divider(),for(final v in sorted)Text(playerName(v.key)+' — '+v.value.toString()+' suara'),
       if(host)FilledButton(onPressed:finish,child:const Text('Tutup voting & tampilkan hasil')),
     ])));
