@@ -1345,7 +1345,7 @@ class _DraggableMarwiState extends State<_DraggableMarwi> {
                         width: 116,
                         height: 132,
                         child: Image.asset(
-                          'assets/images/marwi.jpg',
+                          'assets/images/marwi.webp',
                           fit: BoxFit.contain,
                           errorBuilder: (_, __, ___) => const Icon(Icons.music_note_rounded, size: 72, color: Color(0xFF167D68)),
                         ),
