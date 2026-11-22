@@ -152,7 +152,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
       final previousDrawer=room?['game_state'] is Map ? room?['game_state']['drawer_id']?.toString() : null;
       final nextDrawer=nextRoom['game_state'] is Map ? nextRoom['game_state']['drawer_id']?.toString() : null;
       final uid=db.auth.currentUser?.id;
-      if(nextDrawer!=null&&nextDrawer!=previousDrawer&&nextDrawer==uid){secretWord=words[Random.secure().nextInt(words.length)];localStrokes=[];activeStroke=[];}
+      if(nextDrawer!=null&&nextDrawer!=previousDrawer&&nextDrawer==uid){secretWord=words[Random.secure().nextInt(words.length)];localStrokes=[];activeStroke=[];Future.microtask(()=>emit('clear',{}));}
       setState(() {
         room=nextRoom;
         players=List<Map<String,dynamic>>.from(x[1] as List);
