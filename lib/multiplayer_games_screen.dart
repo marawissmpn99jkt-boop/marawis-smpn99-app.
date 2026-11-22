@@ -75,7 +75,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
     final id=roomId;if(id==null)return;
     try{
       final x=await Future.wait([db.from('multiplayer_rooms').select().eq('id',id).single(),db.from('multiplayer_players').select().eq('room_id',id).order('joined_at'),db.from('multiplayer_events').select().eq('room_id',id).order('created_at')]);
-      if(!mounted)return;setState(()=>{room=Map<String,dynamic>.from(x[0] as Map),players=List<Map<String,dynamic>>.from(x[1] as List),events=List<Map<String,dynamic>>.from(x[2] as List)});
+      if(!mounted)return;setState(() { room=Map<String,dynamic>.from(x[0] as Map); players=List<Map<String,dynamic>>.from(x[1] as List); events=List<Map<String,dynamic>>.from(x[2] as List); });
     }catch(e){msg('Sinkronisasi gagal: '+e.toString());}
   }
   bool get host=>room?['host_id']==db.auth.currentUser?.id;
@@ -97,7 +97,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
   Future<void> leave()async{
     final id=roomId;if(id==null)return;
     try{if(host)await db.from('multiplayer_rooms').update({'status':'finished','game_state':{...state,'phase':'finished'}}).eq('id',id);await db.from('multiplayer_players').delete().eq('room_id',id).eq('user_id',db.auth.currentUser!.id);}catch(_){}
-    await channel?.unsubscribe();if(mounted)setState(()=>{roomId=null,room=null,players=[],events=[],secretWord=null});loadRooms();
+    await channel?.unsubscribe();if(mounted)setState(() { roomId=null; room=null; players=[]; events=[]; secretWord=null; });loadRooms();
   }
   Future<void> finish()async=>updateState({...state,'phase':'finished'},status:'finished');
   String title(String key)=>key=='quiz_arena'?'Marawis Quiz Arena':key=='who_leader'?'Who Is The Leader?':'Draw & Guess';
