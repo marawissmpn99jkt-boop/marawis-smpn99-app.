@@ -85,6 +85,12 @@ for insert to authenticated with check (
   actor_id = (select auth.uid()) and exists (
     select 1 from public.multiplayer_players p where p.room_id = multiplayer_events.room_id and p.user_id = (select auth.uid())
   )
+  and (event_type <> 'draw' or exists (
+    select 1 from public.multiplayer_rooms r where r.id = multiplayer_events.room_id and r.host_id = (select auth.uid())
+  ))
+  and (event_type <> 'guess' or not (payload ? 'accepted') or exists (
+    select 1 from public.multiplayer_rooms r where r.id = multiplayer_events.room_id and r.host_id = (select auth.uid())
+  ))
 );
 
 grant select, insert, update, delete on public.multiplayer_rooms to authenticated;
