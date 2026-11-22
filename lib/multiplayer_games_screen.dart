@@ -192,7 +192,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
         events=List<Map<String,dynamic>>.from(x[2] as List);
         if(justStarted)showGameIntro=true;
       });
-      if(nextRoom['status']=='playing'&&['draw_guess','word_guess','word_scramble','emoji_guess'].contains(nextRoom['game_type']))_startGameClock();else {_gameClock?.cancel();_gameClock=null;}
+      if(nextRoom['status']=='playing'&&['draw_guess','word_guess','word_scramble','emoji_guess','marawis_chess'].contains(nextRoom['game_type']))_startGameClock();else {_gameClock?.cancel();_gameClock=null;}
       if(nextRoom['status']=='playing'&&nextRoom['game_type']=='draw_guess'&&nextDrawer==uid&&secretWord!=null){
         final allEvents=x[2] as List;
         final acceptedTargets=allEvents.where((e)=>e['event_type']=='guess'&&e['payload'] is Map&&e['payload']['accepted']==true).map((e)=>e['payload']['target']?.toString()).whereType<String>().toSet();
