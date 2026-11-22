@@ -917,6 +917,7 @@ class HomeScreen extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
           children: [
+            _LatestEmergencyBanner(role: role),
             _LatestAnnouncementBanner(role: role),
             const SizedBox(height: 14),
             Container(
@@ -1209,6 +1210,32 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
+
+class _LatestEmergencyBanner extends StatefulWidget {
+  const _LatestEmergencyBanner({required this.role});
+  final String role;
+  @override State<_LatestEmergencyBanner> createState() => _LatestEmergencyBannerState();
+}
+class _LatestEmergencyBannerState extends State<_LatestEmergencyBanner> {
+  Future<List<Map<String,dynamic>>> _load() async {
+    final rows=await Supabase.instance.client.from('marawis_emergency_announcements').select().eq('is_active',true).order('created_at',ascending:false);
+    return List<Map<String,dynamic>>.from(rows).where((row) {
+      final audience=(row['audience']??'all').toString();
+      return audience=='all' || (audience=='anggota' && widget.role=='anggota') || (audience=='admin' && (widget.role=='pengurus'||widget.role=='pembina'));
+    }).toList();
+  }
+  @override Widget build(BuildContext context) => FutureBuilder<List<Map<String,dynamic>>>(future:_load(),builder:(context,snapshot) {
+    if(!snapshot.hasData || snapshot.data!.isEmpty) return const SizedBox.shrink();
+    final row=snapshot.data!.first;
+    return Container(margin:const EdgeInsets.only(bottom:12),padding:const EdgeInsets.all(16),decoration:BoxDecoration(color:const Color(0xFFFFEEEE),borderRadius:BorderRadius.circular(18),border:Border.all(color:const Color(0xFFF3CACA))),child:Row(crossAxisAlignment:CrossAxisAlignment.start,children:[
+      const Icon(Icons.warning_amber_rounded,color:Color(0xFFB3261E),size:25),const SizedBox(width:10),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+        const Text('PENGUMUMAN DARURAT',style:TextStyle(color:Color(0xFFB3261E),fontSize:10,fontWeight:FontWeight.w900,letterSpacing:1)),
+        const SizedBox(height:5),Text((row['title']??'Informasi penting').toString(),style:const TextStyle(fontWeight:FontWeight.w900,color:Color(0xFF70201C))),
+        const SizedBox(height:4),Text((row['body']??'').toString(),style:const TextStyle(color:Color(0xFF70201C),fontSize:12,height:1.45)),
+      ])),
+    ]));
+  });
+}
 
 class _LatestAnnouncementBanner extends StatefulWidget {
   const _LatestAnnouncementBanner({required this.role});
