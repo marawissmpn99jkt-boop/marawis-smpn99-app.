@@ -192,19 +192,20 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
       if(nextRoom['status']=='playing'&&['draw_guess','word_guess','word_scramble','emoji_guess'].contains(nextRoom['game_type']))_startGameClock();else {_gameClock?.cancel();_gameClock=null;}
       if(nextRoom['status']=='playing'&&nextRoom['game_type']=='draw_guess'&&nextDrawer==uid&&secretWord!=null){
         final allEvents=x[2] as List;
-        final acceptedTargets=allEvents.where((e)=>e['event_type']=='guess'&&e['payload'] is Map&&e['payload']['accepted']==true).map((e)=>e['payload']['target']?.toString()).whereType<String>().toSet();
+        final currentRound=((nextGameState as Map?)?['round'] as num?)?.toInt()??0;
+        final acceptedTargets=allEvents.where((e)=>e['event_type']=='guess'&&e['payload'] is Map&&e['payload']['accepted']==true&&((e['payload']['round'] as num?)?.toInt()??-1)==currentRound).map((e)=>e['payload']['target']?.toString()).whereType<String>().toSet();
         final secret=secretWord!.trim().toLowerCase().replaceAll(RegExp(r'\s+'),'');
         final correct=allEvents.where((e){
-          if(e['event_type']!='guess'||e['payload'] is! Map||e['actor_id']==uid)return false;
+          if(e['event_type']!='guess'||e['payload'] is! Map||e['actor_id']==uid||((e['payload']['round'] as num?)?.toInt()??-1)!=currentRound||e['payload']['drawer_id']!=uid)return false;
           final text=e['payload']['text']?.toString().trim().toLowerCase().replaceAll(RegExp(r'\s+'),'')??'';
           return text==secret&&!acceptedTargets.contains(e['actor_id'].toString());
         }).toList();
-        if(correct.isNotEmpty){final winner=correct.first['actor_id'].toString();Future.microtask(()=>emit('guess',{'accepted':true,'target':winner}));}
+        if(correct.isNotEmpty){final winner=correct.first['actor_id'].toString();Future.microtask(()=>emit('guess',{'accepted':true,'target':winner,'round':currentRound}));}
       }
       if(host&&nextRoom['game_type']=='draw_guess'&&!_rotatingDraw){
         final gs=Map<String,dynamic>.from(nextRoom['game_state']??{});
         final processed=(gs['last_rotation_event_id'] as num?)?.toInt()??0;
-        final accepted=(x[2] as List).where((e)=>e['event_type']=='guess'&&e['payload'] is Map&&e['payload']['accepted']==true&&((e['id'] as num?)?.toInt()??0)>processed).toList();
+        final accepted=(x[2] as List).where((e)=>e['event_type']=='guess'&&e['payload'] is Map&&e['payload']['accepted']==true&&((e['payload']['round'] as num?)?.toInt()??-1)==((gs['round'] as num?)?.toInt()??0)&&((e['id'] as num?)?.toInt()??0)>processed).toList();
         if(accepted.isNotEmpty){
           final event=accepted.first;
           final target=event['payload']['target']?.toString();
@@ -560,16 +561,16 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
         IconButton(tooltip:"Bersihkan kanvas",onPressed:()=>emit("clear",{}),icon:const Icon(Icons.delete_sweep_rounded,color:Color(0xFFFF8A80))),
       ])),
       if(!canDraw)Padding(padding:const EdgeInsets.only(top:13),child:Row(children:[
-        Expanded(child:TextField(controller:guess,onSubmitted:(v)async{if(v.trim().isNotEmpty){await emit("guess",{"text":v.trim()});guess.clear();}},style:const TextStyle(color:Colors.white,fontSize:17,fontWeight:FontWeight.w800),decoration:InputDecoration(contentPadding:const EdgeInsets.symmetric(horizontal:16,vertical:18),hintText:"Ketik tebakan di sini...",hintStyle:const TextStyle(color:Colors.white54,fontSize:14),filled:true,fillColor:Colors.white.withOpacity(.12),border:OutlineInputBorder(borderRadius:BorderRadius.circular(15),borderSide:BorderSide.none)))),
+        Expanded(child:TextField(controller:guess,onSubmitted:(v)async{if(v.trim().isNotEmpty){await emit("guess",{"text":v.trim(),"round":(state['round'] as num?)?.toInt()??0,"drawer_id":state['drawer_id']});guess.clear();}},style:const TextStyle(color:Colors.white,fontSize:17,fontWeight:FontWeight.w800),decoration:InputDecoration(contentPadding:const EdgeInsets.symmetric(horizontal:16,vertical:18),hintText:"Ketik tebakan di sini...",hintStyle:const TextStyle(color:Colors.white54,fontSize:14),filled:true,fillColor:Colors.white.withOpacity(.12),border:OutlineInputBorder(borderRadius:BorderRadius.circular(15),borderSide:BorderSide.none)))),
         const SizedBox(width:8),
-        SizedBox(height:52,width:54,child:FilledButton(onPressed:()async{final v=guess.text.trim();if(v.isNotEmpty){await emit("guess",{"text":v});guess.clear();}},style:FilledButton.styleFrom(backgroundColor:const Color(0xFFFFD166),foregroundColor:const Color(0xFF211744),padding:EdgeInsets.zero,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(15))),child:const Icon(Icons.send_rounded))),
+        SizedBox(height:52,width:54,child:FilledButton(onPressed:()async{final v=guess.text.trim();if(v.isNotEmpty){await emit("guess",{"text":v,"round":(state['round'] as num?)?.toInt()??0,"drawer_id":state['drawer_id']});guess.clear();}},style:FilledButton.styleFrom(backgroundColor:const Color(0xFFFFD166),foregroundColor:const Color(0xFF211744),padding:EdgeInsets.zero,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(15))),child:const Icon(Icons.send_rounded))),
       ])),
       const SizedBox(height:15),const Text("TEBAKAN PEMAIN",style:TextStyle(color:Colors.white70,fontSize:10,fontWeight:FontWeight.w900,letterSpacing:1.2)),
       const SizedBox(height:8),
       if(guesses.isEmpty)const Text("Belum ada tebakan. Jadilah yang pertama!",style:TextStyle(color:Colors.white54,fontSize:11)),
       for(final g in guesses)Container(margin:const EdgeInsets.only(bottom:7),padding:const EdgeInsets.symmetric(horizontal:12,vertical:9),decoration:BoxDecoration(color:Colors.white.withOpacity(.08),borderRadius:BorderRadius.circular(13)),child:Row(children:[
         Expanded(child:Text(playerName(g["actor_id"].toString())+": "+(g["payload"]["text"]??"").toString(),style:const TextStyle(color:Colors.white,fontSize:15,fontWeight:FontWeight.w800))),
-        if(canDraw)IconButton(onPressed:()=>emit("guess",{"accepted":true,"target":g["actor_id"]}),icon:const Icon(Icons.check_circle_rounded,color:Color(0xFF70E2B2))),
+        if(canDraw)IconButton(onPressed:()=>emit("guess",{"accepted":true,"target":g["actor_id"],"round":(state['round'] as num?)?.toInt()??0}),icon:const Icon(Icons.check_circle_rounded,color:Color(0xFF70E2B2))),
       ])),
       if(host)Padding(padding:const EdgeInsets.only(top:10),child:SizedBox(width:double.infinity,height:50,child:FilledButton(onPressed:finish,style:FilledButton.styleFrom(backgroundColor:const Color(0xFFFFD166),foregroundColor:const Color(0xFF211744),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(15))),child:const Text("AKHIRI PERMAINAN")))),
     ]));
