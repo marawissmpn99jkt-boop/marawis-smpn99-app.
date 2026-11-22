@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class LeadershipToolsScreen extends StatefulWidget {
   const LeadershipToolsScreen({super.key, required this.role});
@@ -98,7 +99,10 @@ class _LeadershipToolsScreenState extends State<LeadershipToolsScreen> {
     ])),
   );
 
-  void launchMeeting(BuildContext context,String url) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('Tautan rapat: $url')));
+  Future<void> launchMeeting(BuildContext context,String url) async {
+    final uri=Uri.tryParse(url);
+    if(uri==null || !['https','http'].contains(uri.scheme)) { message('Tautan rapat tidak valid.'); return; }
+    final opened=await launchUrl(uri,mode:LaunchMode.externalApplication);
+    if(!opened) message('Tautan rapat tidak dapat dibuka.');
   }
 }
