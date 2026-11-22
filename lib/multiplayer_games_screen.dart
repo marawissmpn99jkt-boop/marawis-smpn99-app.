@@ -229,7 +229,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
     return Card(color:Colors.white,child:Padding(padding:const EdgeInsets.all(18),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
       Text('SOAL '+(i+1).toString()+'/'+questions.length.toString(),style:const TextStyle(color:Color(0xFF167D68),fontWeight:FontWeight.w900)),const SizedBox(height:10),Text(q['q'].toString(),style:const TextStyle(fontSize:19,fontWeight:FontWeight.w900)),
       if(q['category']!=null)Padding(padding:const EdgeInsets.only(bottom:7),child:Text('KATEGORI: '+q['category'].toString().toUpperCase(),style:const TextStyle(fontSize:10,fontWeight:FontWeight.w900,color:Color(0xFF8A6AE8),letterSpacing:1))),
-      if(!mine)for(var n=0;n<answerOrder.length;n++)SizedBox(width:double.infinity,child:Padding(padding:const EdgeInsets.only(top:7),child:OutlinedButton(onPressed:()=>emit('answer',{'round':i,'choice':n}),child:Text((q['a'] as List)[answerOrder[n] as int].toString())))) else const Padding(padding:EdgeInsets.all(12),child:Text('Jawaban terkirim! Menunggu pemain lain.')),
+      if(!mine)for(var n=0;n<answerOrder.length;n++)SizedBox(width:double.infinity,child:Padding(padding:const EdgeInsets.only(top:7),child:OutlinedButton(onPressed:()=>emit('answer',{'round':i,'choice':n}),child:Text((q['a'] as List)[answerOrder[n]].toString())))) else const Padding(padding:EdgeInsets.all(12),child:Text('Jawaban terkirim! Menunggu pemain lain.')),
       Text(count.toString()+'/'+players.length.toString()+' pemain menjawab'),
       if(host)FilledButton(onPressed:()=>i+1<questions.length?updateState({...state,'round':i+1}):finish(),child:Text(i+1<questions.length?'Soal berikutnya':'Akhiri Quiz')),
       scoreboard(),
