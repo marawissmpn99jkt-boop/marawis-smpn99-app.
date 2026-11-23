@@ -68,7 +68,7 @@ class MarawisApp extends StatelessWidget {
       navigatorKey: _rootNavigatorKey,
       title: 'Marawis Smpn99',
       debugShowCheckedModeBanner: false,
-      theme: buildMarawisTheme(isHauntedNightActive(DateTime.now())),
+      theme: buildMarawisTheme(false),
       builder: (context, child) => HauntedNightExperience(
         navigatorKey: _rootNavigatorKey,
         child: child ?? const SizedBox.shrink(),
@@ -203,6 +203,9 @@ class GuestHomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (isHauntedNightActive(DateTime.now())) {
+      return HauntedNightLanding(onLogin: () => _openLogin(context));
+    }
     final features = <({IconData icon, String title, String detail, Color tint})>[
       (icon: Icons.calendar_month_rounded, title: 'Jadwal kegiatan', detail: 'Latihan, rapat, dan penampilan', tint: Color(0xFFE8F3EE)),
       (icon: Icons.fact_check_rounded, title: 'Absensi', detail: 'Pantau kehadiran latihan', tint: Color(0xFFEAF0FF)),
@@ -883,6 +886,15 @@ class HomeScreen extends StatelessWidget {
           children: [
             _LatestEmergencyBanner(role: role),
             _LatestAnnouncementBanner(role: role),
+            HauntedNightDashboardCard(
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => HauntedNightLanding(
+                    onLogin: () => Navigator.of(context).pop(),
+                  ),
+                ),
+              ),
+            ),
             const SizedBox(height: 14),
             Container(
               padding: const EdgeInsets.all(18),
