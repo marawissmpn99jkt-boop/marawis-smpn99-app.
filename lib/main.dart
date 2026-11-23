@@ -64,15 +64,14 @@ class MarawisApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const seed = Color(0xFF167D68);
     return MaterialApp(
       navigatorKey: _rootNavigatorKey,
       title: 'Marawis Smpn99',
       debugShowCheckedModeBanner: false,
       theme: buildMarawisTheme(isHauntedNightActive(DateTime.now())),
       builder: (context, child) => HauntedNightExperience(
-        child: child ?? const SizedBox.shrink(),
         navigatorKey: _rootNavigatorKey,
+        child: child ?? const SizedBox.shrink(),
       ),
       home: const AuthGate(),
     );
