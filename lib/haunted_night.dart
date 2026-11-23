@@ -1,7 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
-const hauntedNightStart = DateTime(2026, 11, 23);
-const hauntedNightEndExclusive = DateTime(2026, 12, 1);
+final hauntedNightStart = DateTime(2026, 11, 23);
+final hauntedNightEndExclusive = DateTime(2026, 12, 1);
 
 bool isHauntedNightActive(DateTime now) =>
     !now.isBefore(hauntedNightStart) && now.isBefore(hauntedNightEndExclusive);
