@@ -470,34 +470,65 @@ class _ExperienceCardState extends State<_ExperienceCard> {
 class HauntedNightDashboardCard extends StatelessWidget {
   const HauntedNightDashboardCard({super.key, required this.onTap});
   final VoidCallback onTap;
+
   @override
   Widget build(BuildContext context) {
     if (!isHauntedNightActive(DateTime.now())) return const SizedBox.shrink();
-    return Padding(padding: const EdgeInsets.only(bottom: 14), child: Material(
-      color: const Color(0xFF211832), borderRadius: BorderRadius.circular(19),
-      child: InkWell(onTap: onTap, borderRadius: BorderRadius.circular(19),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(19),
-            border: Border.all(color: const Color(0xFF60466F)),
-            gradient: const LinearGradient(colors: [Color(0xFF2A1B3A), Color(0xFF181B2B)]),
-          ),
-          child: const Row(children: [
-            Text('🎃', style: TextStyle(fontSize: 30)), SizedBox(width: 13),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('MARAWIS HAUNTED NIGHT 2026', style: TextStyle(
-                color: Color(0xFFFFBD79), fontSize: 10, letterSpacing: .8, fontWeight: FontWeight.w900,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Material(
+        color: const Color(0xFF211832),
+        borderRadius: BorderRadius.circular(21),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(21),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(17, 15, 13, 15),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(21),
+              border: Border.all(color: const Color(0xFF79548B)),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF392248), Color(0xFF191C2D), Color(0xFF172C31)],
+              ),
+              boxShadow: const [BoxShadow(color: Color(0x332B1647), blurRadius: 18, offset: Offset(0, 7))],
+            ),
+            child: Row(children: [
+              Container(
+                width: 45, height: 45,
+                decoration: BoxDecoration(
+                  color: const Color(0x33FFB66E),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0x66FFB66E)),
+                ),
+                child: const Icon(Icons.nightlight_round, color: Color(0xFFFFBD79), size: 25),
+              ),
+              const SizedBox(width: 12),
+              Expanded(child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  Text('LIMITED EVENT  •  23—30 NOV',
+                    style: TextStyle(color: Color(0xFFFFBD79), fontSize: 8, letterSpacing: 1.1, fontWeight: FontWeight.w900)),
+                  SizedBox(height: 5),
+                  Text('MARAWIS HAUNTED NIGHT 2026',
+                    style: TextStyle(color: Colors.white, fontSize: 11, letterSpacing: .5, fontWeight: FontWeight.w900)),
+                  SizedBox(height: 5),
+                  Text('Masuki arcade, mainkan 4 game, dan kumpulkan XP.',
+                    style: TextStyle(color: Color(0xFFD0C6DC), fontSize: 10, height: 1.4)),
+                  SizedBox(height: 8),
+                  Text('ENTER THE EVENT  →',
+                    style: TextStyle(color: Color(0xFFFFB66E), fontSize: 9, letterSpacing: 1.1, fontWeight: FontWeight.w900)),
+                ],
               )),
-              SizedBox(height: 5),
-              Text('Event spesial sedang berlangsung — jelajahi sekarang.',
-                style: TextStyle(color: Colors.white, fontSize: 11, height: 1.4)),
-            ])),
-            Icon(Icons.arrow_forward_rounded, color: Color(0xFFFFB66E)),
-          ]),
+              const SizedBox(width: 8),
+              Image.asset('assets/images/marwi.webp', width: 65, height: 78, fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const Text('🎃', style: TextStyle(fontSize: 36))),
+            ]),
+          ),
         ),
       ),
-    ));
+    );
   }
 }
 
