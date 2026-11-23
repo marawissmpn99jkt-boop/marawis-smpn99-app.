@@ -68,9 +68,14 @@ ThemeData buildMarawisTheme(bool hauntedNight) {
 }
 
 class HauntedNightExperience extends StatefulWidget {
-  const HauntedNightExperience({super.key, required this.child});
+  const HauntedNightExperience({
+    super.key,
+    required this.child,
+    required this.navigatorKey,
+  });
 
   final Widget child;
+  final GlobalKey<NavigatorState> navigatorKey;
 
   @override
   State<HauntedNightExperience> createState() => _HauntedNightExperienceState();
@@ -156,10 +161,14 @@ class _HauntedNightExperienceState extends State<HauntedNightExperience>
               elevation: 8,
               child: InkWell(
                 customBorder: const CircleBorder(),
-                onTap: () => showDialog<void>(
-                  context: context,
-                  builder: (_) => const _MysteryPumpkinDialog(),
-                ),
+                onTap: () {
+                  final navigatorContext = widget.navigatorKey.currentContext;
+                  if (navigatorContext == null) return;
+                  showDialog<void>(
+                    context: navigatorContext,
+                    builder: (_) => const _MysteryPumpkinDialog(),
+                  );
+                },
                 child: const SizedBox(
                   width: 48,
                   height: 48,
