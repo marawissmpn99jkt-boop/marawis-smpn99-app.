@@ -467,65 +467,6 @@ class _ExperienceCardState extends State<_ExperienceCard> {
   }
 }
 
-class _MysteryPumpkinDialog extends StatefulWidget {
-  const _MysteryPumpkinDialog();
-  @override
-  State<_MysteryPumpkinDialog> createState() => _MysteryPumpkinDialogState();
-}
-class _MysteryPumpkinDialogState extends State<_MysteryPumpkinDialog> {
-  late final int _prize = DateTime.now().microsecondsSinceEpoch % 3;
-  int? _selected;
-  bool _revealed = false;
-
-  @override
-  Widget build(BuildContext context) => Dialog(
-    backgroundColor: const Color(0xFF211B30),
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-    child: Padding(padding: const EdgeInsets.all(23), child: Column(
-      mainAxisSize: MainAxisSize.min, children: [
-        const Text('🎃', style: TextStyle(fontSize: 48)),
-        const SizedBox(height: 9),
-        const Text('MYSTERY PUMPKIN', style: TextStyle(
-          color: Color(0xFFFFB66E), fontWeight: FontWeight.w900, letterSpacing: 1.7, fontSize: 15,
-        )),
-        const SizedBox(height: 9),
-        Text(_revealed ? 'Kamu berhasil menemukan kejutan rahasia!' : 'Satu labu menyimpan kejutan. Pilih satu dan lihat apa yang kamu temukan.',
-          textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFFD0C8DA), height: 1.5, fontSize: 12)),
-        const SizedBox(height: 22),
-        Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: List.generate(3, (i) {
-          final selected = _selected == i;
-          return InkWell(
-            borderRadius: BorderRadius.circular(17),
-            onTap: _revealed ? null : () => setState(() { _selected = i; _revealed = i == _prize; }),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 220), width: 68, height: 78,
-              decoration: BoxDecoration(
-                color: selected ? const Color(0xFF53356D) : const Color(0xFF30273D),
-                borderRadius: BorderRadius.circular(17),
-                border: Border.all(color: selected ? const Color(0xFFFFB66E) : const Color(0xFF554765), width: selected ? 1.7 : 1),
-              ),
-              child: Center(child: Text(_revealed && selected ? '✨' : '🎃', style: const TextStyle(fontSize: 30))),
-            ),
-          );
-        })),
-        if (_selected != null && !_revealed) ...[
-          const SizedBox(height: 13),
-          const Text('Belum ketemu. Coba labu yang lain!', style: TextStyle(color: Color(0xFFFFBD83), fontSize: 11)),
-        ],
-        if (_revealed) ...[
-          const SizedBox(height: 13),
-          const Text('UNLOCKED: PUMPKIN EXPLORER', style: TextStyle(color: Color(0xFF8DE1C6), fontWeight: FontWeight.w900, letterSpacing: .8, fontSize: 10)),
-        ],
-        const SizedBox(height: 20),
-        Align(alignment: Alignment.centerRight, child: TextButton(
-          onPressed: () { if (_revealed) { Navigator.pop(context); } else { setState(() => _selected = null); } },
-          child: Text(_revealed ? 'Selesai' : 'Ulangi'),
-        )),
-      ],
-    )),
-  );
-}
-
 class HauntedNightDashboardCard extends StatelessWidget {
   const HauntedNightDashboardCard({super.key, required this.onTap});
   final VoidCallback onTap;
