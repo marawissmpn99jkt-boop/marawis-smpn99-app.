@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'dart:html' as html;
+import 'multiplayer_guess_rules.dart';
 import 'package:flutter/services.dart';
 import 'package:chess/chess.dart' as chess_lib;
 import 'package:material_ui/material_ui.dart';
@@ -198,13 +199,13 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
         final currentRound=((nextGameState is Map ? nextGameState['round'] : null) as num?)?.toInt()??0;
         // Guess eligibility resets for every drawing round, not for the whole room.
         final acceptedTargets=allEvents.where((e)=>e['event_type']=='guess'&&e['payload'] is Map&&e['payload']['accepted']==true&&(e['payload']['round'] as num?)?.toInt()==currentRound).map((e)=>e['payload']['target']?.toString()).whereType<String>().toSet();
-        final secret=secretWord!.trim().toLowerCase().replaceAll(RegExp(r'\\s+'),'');
+        final secret=normalizeDrawGuess(secretWord!);
         final correct=allEvents.where((e){
           if(e['event_type']!='guess'||e['payload'] is! Map||e['payload']['accepted']==true||e['actor_id']==uid)return false;
-          final text=e['payload']['text']?.toString().trim().toLowerCase().replaceAll(RegExp(r'\\s+'),'')??'';
+          final text=normalizeDrawGuess(e['payload']['text']?.toString()??'');
           return text==secret&&!acceptedTargets.contains(e['actor_id'].toString());
         }).toList();
-        if(correct.isNotEmpty){final winner=correct.first['actor_id'].toString();Future.microtask(()=>emit('guess',{'accepted':true,'target':winner,'round':currentRound}));}
+        if(correct.isNotEmpty){final winner=correct.first['actor_id'].toString();Future.microtask(()=>emit('guess',acceptedDrawGuessPayload(targetId:winner,round:currentRound)));}
       }
       if(host&&nextRoom['game_type']=='marawis_chess'&&!_processingChess){Future.microtask(()=>_processChessMoves(nextRoom,List<Map<String,dynamic>>.from(x[2] as List)));}
       if(host&&nextRoom['game_type']=='draw_guess'&&!_rotatingDraw){
@@ -586,7 +587,7 @@ class _MultiplayerGamesScreenState extends State<MultiplayerGamesScreen>{
       if(guesses.isEmpty)const Text("Belum ada tebakan. Jadilah yang pertama!",style:TextStyle(color:Colors.white54,fontSize:11)),
       for(final g in guesses)Container(margin:const EdgeInsets.only(bottom:7),padding:const EdgeInsets.symmetric(horizontal:12,vertical:9),decoration:BoxDecoration(color:Colors.white.withOpacity(.08),borderRadius:BorderRadius.circular(13)),child:Row(children:[
         Expanded(child:Text(playerName(g["actor_id"].toString())+": "+(g["payload"]["text"]??"").toString(),style:const TextStyle(color:Colors.white,fontSize:15,fontWeight:FontWeight.w800))),
-        if(canDraw)IconButton(onPressed:()=>emit("guess",{"accepted":true,"target":g["actor_id"]}),icon:const Icon(Icons.check_circle_rounded,color:Color(0xFF70E2B2))),
+        if(canDraw)IconButton(onPressed:()=>emit("guess",acceptedDrawGuessPayload(targetId:g["actor_id"].toString(),round:(state["round"] as num?)?.toInt()??0)),icon:const Icon(Icons.check_circle_rounded,color:Color(0xFF70E2B2))),
       ])),
       if(host)Padding(padding:const EdgeInsets.only(top:10),child:SizedBox(width:double.infinity,height:50,child:FilledButton(onPressed:finish,style:FilledButton.styleFrom(backgroundColor:const Color(0xFFFFD166),foregroundColor:const Color(0xFF211744),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(15))),child:const Text("AKHIRI PERMAINAN")))),
     ]));
