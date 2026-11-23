@@ -234,7 +234,7 @@ class _HauntedNightLandingState extends State<HauntedNightLanding>
       shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
       itemCount: data.length,
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: cols, crossAxisSpacing: 15, mainAxisSpacing: 15, mainAxisExtent: 205,
+        crossAxisCount: cols, crossAxisSpacing: 15, mainAxisSpacing: 15, mainAxisExtent: 250,
       ),
       itemBuilder: (_, i) => _ExperienceCard(data: data[i]),
     );
