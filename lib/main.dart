@@ -219,7 +219,7 @@ class GuestHomeScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 18,
-        title: const Row(
+        title: Row(
           children: [
             CircleAvatar(
               radius: 18,
