@@ -28,6 +28,7 @@ import 'haunted_night.dart';
 const supabaseUrl = 'https://yatbnzczricrwrqhzsqr.supabase.co';
 const supabasePublishableKey = 'sb_publishable_Uz6EYSbI3Nhj28uP3lEFsw_nCbEYMHS';
 const authRedirectUrl = 'marawissmpn99://login-callback/';
+final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -65,11 +66,13 @@ class MarawisApp extends StatelessWidget {
   Widget build(BuildContext context) {
     const seed = Color(0xFF167D68);
     return MaterialApp(
+      navigatorKey: _rootNavigatorKey,
       title: 'Marawis Smpn99',
       debugShowCheckedModeBanner: false,
       theme: buildMarawisTheme(isHauntedNightActive(DateTime.now())),
       builder: (context, child) => HauntedNightExperience(
         child: child ?? const SizedBox.shrink(),
+        navigatorKey: _rootNavigatorKey,
       ),
       home: const AuthGate(),
     );
