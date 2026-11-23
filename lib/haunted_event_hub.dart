@@ -25,7 +25,7 @@ class _HauntedEventHubState extends State<HauntedEventHub>{
           SizedBox(height:2),Text('HAUNTED NIGHT • SEASON 01',style:TextStyle(fontSize:8,color:Color(0xFFB4A8C9),letterSpacing:1.1,fontWeight:FontWeight.w700)),
         ]),
         actions:[Padding(padding:const EdgeInsets.only(right:14),child:Center(child:Text('🎃  $xp XP',style:const TextStyle(color:Color(0xFFFFC17C),fontWeight:FontWeight.w900))))]),
-      body:loading?const Center(child:CircularProgressIndicator()):SafeArea(child:ListView(padding:const EdgeInsets.fromLTRB(16,12,16,30),children:[
+      body:loading?const Center(child:CircularProgressIndicator()):SafeArea(child:SingleChildScrollView(padding:const EdgeInsets.fromLTRB(16,12,16,30),child:Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
         _EventHero(name:widget.playerName,xp:xp,level:level,progress:progress),
         const SizedBox(height:14),
         Row(children:[
@@ -68,7 +68,7 @@ class _HauntedEventHubState extends State<HauntedEventHub>{
           _CollectionItem(icon:'🗝️',title:'Secret Finder',detail:'Menemukan kata rahasia',unlocked:done.contains('word')),
           const SizedBox(height:12),const _EventNotice(text:'Koleksi ini adalah pencapaian event di perangkatmu, bukan item yang bisa ditukar atau dipindahtangankan.'),
         ],
-      ])),
+      ]))),
     );
   }
 }
