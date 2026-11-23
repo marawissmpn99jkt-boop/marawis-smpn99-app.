@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'package:vector_math/vector_math_64.dart' show Matrix4;
+
 import 'package:material_ui/material_ui.dart';
 
 final hauntedNightStart = DateTime(2026, 11, 23);
