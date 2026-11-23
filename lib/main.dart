@@ -1629,18 +1629,13 @@ class _SectionHeading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final haunted = isHauntedNightActive(DateTime.now());
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-        ),
+        Text(title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: haunted ? const Color(0xFFFFE9C7) : null, letterSpacing: haunted ? 1.1 : 0)),
         const SizedBox(height: 4),
-        Text(
-          subtitle,
-          style: const TextStyle(color: Color(0xFF7B8981), fontSize: 12),
-        ),
+        Text(subtitle, style: TextStyle(color: haunted ? const Color(0xFFBCAFC4) : const Color(0xFF7B8981), fontSize: 12)),
       ],
     );
   }
@@ -1665,8 +1660,9 @@ class _MenuCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final haunted = isHauntedNightActive(DateTime.now());
     return Material(
-      color: Colors.white,
+      color: haunted ? const Color(0xFF21182B) : Colors.white,
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
         onTap: onTap,
@@ -1675,7 +1671,8 @@ class _MenuCard extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFFE8EEEA)),
+            border: Border.all(color: haunted ? const Color(0xFF493449) : const Color(0xFFE8EEEA)),
+            boxShadow: haunted ? const [BoxShadow(color: Color(0x22120A18), blurRadius: 14, offset: Offset(0, 5))] : null,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1695,9 +1692,10 @@ class _MenuCard extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w800,
+                      color: haunted ? const Color(0xFFFFE9C7) : null,
                     ),
                   ),
                   const SizedBox(height: 4),
