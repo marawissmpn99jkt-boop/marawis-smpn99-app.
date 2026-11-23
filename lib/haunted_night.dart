@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:vector_math/vector_math_64.dart' show Matrix4;
 
 import 'package:material_ui/material_ui.dart';
+import 'haunted_event_hub.dart';
 
 final hauntedNightStart = DateTime(2026, 11, 23);
 final hauntedNightEndExclusive = DateTime(2026, 12, 1);
@@ -278,9 +279,9 @@ class _HauntedNightLandingState extends State<HauntedNightLanding>
     ),
   );
 
-  void _openPumpkin() => showDialog<void>(
-    context: context, builder: (_) => const _MysteryPumpkinDialog(),
-  );
+  void _openPumpkin() => Navigator.of(context).push(MaterialPageRoute<void>(
+    builder: (_) => const HauntedEventHub(playerName: 'Tamu'),
+  ));
 }
 
 class _NightHeader extends StatelessWidget {
