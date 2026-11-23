@@ -64,7 +64,7 @@ class _HauntedNightLandingState extends State<HauntedNightLanding>
 
   @override
   Widget build(BuildContext context) {
-    final compact = MediaQuery.sizeOf(context).width < 760;
+    final compact = MediaQuery.sizeOf(context).width < 900;
     return Scaffold(
       backgroundColor: const Color(0xFF080A13),
       body: Stack(children: [
@@ -133,7 +133,7 @@ class _HauntedNightLandingState extends State<HauntedNightLanding>
               padding: EdgeInsets.all(compact ? 22 : 42),
               child: compact
                   ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      _heroCopy(compact),
+                      Padding(padding: const EdgeInsets.only(top: 28), child: _heroCopy(compact)),
                       const SizedBox(height: 8),
                       Center(child: Transform.translate(offset: Offset(0, drift), child: _mascot(235))),
                     ])
