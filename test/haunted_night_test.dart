@@ -31,7 +31,6 @@ void main() {
     expect(find.text('MARAWIS HAUNTED NIGHT 2026'), findsOneWidget);
     expect(find.text('Mystery Pumpkin'), findsOneWidget);
   });
-}
 
   testWidgets('Haunted Night arcade lists all four game modes', (tester) async {
     SharedPreferences.setMockInitialValues({});
@@ -44,3 +43,5 @@ void main() {
     expect(find.text('Memory Maze'), findsOneWidget);
     expect(find.text('Secret Word'), findsOneWidget);
   });
+
+}
