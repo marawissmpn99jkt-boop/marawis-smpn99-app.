@@ -23,10 +23,12 @@ import 'voting_screen.dart';
 import 'organization_insights_screen.dart';
 import 'qr_checkin_screen.dart';
 import 'member_cards_screen.dart';
+import 'haunted_night.dart';
 
 const supabaseUrl = 'https://yatbnzczricrwrqhzsqr.supabase.co';
 const supabasePublishableKey = 'sb_publishable_Uz6EYSbI3Nhj28uP3lEFsw_nCbEYMHS';
 const authRedirectUrl = 'marawissmpn99://login-callback/';
+final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -62,58 +64,14 @@ class MarawisApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const seed = Color(0xFF167D68);
     return MaterialApp(
+      navigatorKey: _rootNavigatorKey,
       title: 'Marawis Smpn99',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: seed,
-          brightness: Brightness.light,
-          surface: const Color(0xFFF7F9F7),
-        ),
-        scaffoldBackgroundColor: const Color(0xFFF7F9F7),
-        fontFamily: 'Roboto',
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.white,
-          surfaceTintColor: Colors.transparent,
-          elevation: 0,
-          centerTitle: false,
-          titleTextStyle: TextStyle(
-            color: Color(0xFF172A25),
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
-          ),
-          iconTheme: IconThemeData(color: Color(0xFF263B34)),
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: Colors.white,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.all(Radius.circular(15)),
-            borderSide: BorderSide(color: Color(0xFFE4EBE7)),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.all(Radius.circular(15)),
-            borderSide: BorderSide(color: Color(0xFFE4EBE7)),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.all(Radius.circular(15)),
-            borderSide: BorderSide(color: seed, width: 1.6),
-          ),
-        ),
-        filledButtonTheme: FilledButtonThemeData(
-          style: FilledButton.styleFrom(
-            backgroundColor: seed,
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-            textStyle: const TextStyle(fontWeight: FontWeight.w800),
-          ),
-        ),
-        dividerColor: const Color(0xFFE8EEEA),
+      theme: buildMarawisTheme(isHauntedNightActive(DateTime.now())),
+      builder: (context, child) => HauntedNightExperience(
+        navigatorKey: _rootNavigatorKey,
+        child: child ?? const SizedBox.shrink(),
       ),
       home: const AuthGate(),
     );
