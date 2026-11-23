@@ -24,6 +24,7 @@ import 'organization_insights_screen.dart';
 import 'qr_checkin_screen.dart';
 import 'member_cards_screen.dart';
 import 'haunted_night.dart';
+import 'haunted_event_hub.dart';
 
 const supabaseUrl = 'https://yatbnzczricrwrqhzsqr.supabase.co';
 const supabasePublishableKey = 'sb_publishable_Uz6EYSbI3Nhj28uP3lEFsw_nCbEYMHS';
@@ -889,9 +890,7 @@ class HomeScreen extends StatelessWidget {
             HauntedNightDashboardCard(
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (_) => HauntedNightLanding(
-                    onLogin: () => Navigator.of(context).pop(),
-                  ),
+                  builder: (_) => HauntedEventHub(playerName: displayName),
                 ),
               ),
             ),
