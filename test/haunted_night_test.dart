@@ -41,7 +41,7 @@ void main() {
     expect(find.text('Pumpkin Hunt'), findsOneWidget);
     expect(find.text('Haunted Quiz'), findsOneWidget);
     expect(find.text('Memory Maze'), findsOneWidget);
-    await tester.ensureVisible(find.text('Secret Word'));
+    await tester.scrollUntilVisible(find.text('Secret Word'), 180);
     await tester.pumpAndSettle();
     expect(find.text('Secret Word'), findsOneWidget);
   });
