@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:marawis_smpn99/haunted_night.dart';
+import 'package:marawis_smpn99/haunted_event_hub.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   group('Marawis Haunted Night schedule', () {
@@ -30,3 +32,15 @@ void main() {
     expect(find.text('Mystery Pumpkin'), findsOneWidget);
   });
 }
+
+  testWidgets('Haunted Night arcade lists all four game modes', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    await tester.pumpWidget(
+      MaterialApp(home: HauntedEventHub(playerName: 'Tester')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Pumpkin Hunt'), findsOneWidget);
+    expect(find.text('Haunted Quiz'), findsOneWidget);
+    expect(find.text('Memory Maze'), findsOneWidget);
+    expect(find.text('Secret Word'), findsOneWidget);
+  });
