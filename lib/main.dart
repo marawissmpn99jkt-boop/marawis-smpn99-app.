@@ -849,7 +849,7 @@ class HomeScreen extends StatelessWidget {
         foregroundColor: haunted ? const Color(0xFFFFE9C7) : null,
         elevation: haunted ? 0 : null,
         titleSpacing: 20,
-        title: const Row(
+        title: Row(
           children: [
             CircleAvatar(
               radius: 18,
@@ -944,7 +944,7 @@ class HomeScreen extends StatelessWidget {
                           '$roleLabel • ${user.email ?? 'Akun Google'}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: haunted ? const Color(0xFFC5B5C9) : const Color(0xFF78877F),
                             fontSize: 11,
                           ),
