@@ -1344,11 +1344,12 @@ class _DraggableMarwiState extends State<_DraggableMarwi> {
                       child: SizedBox(
                         width: 116,
                         height: 132,
-                        child: Image.asset(
-                          'assets/images/marwi.webp',
+                        child: Image.network(
+                          'https://i.ibb.co.com/GB2PJx2/file-000000002fdc82118b577ca6c4e2ba94.png',
                           fit: BoxFit.contain,
+                          filterQuality: FilterQuality.high,
                           errorBuilder: (_, error, ___) {
-                            debugPrint('Ma\'rwi asset failed to load: $error');
+                            debugPrint('Ma\'rwi image failed to load: $error');
                             return const Icon(Icons.image_not_supported_outlined, size: 42, color: Color(0xFF167D68));
                           },
                         ),
