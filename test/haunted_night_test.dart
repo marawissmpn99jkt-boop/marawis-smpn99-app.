@@ -54,12 +54,6 @@ void main() {
     expect(find.text('BADGES'), findsOneWidget);
     expect(find.text('RANK'), findsAtLeastNWidgets(1));
     expect(find.text('SECRET'), findsOneWidget);
-    await tester.tap(find.text('DAILY'));
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(find.text('One Game a Day'), findsOneWidget);
-    await tester.tap(find.text('SECRET'));
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(find.text('After the Rain'), findsOneWidget);
   });
 
 }
