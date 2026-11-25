@@ -5,11 +5,11 @@ import 'package:vector_math/vector_math_64.dart' show Matrix4;
 import 'package:material_ui/material_ui.dart';
 import 'haunted_event_hub.dart';
 
-final hauntedNightStart = DateTime(2026, 11, 23);
-final hauntedNightEndExclusive = DateTime(2026, 12, 1);
+final rainySeasonStart = DateTime(2026, 11, 23);
+final rainySeasonEndExclusive = DateTime(2026, 12, 1);
 
 bool isHauntedNightActive(DateTime now) =>
-    !now.isBefore(hauntedNightStart) && now.isBefore(hauntedNightEndExclusive);
+    !now.isBefore(rainySeasonStart) && now.isBefore(rainySeasonEndExclusive);
 
 ThemeData buildMarawisTheme(bool hauntedNight) => ThemeData(
   useMaterial3: true,
@@ -67,7 +67,7 @@ class _HauntedNightLandingState extends State<HauntedNightLanding>
   Widget build(BuildContext context) {
     final compact = MediaQuery.sizeOf(context).width < 900;
     return Scaffold(
-      backgroundColor: const Color(0xFF080A13),
+      backgroundColor: const Color(0xFF071522),
       body: Stack(children: [
         Positioned.fill(child: AnimatedBuilder(
           animation: _motion,
@@ -115,10 +115,10 @@ class _HauntedNightLandingState extends State<HauntedNightLanding>
         constraints: const BoxConstraints(minHeight: 430),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(30),
-          border: Border.all(color: const Color(0xFF47315D)),
+          border: Border.all(color: const Color(0xFF28586C)),
           gradient: const LinearGradient(
             begin: Alignment.topLeft, end: Alignment.bottomRight,
-            colors: [Color(0xFF211633), Color(0xFF121323), Color(0xFF10101B)],
+            colors: [Color(0xFF12364A), Color(0xFF0D2637), Color(0xFF081B2A)],
           ),
           boxShadow: const [BoxShadow(color: Color(0x552D164B), blurRadius: 50, offset: Offset(0, 22))],
         ),
@@ -128,7 +128,7 @@ class _HauntedNightLandingState extends State<HauntedNightLanding>
             Positioned(right: compact ? -80 : 80, top: -120 + drift, child: const _GlowOrb(size: 380)),
             Positioned(left: -110, bottom: -190, child: Container(
               width: 330, height: 330,
-              decoration: BoxDecoration(shape: BoxShape.circle, color: const Color(0xFF6B35A0).withValues(alpha: 0.13)),
+              decoration: BoxDecoration(shape: BoxShape.circle, color: const Color(0xFF1D7185).withValues(alpha: 0.13)),
             )),
             Padding(
               padding: EdgeInsets.all(compact ? 22 : 42),
@@ -160,17 +160,17 @@ class _HauntedNightLandingState extends State<HauntedNightLanding>
           color: const Color(0x26FF9B45), borderRadius: BorderRadius.circular(30),
           border: Border.all(color: const Color(0x66FF9B45)),
         ),
-        child: const Text('✦  LIMITED EVENT  •  23—30 NOV 2026',
-          style: TextStyle(color: Color(0xFFFFBD79), fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.1)),
+        child: const Text('✦  RAINY SEASON EVENT  •  NOV 2026',
+          style: TextStyle(color: Color(0xFF9DE8F2), fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.1)),
       ),
       const SizedBox(height: 25),
-      Text('THE NIGHT\nHAS A', style: TextStyle(
+      Text('THE RAIN\nHAS A', style: TextStyle(
         color: Colors.white, fontSize: compact ? 43 : 62, height: .98,
         letterSpacing: -2.4, fontWeight: FontWeight.w900,
       )),
       ShaderMask(
         shaderCallback: (bounds) => const LinearGradient(
-          colors: [Color(0xFFFFD08A), Color(0xFFFF853B), Color(0xFFB77BFF)],
+          colors: [Color(0xFFB6F3F5), Color(0xFF3EC6D9), Color(0xFF7DB8F4)],
         ).createShader(bounds),
         child: Text('RHYTHM.', style: TextStyle(
           color: Colors.white, fontSize: compact ? 49 : 72, height: 1.05,
@@ -178,19 +178,19 @@ class _HauntedNightLandingState extends State<HauntedNightLanding>
         )),
       ),
       const SizedBox(height: 16),
-      const Text('MARAWIS HAUNTED NIGHT 2026',
-        style: TextStyle(color: Color(0xFFE9DDF8), fontSize: 12, letterSpacing: 2.1, fontWeight: FontWeight.w900)),
+      const Text('THE RAIN HAS A RHYTHM',
+        style: TextStyle(color: Color(0xFFD8F3F5), fontSize: 12, letterSpacing: 2.1, fontWeight: FontWeight.w900)),
       const SizedBox(height: 10),
       const Text(
-        'Satu event spesial. Nuansa baru. Kejutan di setiap sudut. Siap menjelajahi malam bersama Marawis?',
-        style: TextStyle(color: Color(0xFFB7B0C7), height: 1.65, fontSize: 13),
+        'Musim hujan membawa suasana baru untuk Marawis. Rasakan tantangan spesial, temukan irama di setiap rintik, dan seru-seruan bersama!',
+        style: TextStyle(color: Color(0xFFA9C5D2), height: 1.65, fontSize: 13),
       ),
       const SizedBox(height: 24),
       Wrap(spacing: 10, runSpacing: 10, children: [
         FilledButton.icon(
           onPressed: _explore,
           style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFFFF963F), foregroundColor: const Color(0xFF1B1023),
+            backgroundColor: const Color(0xFF55D2DF), foregroundColor: const Color(0xFF082331),
             padding: const EdgeInsets.symmetric(horizontal: 19, vertical: 15),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
           ),
@@ -199,7 +199,7 @@ class _HauntedNightLandingState extends State<HauntedNightLanding>
         OutlinedButton.icon(
           onPressed: widget.onLogin,
           style: OutlinedButton.styleFrom(
-            foregroundColor: Colors.white, side: const BorderSide(color: Color(0xFF716080)),
+            foregroundColor: Colors.white, side: const BorderSide(color: Color(0xFF527E8E)),
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
           ),
@@ -211,9 +211,9 @@ class _HauntedNightLandingState extends State<HauntedNightLanding>
 
   Widget _mascot(double height) => SizedBox(
     height: height,
-    child: Hero(tag: 'marawis-haunted-mascot', child: Image.asset(
+    child: Hero(tag: 'marawis-rainy-season-mascot', child: Image.asset(
       'assets/images/marwi.webp', fit: BoxFit.contain,
-      errorBuilder: (_, __, ___) => const Icon(Icons.nightlight_round, size: 150, color: Color(0xFFFFB15C)),
+      errorBuilder: (_, __, ___) => const Icon(Icons.water_drop_rounded, size: 150, color: Color(0xFF58CEDB)),
     )),
   );
 
@@ -222,11 +222,11 @@ class _HauntedNightLandingState extends State<HauntedNightLanding>
     final data = [
       _ExperienceData('01', Icons.auto_awesome_rounded, 'A different world',
         'Nikmati atmosfer visual spesial yang hadir selama event berlangsung.',
-        const Color(0xFFFFA34F), () => _showInfo('A different world',
-          'Nuansa Haunted Night hadir sebagai pengalaman event sementara. Fitur organisasi tetap tersedia seperti biasa.')),
-      _ExperienceData('02', Icons.toys_rounded, 'Mystery Pumpkin',
-        'Pilih labu misterius dan temukan kejutan tersembunyi di dalamnya.',
-        const Color(0xFFB78AFF), _openPumpkin),
+        const Color(0xFF43C6D9), () => _showInfo('A different world',
+          'The Rain Has a Rhythm merayakan musim hujan di Indonesia melalui pengalaman event Marawis. Fitur organisasi tetap tersedia seperti biasa.')),
+      _ExperienceData('02', Icons.water_drop_rounded, 'Rainy Season Challenge',
+        'Jelajahi tantangan bertema hujan dan temukan keseruan baru bersama Marawis.',
+        const Color(0xFF75B8FF), _openPumpkin),
       _ExperienceData('03', Icons.groups_rounded, 'One Marawis family',
         'Masuk ke ruang digital untuk terhubung dengan seluruh aktivitas Marawis.',
         const Color(0xFF68D9C0), widget.onLogin),
@@ -245,22 +245,22 @@ class _HauntedNightLandingState extends State<HauntedNightLanding>
     padding: const EdgeInsets.all(25),
     decoration: BoxDecoration(
       borderRadius: BorderRadius.circular(24),
-      gradient: const LinearGradient(colors: [Color(0xFF3A2051), Color(0xFF1D1A31), Color(0xFF192A35)]),
-      border: Border.all(color: const Color(0xFF58406C)),
+      gradient: const LinearGradient(colors: [Color(0xFF103A50), Color(0xFF102B3C), Color(0xFF0A2939)]),
+      border: Border.all(color: const Color(0xFF286176)),
     ),
     child: LayoutBuilder(builder: (context, constraints) {
       final compact = constraints.maxWidth < 600;
       const copy = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('YOUR NEXT MOVE?', style: TextStyle(color: Color(0xFFFFB56E), letterSpacing: 2, fontSize: 10, fontWeight: FontWeight.w900)),
+        Text('YOUR NEXT MOVE?', style: TextStyle(color: Color(0xFF7DDCE8), letterSpacing: 2, fontSize: 10, fontWeight: FontWeight.w900)),
         SizedBox(height: 9),
-        Text('The night is yours to explore.', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900)),
+        Text('Every raindrop has its rhythm.', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900)),
         SizedBox(height: 8),
-        Text('Jangan lewatkan pengalaman spesial Marawis Haunted Night 2026.',
+        Text('Jangan lewatkan pengalaman spesial Marawis Rainy Season: The Rain Has a Rhythm.',
           style: TextStyle(color: Color(0xFFC1B9CF), fontSize: 12, height: 1.5)),
       ]);
       final button = FilledButton.icon(
         onPressed: widget.onLogin,
-        style: FilledButton.styleFrom(backgroundColor: const Color(0xFFFF963F), foregroundColor: const Color(0xFF211329)),
+        style: FilledButton.styleFrom(backgroundColor: const Color(0xFF55D2DF), foregroundColor: const Color(0xFF082331)),
         icon: const Icon(Icons.arrow_forward_rounded), label: const Text('Masuk ke Marawis'),
       );
       return compact
@@ -272,9 +272,9 @@ class _HauntedNightLandingState extends State<HauntedNightLanding>
   void _showInfo(String title, String detail) => showDialog<void>(
     context: context,
     builder: (_) => AlertDialog(
-      backgroundColor: const Color(0xFF211B30),
+      backgroundColor: const Color(0xFF102A3A),
       title: Text(title, style: const TextStyle(color: Colors.white)),
-      content: Text(detail, style: const TextStyle(color: Color(0xFFD1C9DC), height: 1.5)),
+      content: Text(detail, style: const TextStyle(color: Color(0xFFCAE1E8), height: 1.5)),
       actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Tutup'))],
     ),
   );
@@ -297,16 +297,16 @@ class _NightHeader extends StatelessWidget {
         Container(
           width: 39, height: 39,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [Color(0xFFFFB15C), Color(0xFF9B65D5)]),
+            gradient: const LinearGradient(colors: [Color(0xFF58CEDB), Color(0xFF398AA6)]),
             borderRadius: BorderRadius.circular(13),
           ),
-          child: const Icon(Icons.graphic_eq_rounded, color: Color(0xFF17101F), size: 22),
+          child: const Icon(Icons.graphic_eq_rounded, color: Color(0xFF071F2B), size: 22),
         ),
         const SizedBox(width: 11),
         const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('MARAWIS SMPN 99', style: TextStyle(color: Colors.white, fontSize: 12, letterSpacing: 1.2, fontWeight: FontWeight.w900)),
           SizedBox(height: 2),
-          Text('DIGITAL EXPERIENCE', style: TextStyle(color: Color(0xFF8F879F), fontSize: 9, letterSpacing: 1.5, fontWeight: FontWeight.w700)),
+          Text('DIGITAL EXPERIENCE', style: TextStyle(color: Color(0xFF8AAEBB), fontSize: 9, letterSpacing: 1.5, fontWeight: FontWeight.w700)),
         ])),
         TextButton.icon(
           onPressed: onLogin, style: TextButton.styleFrom(foregroundColor: const Color(0xFFE9E0F3)),
@@ -345,7 +345,7 @@ class _PulsingDotState extends State<_PulsingDot> with SingleTickerProviderState
   @override
   Widget build(BuildContext context) => FadeTransition(
     opacity: Tween<double>(begin: .35, end: 1).animate(_controller),
-    child: Container(width: 7, height: 7, decoration: const BoxDecoration(color: Color(0xFFFFA04C), shape: BoxShape.circle)),
+    child: Container(width: 7, height: 7, decoration: const BoxDecoration(color: Color(0xFF53D0DF), shape: BoxShape.circle)),
   );
 }
 
@@ -356,8 +356,8 @@ class _GlowOrb extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     width: size, height: size,
     decoration: BoxDecoration(shape: BoxShape.circle, gradient: RadialGradient(colors: [
-      const Color(0xFF9C5BD4).withValues(alpha: .25),
-      const Color(0xFFFF934A).withValues(alpha: .08),
+      const Color(0xFF318CA5).withValues(alpha: .25),
+      const Color(0xFF4BC9D7).withValues(alpha: .08),
       Colors.transparent,
     ])),
   );
@@ -370,7 +370,7 @@ class _EventTicker extends StatelessWidget {
     padding: const EdgeInsets.symmetric(vertical: 17),
     decoration: BoxDecoration(
       color: const Color(0xFF171523), borderRadius: BorderRadius.circular(17),
-      border: Border.all(color: const Color(0xFF30263E)),
+      border: Border.all(color: const Color(0xFF25495A)),
     ),
     child: const Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
       _TickerItem(Icons.auto_awesome, 'SPECIAL ATMOSPHERE'),
@@ -387,10 +387,10 @@ class _TickerItem extends StatelessWidget {
   Widget build(BuildContext context) => Flexible(child: Padding(
     padding: const EdgeInsets.symmetric(horizontal: 5),
     child: Column(mainAxisSize: MainAxisSize.min, children: [
-      Icon(icon, color: const Color(0xFFFFB56E), size: 19),
+      Icon(icon, color: const Color(0xFF7DDCE8), size: 19),
       const SizedBox(height: 7),
       Text(label, textAlign: TextAlign.center, style: const TextStyle(
-        color: Color(0xFFBDB5CB), fontSize: 8, letterSpacing: .7, fontWeight: FontWeight.w800,
+        color: Color(0xFFA8C9D4), fontSize: 8, letterSpacing: .7, fontWeight: FontWeight.w800,
       )),
     ]),
   ));
@@ -401,7 +401,7 @@ class _SectionHeading extends StatelessWidget {
   final String eyebrow, title, subtitle;
   @override
   Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-    Text(eyebrow, style: const TextStyle(color: Color(0xFFFFA65A), fontSize: 10, letterSpacing: 2, fontWeight: FontWeight.w900)),
+    Text(eyebrow, style: const TextStyle(color: Color(0xFF61D3DE), fontSize: 10, letterSpacing: 2, fontWeight: FontWeight.w900)),
     const SizedBox(height: 10),
     Text(title, style: const TextStyle(color: Colors.white, fontSize: 27, fontWeight: FontWeight.w900, letterSpacing: -.7)),
     const SizedBox(height: 8),
@@ -434,9 +434,9 @@ class _ExperienceCardState extends State<_ExperienceCard> {
         duration: const Duration(milliseconds: 220), curve: Curves.easeOutCubic,
         transform: Matrix4.translationValues(0, _hovered ? -6 : 0, 0),
         decoration: BoxDecoration(
-          color: _hovered ? const Color(0xFF262036) : const Color(0xFF191725),
+          color: _hovered ? const Color(0xFF17384A) : const Color(0xFF102536),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: _hovered ? d.accent.withValues(alpha: .8) : const Color(0xFF342B42)),
+          border: Border.all(color: _hovered ? d.accent.withValues(alpha: .8) : const Color(0xFF25495A)),
           boxShadow: _hovered ? [BoxShadow(color: d.accent.withValues(alpha: .12), blurRadius: 24)] : const [],
         ),
         child: Material(color: Colors.transparent, child: InkWell(
@@ -448,7 +448,7 @@ class _ExperienceCardState extends State<_ExperienceCard> {
                   color: d.accent.withValues(alpha: .13), borderRadius: BorderRadius.circular(13),
                 ), child: Icon(d.icon, color: d.accent, size: 22)),
                 const Spacer(),
-                Text(d.number, style: const TextStyle(color: Color(0xFF777086), fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                Text(d.number, style: const TextStyle(color: Color(0xFF7797A5), fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1)),
               ]),
               const Spacer(),
               Text(d.title, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900)),
@@ -477,7 +477,7 @@ class HauntedNightDashboardCard extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Material(
-        color: const Color(0xFF211832),
+        color: const Color(0xFF102B3C),
         borderRadius: BorderRadius.circular(21),
         child: InkWell(
           onTap: onTap,
@@ -486,11 +486,11 @@ class HauntedNightDashboardCard extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(17, 15, 13, 15),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(21),
-              border: Border.all(color: const Color(0xFF79548B)),
+              border: Border.all(color: const Color(0xFF397F91)),
               gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFF392248), Color(0xFF191C2D), Color(0xFF172C31)],
+                colors: [Color(0xFF16485C), Color(0xFF102B3C), Color(0xFF0A3341)],
               ),
               boxShadow: const [BoxShadow(color: Color(0x332B1647), blurRadius: 18, offset: Offset(0, 7))],
             ),
@@ -502,28 +502,28 @@ class HauntedNightDashboardCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: const Color(0x66FFB66E)),
                 ),
-                child: const Icon(Icons.nightlight_round, color: Color(0xFFFFBD79), size: 25),
+                child: const Icon(Icons.water_drop_rounded, color: Color(0xFF9DE8F2), size: 25),
               ),
               const SizedBox(width: 12),
               Expanded(child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: const [
-                  Text('LIMITED EVENT  •  23—30 NOV',
-                    style: TextStyle(color: Color(0xFFFFBD79), fontSize: 8, letterSpacing: 1.1, fontWeight: FontWeight.w900)),
+                  Text('RAINY SEASON  •  NOV 2026',
+                    style: TextStyle(color: Color(0xFF9DE8F2), fontSize: 8, letterSpacing: 1.1, fontWeight: FontWeight.w900)),
                   SizedBox(height: 5),
-                  Text('MARAWIS HAUNTED NIGHT 2026',
+                  Text('THE RAIN HAS A RHYTHM',
                     style: TextStyle(color: Colors.white, fontSize: 11, letterSpacing: .5, fontWeight: FontWeight.w900)),
                   SizedBox(height: 5),
                   Text('Masuki arcade, mainkan 4 game, dan kumpulkan XP.',
                     style: TextStyle(color: Color(0xFFD0C6DC), fontSize: 10, height: 1.4)),
                   SizedBox(height: 8),
                   Text('ENTER THE EVENT  →',
-                    style: TextStyle(color: Color(0xFFFFB66E), fontSize: 9, letterSpacing: 1.1, fontWeight: FontWeight.w900)),
+                    style: TextStyle(color: Color(0xFF3EC6D9), fontSize: 9, letterSpacing: 1.1, fontWeight: FontWeight.w900)),
                 ],
               )),
               const SizedBox(width: 8),
               Image.asset('assets/images/marwi.webp', width: 65, height: 78, fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => const Text('🎃', style: TextStyle(fontSize: 36))),
+                errorBuilder: (_, __, ___) => const Text('💧', style: TextStyle(fontSize: 36))),
             ]),
           ),
         ),
@@ -538,7 +538,7 @@ class _NightBackdropPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final grid = Paint()..color = const Color(0xFFB89BDB).withValues(alpha: .055)..strokeWidth = .7;
+    final grid = Paint()..color = const Color(0xFF8BCBD8).withValues(alpha: .055)..strokeWidth = .7;
     for (double x = 0; x < size.width; x += 46) { canvas.drawLine(Offset(x, 0), Offset(x, size.height), grid); }
     for (double y = 0; y < size.height; y += 46) { canvas.drawLine(Offset(0, y), Offset(size.width, y), grid); }
     final particle = Paint()..style = PaintingStyle.fill;
