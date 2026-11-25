@@ -5,7 +5,7 @@ import 'package:marawis_smpn99/haunted_event_hub.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  group('Marawis Haunted Night schedule', () {
+  group('Marawis Rainy Season schedule', () {
     test('is active from November 23, 2026', () {
       expect(isHauntedNightActive(DateTime(2026, 11, 23)), isTrue);
     });
@@ -28,18 +28,18 @@ void main() {
       MaterialApp(home: HauntedNightLanding(onLogin: () {})),
     );
     await tester.pump(const Duration(milliseconds: 120));
-    expect(find.text('MARAWIS HAUNTED NIGHT 2026'), findsOneWidget);
-    expect(find.text('Mystery Pumpkin'), findsOneWidget);
+    expect(find.text('THE RAIN HAS A RHYTHM'), findsOneWidget);
+    expect(find.text('Rainy Season Challenge'), findsOneWidget);
   });
 
-  testWidgets('Haunted Night arcade lists all four game modes', (tester) async {
+  testWidgets('Rainy Season arcade lists all four game modes', (tester) async {
     SharedPreferences.setMockInitialValues({});
     await tester.pumpWidget(
       MaterialApp(home: HauntedEventHub(playerName: 'Tester')),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Pumpkin Hunt'), findsOneWidget);
-    expect(find.text('Haunted Quiz'), findsOneWidget);
+    expect(find.text('Rain Drop Hunt'), findsOneWidget);
+    expect(find.text('Rainy Rhythm Quiz'), findsOneWidget);
     expect(find.text('Memory Maze'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('Secret Word'), 180);
     await tester.pumpAndSettle();
