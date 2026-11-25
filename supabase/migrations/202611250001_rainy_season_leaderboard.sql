@@ -49,7 +49,7 @@ begin
   values (v_user_id, coalesce(v_display_name, 'Anggota'), p_xp, now())
   on conflict (user_id) do update
     set display_name = excluded.display_name,
-        xp = greatest(public.rainy_season_scores.xp, excluded.xp),
+        xp = greatest(rainy_season_scores.xp, excluded.xp),
         updated_at = now();
 end;
 $$;
