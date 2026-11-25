@@ -1662,7 +1662,7 @@ class _MenuCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final haunted = isHauntedNightActive(DateTime.now());
     return Material(
-      color: haunted ? const Color(0xFF21182B) : Colors.white,
+      color: haunted ? const Color(0xFF102B3C) : Colors.white,
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
         onTap: onTap,
