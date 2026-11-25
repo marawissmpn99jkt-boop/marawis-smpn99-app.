@@ -20,12 +20,29 @@ create policy "Authenticated members read rainy season leaderboard"
   using (true);
 
 revoke all on public.rainy_season_scores from anon, public;
-grant select on public.rainy_season_scores to authenticated;
+grant select, insert, update on public.rainy_season_scores to authenticated;
+
+drop policy if exists "Members submit own Rainy Season score"
+  on public.rainy_season_scores;
+create policy "Members submit own Rainy Season score"
+  on public.rainy_season_scores
+  for insert
+  to authenticated
+  with check ((select auth.uid()) = user_id);
+
+drop policy if exists "Members update own Rainy Season score"
+  on public.rainy_season_scores;
+create policy "Members update own Rainy Season score"
+  on public.rainy_season_scores
+  for update
+  to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
 
 create or replace function public.submit_rainy_season_score(p_xp integer)
 returns void
 language plpgsql
-security definer
+security invoker
 set search_path = public
 as $$
 declare
