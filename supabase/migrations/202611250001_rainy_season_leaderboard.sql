@@ -1,6 +1,6 @@
 -- Shared Rainy Season leaderboard.
--- Scores are submitted through a security-definer RPC so clients cannot
--- impersonate another member or overwrite another member's display name.
+-- Scores are submitted through a security-invoker RPC and ownership RLS policies.
+-- A member can only create or update their own leaderboard row.
 
 create table if not exists public.rainy_season_scores (
   user_id uuid primary key references auth.users(id) on delete cascade,
