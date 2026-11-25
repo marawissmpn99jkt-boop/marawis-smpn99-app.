@@ -31,6 +31,15 @@ class _HauntedEventHubState extends State<HauntedEventHub>{
       await p.setString('rainy_daily_day_v1',today);
       await p.setString('rainy_daily_done_v1',daily.toList());
       await p.setInt('rainy_daily_xp_v1',0);
+      await p.setStringList('rainy_daily_games_v1',[]);
+      final lastRewardedStreak=p.getInt('rainy_streak_rewarded_v1')??0;
+      if(currentStreak>=3&&currentStreak%3==0&&lastRewardedStreak<currentStreak){
+        currentXp+=50;
+        daily.add('streak');
+        await p.setInt('rainy_streak_rewarded_v1',currentStreak);
+        await p.setInt('rainy_xp_v1',currentXp);
+        await p.setStringList('rainy_daily_done_v1',daily.toList());
+      }
       await p.setString('rainy_last_visit_v1',today);
       await p.setInt('rainy_streak_v1',currentStreak);
       await p.setInt('rainy_xp_v1',currentXp);
@@ -41,12 +50,6 @@ class _HauntedEventHubState extends State<HauntedEventHub>{
       done.addAll(p.getStringList('rainy_done_v1')??[]); loading=false;
     });
     _syncLeaderboard();
-  }
-  Future<void> _persistScore() async {
-    final p=await SharedPreferences.getInstance();
-    await p.setInt('rainy_xp_v1',xp);
-    await p.setStringList('rainy_done_v1',done.toList());
-    await _syncLeaderboard();
   }
   Future<void> _completeDaily(String id,int reward) async {
     if(dailyDone.contains(id))return;
@@ -89,8 +92,9 @@ class _HauntedEventHubState extends State<HauntedEventHub>{
     }
     setState(()=>leaderboardLoading=true);
     try {
+      await _syncLeaderboard();
       final rows=await Supabase.instance.client.from('rainy_season_scores')
-        .select('display_name,xp,updated_at').order('xp',ascending:false)
+        .select('user_id,display_name,xp,updated_at').order('xp',ascending:false)
         .order('updated_at').limit(50);
       if(!mounted)return;
       setState(()=>leaderboard=List<Map<String,dynamic>>.from(rows));
@@ -102,7 +106,7 @@ class _HauntedEventHubState extends State<HauntedEventHub>{
   }
   @override Widget build(BuildContext context){
     if(game!=null)return _ArcadeGame(id:game!,back:()=>setState(()=>game=null),win:(v)=>_win(game!,v));
-    final level=((xp~/100)+1).clamp(1,10);
+    final level=((xp~/100)+1).clamp(1,10).toInt();
     final progress=(xp%100)/100;
     return Scaffold(
       backgroundColor:const Color(0xFF071522),
@@ -155,6 +159,7 @@ class _HauntedEventHubState extends State<HauntedEventHub>{
           _MissionRow(title:'One Game a Day',detail:'Selesaikan satu mini-game hari ini',reward:'+40 XP',complete:dailyDone.contains('play'),icon:Icons.sports_esports_rounded),
           _MissionRow(title:'Double Rhythm',detail:'Selesaikan dua mini-game berbeda hari ini',reward:'+60 XP',complete:dailyDone.contains('combo'),icon:Icons.bolt_rounded),
           _MissionRow(title:'Rain Collector',detail:'Kumpulkan 100 XP dari aktivitas hari ini',reward:'+50 XP',complete:dailyDone.contains('xp'),icon:Icons.water_drop_rounded),
+          _MissionRow(title:'Streak Bonus',detail:'Pertahankan kunjungan selama tiga hari berturut-turut',reward:'+50 XP setiap 3 hari',complete:dailyDone.contains('streak'),icon:Icons.local_fire_department_rounded),
           const SizedBox(height:14),
           const _EventSectionTitle(eyebrow:'EVENT CHALLENGES',title:'Misi utama',subtitle:'Empat tantangan inti membuka akses ke secret event.'),
           const SizedBox(height:10),
@@ -186,7 +191,7 @@ class _HauntedEventHubState extends State<HauntedEventHub>{
           if(leaderboardLoading) const Center(child:Padding(padding:EdgeInsets.all(24),child:CircularProgressIndicator()))
           else if(leaderboardError!=null) _EventNotice(text:leaderboardError!)
           else if(leaderboard.isEmpty) const _EventNotice(text:'Belum ada skor. Jadilah anggota pertama yang mengumpulkan Rain XP!')
-          else ...List.generate(leaderboard.length,(i)=>_LeaderboardRow(rank:i+1,name:(leaderboard[i]['display_name']??'Anggota').toString(),score:(leaderboard[i]['xp'] as num?)?.toInt()??0,isMe:leaderboard[i]['display_name']==widget.playerName)),
+          else ...List.generate(leaderboard.length,(i)=>_LeaderboardRow(rank:i+1,name:(leaderboard[i]['display_name']??'Anggota').toString(),score:(leaderboard[i]['xp'] as num?)?.toInt()??0,isMe:leaderboard[i]['user_id']==Supabase.instance.client.auth.currentUser?.id)),
         ],
         if(tab==4)...[
           _EventSectionTitle(eyebrow:'CLASSIFIED EVENT • UNLOCKED BY FOUR MAIN GAMES',title:'After the Rain',subtitle:done.contains('afterrain_unlocked')?'Kamu menemukan jalur rahasia. Selesaikan satu tantangan terakhir untuk memperoleh badge eksklusif.':'Selesaikan empat mini-game utama untuk membuka event rahasia ini.'),
