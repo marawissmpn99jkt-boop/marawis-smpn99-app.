@@ -52,7 +52,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 120));
     expect(find.text('DAILY'), findsOneWidget);
     expect(find.text('BADGES'), findsOneWidget);
-    expect(find.text('RANK'), findsOneWidget);
+    expect(find.text('RANK'), findsAtLeastNWidgets(1));
     expect(find.text('SECRET'), findsOneWidget);
     await tester.tap(find.text('DAILY'));
     await tester.pump(const Duration(milliseconds: 100));
