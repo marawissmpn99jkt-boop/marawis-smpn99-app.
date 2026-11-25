@@ -222,11 +222,11 @@ class _HauntedNightLandingState extends State<HauntedNightLanding>
     final data = [
       _ExperienceData('01', Icons.auto_awesome_rounded, 'A different world',
         'Nikmati atmosfer visual spesial yang hadir selama event berlangsung.',
-        const Color(0xFFFFA34F), () => _showInfo('A different world',
+        const Color(0xFF43C6D9), () => _showInfo('A different world',
           'The Rain Has a Rhythm merayakan musim hujan di Indonesia melalui pengalaman event Marawis. Fitur organisasi tetap tersedia seperti biasa.')),
-      _ExperienceData('02', Icons.toys_rounded, 'Rainy Season Challenge',
+      _ExperienceData('02', Icons.water_drop_rounded, 'Rainy Season Challenge',
         'Jelajahi tantangan bertema hujan dan temukan keseruan baru bersama Marawis.',
-        const Color(0xFFB78AFF), _openPumpkin),
+        const Color(0xFF75B8FF), _openPumpkin),
       _ExperienceData('03', Icons.groups_rounded, 'One Marawis family',
         'Masuk ke ruang digital untuk terhubung dengan seluruh aktivitas Marawis.',
         const Color(0xFF68D9C0), widget.onLogin),
@@ -508,7 +508,7 @@ class HauntedNightDashboardCard extends StatelessWidget {
               Expanded(child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: const [
-                  Text('LIMITED EVENT  •  23—30 NOV',
+                  Text('RAINY SEASON  •  NOV 2026',
                     style: TextStyle(color: Color(0xFF9DE8F2), fontSize: 8, letterSpacing: 1.1, fontWeight: FontWeight.w900)),
                   SizedBox(height: 5),
                   Text('THE RAIN HAS A RHYTHM',
