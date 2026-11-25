@@ -80,20 +80,26 @@ class _HauntedEventHubState extends State<HauntedEventHub>{
     }
     await _syncLeaderboard();
   }
+  String? get _currentUserId {
+    try { return Supabase.instance.client.auth.currentUser?.id; } catch (_) { return null; }
+  }
   Future<void> _syncLeaderboard() async {
-    final user=Supabase.instance.client.auth.currentUser;
-    if(user==null)return;
-    try { await Supabase.instance.client.rpc('submit_rainy_season_score',params:{'p_xp':xp}); } catch (_) {}
+    try {
+      final client=Supabase.instance.client;
+      if(client.auth.currentUser==null)return;
+      await client.rpc('submit_rainy_season_score',params:{'p_xp':xp});
+    } catch (_) {}
   }
   Future<void> _loadLeaderboard() async {
-    if(Supabase.instance.client.auth.currentUser==null){
-      setState(()=>leaderboardError='Masuk ke akun Marawis untuk melihat leaderboard bersama.');
-      return;
-    }
-    setState(()=>leaderboardLoading=true);
     try {
+      final client=Supabase.instance.client;
+      if(client.auth.currentUser==null){
+        if(mounted)setState(()=>leaderboardError='Masuk ke akun Marawis untuk melihat leaderboard bersama.');
+        return;
+      }
+      setState(()=>leaderboardLoading=true);
       await _syncLeaderboard();
-      final rows=await Supabase.instance.client.from('rainy_season_scores')
+      final rows=await client.from('rainy_season_scores')
         .select('user_id,display_name,xp,updated_at').order('xp',ascending:false)
         .order('updated_at').limit(50);
       if(!mounted)return;
@@ -101,7 +107,7 @@ class _HauntedEventHubState extends State<HauntedEventHub>{
       leaderboardError=null;
     } catch (_) {
       if(!mounted)return;
-      leaderboardError='Leaderboard belum tersedia. Pastikan migrasi database Rainy Season sudah diterapkan.';
+      setState(()=>leaderboardError='Leaderboard belum tersedia. Pastikan migrasi database Rainy Season sudah diterapkan.');
     } finally { if(mounted)setState(()=>leaderboardLoading=false); }
   }
   @override Widget build(BuildContext context){
@@ -191,7 +197,7 @@ class _HauntedEventHubState extends State<HauntedEventHub>{
           if(leaderboardLoading) const Center(child:Padding(padding:EdgeInsets.all(24),child:CircularProgressIndicator()))
           else if(leaderboardError!=null) _EventNotice(text:leaderboardError!)
           else if(leaderboard.isEmpty) const _EventNotice(text:'Belum ada skor. Jadilah anggota pertama yang mengumpulkan Rain XP!')
-          else ...List.generate(leaderboard.length,(i)=>_LeaderboardRow(rank:i+1,name:(leaderboard[i]['display_name']??'Anggota').toString(),score:(leaderboard[i]['xp'] as num?)?.toInt()??0,isMe:leaderboard[i]['user_id']==Supabase.instance.client.auth.currentUser?.id)),
+          else ...List.generate(leaderboard.length,(i)=>_LeaderboardRow(rank:i+1,name:(leaderboard[i]['display_name']??'Anggota').toString(),score:(leaderboard[i]['xp'] as num?)?.toInt()??0,isMe:leaderboard[i]['user_id']==_currentUserId)),
         ],
         if(tab==4)...[
           _EventSectionTitle(eyebrow:'CLASSIFIED EVENT • UNLOCKED BY FOUR MAIN GAMES',title:'After the Rain',subtitle:done.contains('afterrain_unlocked')?'Kamu menemukan jalur rahasia. Selesaikan satu tantangan terakhir untuk memperoleh badge eksklusif.':'Selesaikan empat mini-game utama untuk membuka event rahasia ini.'),
