@@ -29,7 +29,7 @@ class _HauntedEventHubState extends State<HauntedEventHub>{
       daily..clear()..add('visit');
       currentXp+=20;
       await p.setString('rainy_daily_day_v1',today);
-      await p.setString('rainy_daily_done_v1',daily.toList());
+      await p.setStringList('rainy_daily_done_v1',daily.toList());
       await p.setInt('rainy_daily_xp_v1',0);
       await p.setStringList('rainy_daily_games_v1',[]);
       final lastRewardedStreak=p.getInt('rainy_streak_rewarded_v1')??0;
@@ -187,6 +187,7 @@ class _HauntedEventHubState extends State<HauntedEventHub>{
           _CollectionItem(icon:'🧩',title:'Memory Keeper',detail:'Menyelesaikan Memory Maze',unlocked:done.contains('memory')),
           _CollectionItem(icon:'🗝️',title:'Rhythm Finder',detail:'Menemukan kata rahasia',unlocked:done.contains('word')),
           _CollectionItem(icon:'🌧️',title:'After the Rain',detail:'Selesaikan secret event',unlocked:done.contains('afterrain')),
+          _CollectionItem(icon:'🌊',title:'Rain Trail',detail:'Mencapai level 8 Rain Pass',unlocked:xp>=700),
           _CollectionItem(icon:'💎',title:'Cloud Nine',detail:'Mencapai level 10 Rain Pass',unlocked:xp>=900),
           const SizedBox(height:12),const _EventNotice(text:'Badge terbuka otomatis berdasarkan progres event.'),
         ],
@@ -238,6 +239,7 @@ class _RainPassRewards extends StatelessWidget {
     const SizedBox(height:10),Row(children:List.generate(5,(i){final lv=(i+1)*2;final unlocked=level>=lv;return Expanded(child:Column(children:[
       Container(width:34,height:34,decoration:BoxDecoration(color:unlocked?const Color(0xFF1D7185):const Color(0xFF1B3040),shape:BoxShape.circle,border:Border.all(color:unlocked?const Color(0xFF73E1E8):const Color(0xFF426070))),child:Icon(unlocked?Icons.card_giftcard_rounded:Icons.lock_outline_rounded,color:unlocked?const Color(0xFFB7F6F4):const Color(0xFF6D8A98),size:17)),
       const SizedBox(height:5),Text('LV $lv',style:TextStyle(color:unlocked?Colors.white:const Color(0xFF7896A2),fontSize:8,fontWeight:FontWeight.w900)),
+      const SizedBox(height:2),Text(const ['Badge','Frame','Title','Rain Trail','Champion'][i],style:TextStyle(color:unlocked?const Color(0xFF9DE8F2):const Color(0xFF66808D),fontSize:7,fontWeight:FontWeight.w700)),
     ]));})),
   ]));
 }
