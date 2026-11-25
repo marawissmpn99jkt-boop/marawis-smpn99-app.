@@ -46,4 +46,20 @@ void main() {
     expect(find.text('Secret Word'), findsOneWidget);
   });
 
+  testWidgets('Rainy Season exposes daily, badges, ranking and secret event tabs', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    await tester.pumpWidget(MaterialApp(home: HauntedEventHub(playerName: 'Tester')));
+    await tester.pump(const Duration(milliseconds: 120));
+    expect(find.text('DAILY'), findsOneWidget);
+    expect(find.text('BADGES'), findsOneWidget);
+    expect(find.text('RANK'), findsOneWidget);
+    expect(find.text('SECRET'), findsOneWidget);
+    await tester.tap(find.text('DAILY'));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.text('One Game a Day'), findsOneWidget);
+    await tester.tap(find.text('SECRET'));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.text('After the Rain'), findsOneWidget);
+  });
+
 }
