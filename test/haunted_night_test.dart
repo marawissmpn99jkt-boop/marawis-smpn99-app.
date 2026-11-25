@@ -37,12 +37,12 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(home: HauntedEventHub(playerName: 'Tester')),
     );
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 120));
     expect(find.text('Rain Drop Hunt'), findsOneWidget);
     expect(find.text('Rainy Rhythm Quiz'), findsOneWidget);
     expect(find.text('Memory Maze'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('Secret Word'), 180);
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 120));
     expect(find.text('Secret Word'), findsOneWidget);
   });
 
