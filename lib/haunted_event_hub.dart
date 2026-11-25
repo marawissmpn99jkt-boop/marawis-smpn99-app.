@@ -131,7 +131,7 @@ class _HauntedEventHubState extends State<HauntedEventHub>{
         const SizedBox(height:14),
         Row(children:[
           Expanded(child:_Stat('RAIN XP',xp.toString(),Icons.bolt_rounded)),const SizedBox(width:9),
-          Expanded(child:_Stat('MISSIONS',done.where((x)=>!x.endsWith('_unlocked')).length.toString()+'/4',Icons.flag_rounded)),const SizedBox(width:9),
+          Expanded(child:_Stat('MISSIONS',done.where((x)=>['raindrop','quiz','memory','word'].contains(x)).length.toString()+'/4',Icons.flag_rounded)),const SizedBox(width:9),
           Expanded(child:_Stat('RANK','LV. $level',Icons.military_tech_rounded)),
         ]),
         const SizedBox(height:20),
