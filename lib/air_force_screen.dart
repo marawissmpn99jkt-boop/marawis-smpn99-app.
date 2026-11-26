@@ -407,6 +407,8 @@ class _AirForceScreenState extends State<AirForceScreen> {
         _raceLobby(),
         _section('FLIGHT CHALLENGE', 'Terbang melewati gerbang energi dalam tantangan arcade 25 detik.'),
         _challenge(),
+        _section('AIRCRAFT SHOWCASE', 'Pesawat pilihanmu di hangar Marawis Air Force.'),
+        _aircraftShowcase(current),
         _section('ACTIVE AIRCRAFT', 'Pesawat yang sedang kamu gunakan.'),
         _planeCard(current, active: true),
         _section('AIRCRAFT HANGAR', 'Bebas membeli pesawat selama level dan saldo AC mencukupi.'),
@@ -548,6 +550,43 @@ class _AirForceScreenState extends State<AirForceScreen> {
     ]),
   );
 
+
+  Widget _aircraftShowcase(Map<String, dynamic> plane) {
+    final tier = plane['tier'] as int;
+    final accent = tier >= 5 ? const Color(0xFFFFD166) : const Color(0xFF80E8E0);
+    return Container(
+      height: 238,
+      margin: const EdgeInsets.only(bottom: 10),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft, end: Alignment.bottomRight,
+          colors: [Color(0xFF173B55), Color(0xFF081725), Color(0xFF102A40)],
+        ),
+        border: Border.all(color: accent.withValues(alpha: .55)),
+      ),
+      child: Stack(children: [
+        Positioned.fill(child: CustomPaint(painter: _HangarPainter(accent))),
+        Positioned(left: 15, top: 13, child: Text(
+          'HANGAR 01  •  TIER $tier',
+          style: TextStyle(color: accent, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1.1),
+        )),
+        Positioned.fill(
+          top: 22, bottom: 44,
+          child: CustomPaint(painter: _AircraftPainter(accent, plane['id'].toString().hashCode)),
+        ),
+        Positioned(left: 15, right: 15, bottom: 12, child: Row(children: [
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+            Text(plane['name'].toString(), style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w900)),
+            Text('${plane['gen']}  •  ${plane['role']}', style: const TextStyle(color: Colors.white70, fontSize: 10)),
+          ])),
+          Icon(Icons.verified, color: accent, size: 19),
+        ])),
+      ]),
+    );
+  }
+
   Widget _planeCard(Map<String, dynamic> plane, {bool active = false}) {
     final isOwned = owned.contains(plane['id']);
     final requiredLevel = plane['level'] as int;
@@ -587,4 +626,68 @@ class _AirForceScreenState extends State<AirForceScreen> {
       ]),
     );
   }
+}
+
+
+class _HangarPainter extends CustomPainter {
+  final Color accent;
+  const _HangarPainter(this.accent);
+  @override
+  void paint(Canvas canvas, Size size) {
+    final glow = Paint()..shader = RadialGradient(colors: [
+      accent.withValues(alpha: .24), accent.withValues(alpha: .02), Colors.transparent,
+    ]).createShader(Rect.fromCircle(center: Offset(size.width / 2, size.height * .52), radius: size.width * .48));
+    canvas.drawRect(Offset.zero & size, glow);
+    final grid = Paint()..color = accent.withValues(alpha: .15)..strokeWidth = 1;
+    final horizon = size.height * .72;
+    canvas.drawLine(Offset(0, horizon), Offset(size.width, horizon), grid);
+    for (var i = -4; i <= 4; i++) {
+      canvas.drawLine(Offset(size.width / 2 + i * 15, horizon), Offset(size.width / 2 + i * 58, size.height), grid);
+    }
+    for (var i = 1; i <= 4; i++) {
+      final y = horizon + i * i * 5.0;
+      canvas.drawLine(Offset(size.width * .12, y), Offset(size.width * .88, y), grid);
+    }
+  }
+  @override
+  bool shouldRepaint(covariant _HangarPainter old) => old.accent != accent;
+}
+
+class _AircraftPainter extends CustomPainter {
+  final Color accent;
+  final int variant;
+  const _AircraftPainter(this.accent, this.variant);
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.save();
+    canvas.translate(size.width / 2, size.height * .52);
+    canvas.rotate((variant % 7 - 3) * .018);
+    final silhouette = Path()
+      ..moveTo(0, -82)..lineTo(12, -45)..lineTo(91, -8)
+      ..lineTo(100, 5)..lineTo(20, -1)..lineTo(14, 43)
+      ..lineTo(38, 66)..lineTo(38, 74)..lineTo(0, 65)
+      ..lineTo(-38, 74)..lineTo(-38, 66)..lineTo(-14, 43)
+      ..lineTo(-20, -1)..lineTo(-100, 5)..lineTo(-91, -8)
+      ..lineTo(-12, -45)..close();
+    canvas.drawPath(silhouette.shift(const Offset(0, 8)), Paint()
+      ..color = Colors.black.withValues(alpha: .48)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12));
+    canvas.drawPath(silhouette, Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.centerLeft, end: Alignment.centerRight,
+        colors: [Color(0xFF526F82), Color(0xFFEAF5F8), Color(0xFF607F91)],
+      ).createShader(const Rect.fromLTWH(-105, -90, 210, 170)));
+    final cockpit = Path()
+      ..moveTo(0, -69)..cubicTo(9, -59, 8, -43, 0, -34)
+      ..cubicTo(-8, -43, -9, -59, 0, -69)..close();
+    canvas.drawPath(cockpit, Paint()..color = const Color(0xFF153B56));
+    canvas.drawPath(cockpit, Paint()..style = PaintingStyle.stroke..strokeWidth = 1.5..color = accent);
+    final stripe = Paint()..color = accent.withValues(alpha: .9)..strokeWidth = 2;
+    canvas.drawLine(const Offset(-68, -5), const Offset(-29, 0), stripe);
+    canvas.drawLine(const Offset(68, -5), const Offset(29, 0), stripe);
+    canvas.drawCircle(const Offset(0, -3), 3, Paint()..color = accent);
+    canvas.restore();
+  }
+  @override
+  bool shouldRepaint(covariant _AircraftPainter old) => old.accent != accent || old.variant != variant;
 }
