@@ -140,7 +140,7 @@ class _AirForceScreenState extends State<AirForceScreen> {
     if (room == null) return;
     try {
       final rows = await db.from('multiplayer_players').select('user_id,display_name,score,joined_at')
-        .eq('room_id',room['id']).order('joined_at');
+        .eq('room_id',room['id']).order('score',ascending:false).order('joined_at');
       if (mounted) setState(() => racePlayers = List<Map<String,dynamic>>.from(rows));
     } catch (_) {}
   }
