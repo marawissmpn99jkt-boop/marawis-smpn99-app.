@@ -160,6 +160,7 @@ class _AirForceScreenState extends State<AirForceScreen> {
     if (room == null || busy) return;
     setState(() => busy = true);
     try {
+      await db.from('multiplayer_players').update({'score':0}).eq('room_id',room['id']);
       await db.rpc('air_force_start_room',params:{'p_room_id':room['id']});
       await refreshActiveRoom();
       note('Room dimulai! Mode checkpoint race siap.');
@@ -207,8 +208,17 @@ class _AirForceScreenState extends State<AirForceScreen> {
             const SizedBox(height:8),
             if(room['host_id']==uid && room['status']=='waiting')
               SizedBox(width:double.infinity,child:FilledButton.icon(onPressed:busy?null:startRaceRoom,icon:const Icon(Icons.flag),label:const Text('MULAI ROOM'))),
-            if(room['status']=='playing')
-              const Text('Room sudah dimulai. Sesi multiplayer tersambung.',style:TextStyle(color:Color(0xFF80E8E0),fontSize:11)),
+            if(room['status']=='playing') ...[
+              const Text('RACE LIVE • Mainkan Sky Run di bawah. Skor checkpoint tersinkron ke semua pilot.',style:TextStyle(color:Color(0xFF80E8E0),fontSize:11)),
+              const SizedBox(height:8),
+              for(var i=0;i<racePlayers.length;i++)
+                Padding(padding:const EdgeInsets.symmetric(vertical:3),child:Row(children:[
+                  Text('#${i+1}',style:const TextStyle(color:Color(0xFFFFD166),fontWeight:FontWeight.w900)),
+                  const SizedBox(width:8),
+                  Expanded(child:Text(racePlayers[i]['display_name'].toString(),style:const TextStyle(color:Colors.white))),
+                  Text('${racePlayers[i]['score']} PTS',style:const TextStyle(color:Color(0xFF80E8E0),fontWeight:FontWeight.w900)),
+                ])),
+            ],
             TextButton(onPressed:leaveRaceRoom,child:const Text('Keluar dari room')),
           ])),
         ] else ...[
@@ -278,6 +288,10 @@ class _AirForceScreenState extends State<AirForceScreen> {
 
   Future<void> startMatch() async {
     if (playing || busy) return;
+    if (activeRoom != null && activeRoom!['status'] != 'playing') {
+      note('Tunggu host memulai room terlebih dahulu.');
+      return;
+    }
     setState(() => busy = true);
     try {
       final result = await db.rpc('air_force_start_match');
@@ -309,6 +323,16 @@ class _AirForceScreenState extends State<AirForceScreen> {
     }
   }
 
+  Future<void> syncRaceScore(int value) async {
+    final room = activeRoom;
+    final uid = db.auth.currentUser?.id;
+    if (room == null || uid == null || room['status'] != 'playing') return;
+    try {
+      await db.from('multiplayer_players').update({'score': value})
+        .eq('room_id', room['id']).eq('user_id', uid);
+    } catch (_) {}
+  }
+
   void hitGate(int index) {
     if (!playing || index != activeGate) {
       if (playing) setState(() => combo = 0);
@@ -320,6 +344,7 @@ class _AirForceScreenState extends State<AirForceScreen> {
       if (combo > bestCombo) bestCombo = combo;
       activeGate = random.nextInt(9);
     });
+    syncRaceScore(score);
   }
 
   Future<void> finishMatch() async {
@@ -330,6 +355,8 @@ class _AirForceScreenState extends State<AirForceScreen> {
     try {
       await db.rpc('air_force_finish_match', params: {'p_match_id': id});
       matchId = null;
+      await syncRaceScore(score);
+      await refreshRacePlayers();
       await load();
       note('Sky Run selesai! +75 AP dan +25 XP berhasil disimpan.');
     } catch (e) {
