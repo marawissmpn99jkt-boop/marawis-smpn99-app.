@@ -42,7 +42,7 @@ class _AirForceScreenState extends State<AirForceScreen> {
       await db.rpc('air_force_initialize');
       final p=await db.from('air_force_profiles').select().eq('user_id',db.auth.currentUser!.id).single();
       final rows=await db.from('air_force_owned_aircraft').select('aircraft_id').eq('user_id',db.auth.currentUser!.id);
-      if(mounted)setState(()=>{profile=Map<String,dynamic>.from(p),owned=rows.map<String>((e)=>e['aircraft_id'].toString()).toList(),loading=false});
+      if(mounted)setState(() { profile=Map<String,dynamic>.from(p); owned=rows.map<String>((e)=>e['aircraft_id'].toString()).toList(); loading=false; });
     }catch(e){if(mounted)setState(()=>loading=false);note('Air Force belum siap: '+e.toString());}
   }
   Future<void> convert() async {
@@ -58,16 +58,16 @@ class _AirForceScreenState extends State<AirForceScreen> {
     if(mounted)setState(()=>busy=false);
   }
   Future<void> selectPlane(String id) async {
-    try{await db.from('air_force_profiles').update({'selected_aircraft':id}).eq('user_id',db.auth.currentUser!.id);await load();}
+    try{await db.rpc('air_force_select_aircraft',params:{'p_aircraft_id':id});await load();}
     catch(e){note('Gagal memilih pesawat: '+e.toString());}
   }
   void startMatch(){
     if(playing||busy)return;
-    setState(()=>{playing=true,seconds=25,score=0});
+    setState(() { playing=true; seconds=25; score=0; });
     timer=Timer.periodic(const Duration(seconds:1),(t){if(!mounted){t.cancel();return;}if(seconds<=1){t.cancel();finishMatch();}else{setState(()=>seconds--);}});
   }
   Future<void> finishMatch() async {
-    if(!mounted)return;setState(()=>{playing=false,busy=true});
+    if(!mounted)return;setState(() { playing=false; busy=true; });
     try{await db.rpc('air_force_finish_match',params:{'p_score':score});await load();note('Sky Run selesai! +75 AP.');}
     catch(e){note('Hasil gagal disimpan: '+e.toString());}
     if(mounted)setState(()=>busy=false);
