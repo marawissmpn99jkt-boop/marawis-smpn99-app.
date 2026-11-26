@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'multiplayer_games_screen.dart';
+import 'air_force_screen.dart';
 
 class CommunityHubScreen extends StatefulWidget {
   const CommunityHubScreen({super.key, required this.role});
@@ -20,7 +21,7 @@ class _CommunityHubScreenState extends State<CommunityHubScreen> with SingleTick
   late final TabController tabs;
   bool gameActive=false;
   bool get admin => widget.role == 'pengurus' || widget.role == 'pembina';
-  @override void initState(){super.initState();tabs=TabController(length:3,vsync:this);}
+  @override void initState(){super.initState();tabs=TabController(length:4,vsync:this);}
   @override void dispose(){tabs.dispose();super.dispose();}
   void msg(String s){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(s)));}
 
@@ -291,7 +292,7 @@ class _CommunityHubScreenState extends State<CommunityHubScreen> with SingleTick
     reply.dispose();
   }
 
-  @override Widget build(BuildContext context)=>Scaffold(appBar:gameActive?null:AppBar(title:const Text('Komunitas Marawis'),bottom:TabBar(controller:tabs,isScrollable:true,tabs:const [Tab(icon:Icon(Icons.lightbulb_outline),text:'Kotak Saran'),Tab(icon:Icon(Icons.quiz_outlined),text:'Quiz'),Tab(icon:Icon(Icons.sports_esports_outlined),text:'Game')])),body:TabBarView(controller:tabs,physics:gameActive?const NeverScrollableScrollPhysics():null,children:[suggestions(),quizzes(),games()]));
+  @override Widget build(BuildContext context)=>Scaffold(appBar:gameActive?null:AppBar(title:const Text('Komunitas Marawis'),bottom:TabBar(controller:tabs,isScrollable:true,tabs:const [Tab(icon:Icon(Icons.lightbulb_outline),text:'Kotak Saran'),Tab(icon:Icon(Icons.quiz_outlined),text:'Quiz'),Tab(icon:Icon(Icons.sports_esports_outlined),text:'Game'),Tab(icon:Icon(Icons.flight_takeoff),text:'Air Force')])),body:TabBarView(controller:tabs,physics:gameActive?const NeverScrollableScrollPhysics():null,children:[suggestions(),quizzes(),games(),const AirForceScreen()]));
 
   Widget suggestions()=>Column(children:[
     Padding(padding:const EdgeInsets.all(14),child:Row(children:[const Expanded(child:Text('Sampaikan ide dan masukan untuk Marawis.')),FilledButton.icon(onPressed:addSuggestion,icon:const Icon(Icons.send),label:const Text('Kirim'))])),
