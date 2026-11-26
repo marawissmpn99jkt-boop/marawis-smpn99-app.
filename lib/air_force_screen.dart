@@ -15,7 +15,7 @@ class _AirForceScreenState extends State<AirForceScreen> {
   Map<String, dynamic>? profile;
   List<String> owned = [];
   bool loading = true, busy = false, playing = false;
-  int seconds = 25, score = 0, activeGate = 4, combo = 0, bestCombo = 0;
+  int seconds = 25, score = 0, activeGate = 4, combo = 0, bestCombo = 0, playerHp = 100, targetHp = 100, ammo = 12;
   String? matchId;
   Timer? timer;
   List<Map<String,dynamic>> raceRooms = [], racePlayers = [];
@@ -23,11 +23,11 @@ class _AirForceScreenState extends State<AirForceScreen> {
   RealtimeChannel? raceChannel;
 
   static const planes = <Map<String, dynamic>>[
-    {'id':'f86','name':'F-86 Sabre','tier':1,'level':1,'price':0,'gen':'Gen 1','role':'Starter interceptor'},
-    {'id':'mig15','name':'MiG-15','tier':1,'level':1,'price':350,'gen':'Gen 1','role':'Classic jet'},
-    {'id':'mig21','name':'MiG-21','tier':2,'level':3,'price':1000,'gen':'Gen 2','role':'Supersonic interceptor'},
-    {'id':'f5','name':'F-5 Tiger II','tier':2,'level':3,'price':1200,'gen':'Gen 2','role':'Light fighter'},
-    {'id':'f4','name':'F-4 Phantom II','tier':3,'level':5,'price':2600,'gen':'Gen 3','role':'Multirole jet'},
+    {'id':'f86','name':'F-86 Sabre','tier':1,'level':1,'price':0,'gen':'Gen 1','role':'Early-generation jet fighter'},
+    {'id':'mig15','name':'MiG-15','tier':1,'level':1,'price':350,'gen':'Gen 1','role':'Early-generation jet fighter'},
+    {'id':'mig21','name':'MiG-21','tier':2,'level':3,'price':1000,'gen':'Gen 2','role':'Supersonic fighter'},
+    {'id':'f5','name':'F-5 Tiger II','tier':2,'level':3,'price':1200,'gen':'Gen 2','role':'Lightweight fighter'},
+    {'id':'f4','name':'F-4 Phantom II','tier':3,'level':5,'price':2600,'gen':'Gen 3','role':'Twin-engine multirole fighter'},
     {'id':'mig23','name':'MiG-23','tier':3,'level':5,'price':3000,'gen':'Gen 3','role':'Variable-sweep jet'},
     {'id':'f16','name':'F-16 Fighting Falcon','tier':4,'level':8,'price':6500,'gen':'Gen 4','role':'Multirole fighter'},
     {'id':'f15','name':'F-15 Eagle','tier':4,'level':8,'price':7200,'gen':'Gen 4','role':'Air-superiority jet'},
@@ -301,6 +301,9 @@ class _AirForceScreenState extends State<AirForceScreen> {
         busy = false;
         playing = true;
         seconds = 25;
+        playerHp = 100;
+        targetHp = 100;
+        ammo = 12;
         score = 0;
         combo = 0;
         bestCombo = 0;
@@ -334,14 +337,29 @@ class _AirForceScreenState extends State<AirForceScreen> {
   }
 
   void hitGate(int index) {
-    if (!playing || index != activeGate) {
-      if (playing) setState(() => combo = 0);
+    if (!playing) return;
+    if (index != activeGate) {
+      setState(() {
+        combo = 0;
+        playerHp = max(0, playerHp - 8);
+      });
+      if (playerHp <= 0) finishMatch();
+      return;
+    }
+    if (ammo <= 0) {
+      note('Amunisi arcade habis. Tunggu isi ulang!');
       return;
     }
     setState(() {
-      score += 10 + min(combo, 5) * 2;
+      ammo--;
+      targetHp = max(0, targetHp - (18 + min(combo, 4) * 3));
+      score += 100 + min(combo, 5) * 20;
       combo++;
       if (combo > bestCombo) bestCombo = combo;
+      if (targetHp <= 0) {
+        targetHp = 100;
+        ammo = min(12, ammo + 4);
+      }
       activeGate = random.nextInt(9);
     });
     syncRaceScore(score);
@@ -405,16 +423,16 @@ class _AirForceScreenState extends State<AirForceScreen> {
         ),
         _section('SQUADRON NETWORK', 'Terhubung dengan pilot lain melalui room multiplayer.'),
         _raceLobby(),
-        _section('FLIGHT CHALLENGE', 'Terbang melewati gerbang energi dalam tantangan arcade 25 detik.'),
+        _section('AIR COMBAT ARENA', 'Pertempuran udara arcade: kunci target, tembak, dan pertahankan shield pesawat.'),
         _challenge(),
-        _section('AIRCRAFT SHOWCASE', 'Pesawat pilihanmu di hangar Marawis Air Force.'),
+        _section('3D AIRCRAFT HANGAR', 'Koleksi pesawat tempur nyata dari generasi awal hingga generasi kelima.'),
         _aircraftShowcase(current),
         _section('ACTIVE AIRCRAFT', 'Pesawat yang sedang kamu gunakan.'),
         _planeCard(current, active: true),
         _section('AIRCRAFT HANGAR', 'Bebas membeli pesawat selama level dan saldo AC mencukupi.'),
         for (final p in planes) _planeCard(p),
         const SizedBox(height: 16),
-        const Text('Catatan: Sky Run adalah permainan arcade fiktif. Pesawat dan koleksi menggunakan nama model pesawat nyata, tanpa simulasi penggunaan senjata.',
+        const Text('Mode pertempuran menggunakan mekanik arcade abstrak. Statistik dan perlengkapan dalam game bukan panduan penggunaan senjata di dunia nyata.',
           style: TextStyle(color: Colors.white38, fontSize: 10, height: 1.4)),
       ]),
     );
@@ -486,7 +504,7 @@ class _AirForceScreenState extends State<AirForceScreen> {
     ),
     child: Column(children: [
       Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        Text(playing ? 'TIME 00:' + seconds.toString().padLeft(2, '0') : '25 SECOND SKY RUN',
+        Text(playing ? 'COMBAT • 00:' + seconds.toString().padLeft(2, '0') : 'AIR COMBAT • 25 SEC',
           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
         Text('SCORE ' + score.toString(), style: const TextStyle(color: Color(0xFF80E8E0), fontWeight: FontWeight.w900)),
       ]),
@@ -504,6 +522,16 @@ class _AirForceScreenState extends State<AirForceScreen> {
               SizedBox(width: 6),
               Text('CHECKPOINT RADAR', style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
             ]),
+            const SizedBox(height: 10),
+            Row(children: [
+              Expanded(child: Text('SHIELD  $playerHp%', style: const TextStyle(color: Color(0xFF80E8E0), fontSize: 10, fontWeight: FontWeight.w900))),
+              Expanded(child: Text('TARGET  $targetHp%', textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFFFFD166), fontSize: 10, fontWeight: FontWeight.w900))),
+              Expanded(child: Text('AMMO  $ammo', textAlign: TextAlign.end, style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w900))),
+            ]),
+            const SizedBox(height: 6),
+            ClipRRect(borderRadius: BorderRadius.circular(8), child: LinearProgressIndicator(value: playerHp / 100, minHeight: 6, color: const Color(0xFF80E8E0), backgroundColor: const Color(0xFF33485A))),
+            const SizedBox(height: 5),
+            ClipRRect(borderRadius: BorderRadius.circular(8), child: LinearProgressIndicator(value: targetHp / 100, minHeight: 6, color: const Color(0xFFFFD166), backgroundColor: const Color(0xFF33485A))),
             const SizedBox(height: 10),
             GridView.builder(
               shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
@@ -535,17 +563,17 @@ class _AirForceScreenState extends State<AirForceScreen> {
       ] else ...[
         const Icon(Icons.flight_takeoff, color: Color(0xFF80E8E0), size: 42),
         const SizedBox(height: 6),
-        const Text('Tap the glowing checkpoint before it moves.',
+        const Text('Kunci target yang menyala dan gunakan amunisi arcade untuk mengalahkannya.',
           textAlign: TextAlign.center, style: TextStyle(color: Colors.white70, fontSize: 12)),
         const SizedBox(height: 4),
-        const Text('Setiap match yang tervalidasi memberi 75 AP dan 25 XP.',
+        const Text('Menangkan duel arcade untuk memperoleh 75 AP dan 25 XP.',
           textAlign: TextAlign.center, style: TextStyle(color: Colors.white54, fontSize: 10)),
       ],
       const SizedBox(height: 12),
       SizedBox(width: double.infinity, child: FilledButton.icon(
         onPressed: busy ? null : (playing ? null : startMatch),
         icon: Icon(playing ? Icons.hourglass_top : Icons.play_arrow),
-        label: Text(playing ? 'CHALLENGE IN PROGRESS' : (busy ? 'MENYIAPKAN...' : 'MULAI SKY RUN')),
+        label: Text(playing ? 'COMBAT IN PROGRESS' : (busy ? 'MENYIAPKAN...' : 'MULAI AIR COMBAT')),
       )),
     ]),
   );
