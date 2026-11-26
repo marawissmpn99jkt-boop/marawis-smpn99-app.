@@ -18,6 +18,9 @@ class _AirForceScreenState extends State<AirForceScreen> {
   int seconds = 25, score = 0, activeGate = 4, combo = 0, bestCombo = 0;
   String? matchId;
   Timer? timer;
+  List<Map<String,dynamic>> raceRooms = [], racePlayers = [];
+  Map<String,dynamic>? activeRoom;
+  RealtimeChannel? raceChannel;
 
   static const planes = <Map<String, dynamic>>[
     {'id':'f86','name':'F-86 Sabre','tier':1,'level':1,'price':0,'gen':'Gen 1','role':'Starter interceptor'},
@@ -36,10 +39,10 @@ class _AirForceScreenState extends State<AirForceScreen> {
   ];
 
   @override
-  void initState() { super.initState(); load(); }
+  void initState() { super.initState(); load(); loadRaceRooms(); }
 
   @override
-  void dispose() { timer?.cancel(); super.dispose(); }
+  void dispose() { timer?.cancel(); raceChannel?.unsubscribe(); super.dispose(); }
 
   int get ap => (profile?['ap'] as num?)?.toInt() ?? 0;
   int get ac => (profile?['ac'] as num?)?.toInt() ?? 0;
@@ -69,6 +72,161 @@ class _AirForceScreenState extends State<AirForceScreen> {
       if (mounted) setState(() => loading = false);
       note('Air Force belum siap: ' + e.toString());
     }
+  }
+
+  Future<void> loadRaceRooms() async {
+    try {
+      final rows = await db.from('multiplayer_rooms').select('id,room_code,host_id,status,max_players,created_at')
+        .eq('game_type','air_force_race').eq('status','waiting').order('created_at',ascending:false).limit(12);
+      if (mounted) setState(() => raceRooms = List<Map<String,dynamic>>.from(rows));
+    } catch (_) {}
+  }
+
+  Future<String> _displayName() async {
+    final uid = db.auth.currentUser!.id;
+    final p = await db.from('profiles').select('full_name').eq('id',uid).maybeSingle();
+    return (p?['full_name'] ?? db.auth.currentUser?.email?.split('@').first ?? 'Pilot').toString();
+  }
+
+  Future<void> createRaceRoom() async {
+    if (busy) return;
+    setState(() => busy = true);
+    try {
+      final result = await db.rpc('air_force_create_room');
+      final row = (result as List).first as Map;
+      final id = row['room_id'].toString();
+      await db.from('multiplayer_players').insert({
+        'room_id': id, 'user_id': db.auth.currentUser!.id, 'display_name': await _displayName()
+      });
+      await openRaceRoom({'id':id,'room_code':row['room_code'],'host_id':db.auth.currentUser!.id,'status':'waiting','max_players':8});
+      await loadRaceRooms();
+    } catch (e) { note('Gagal membuat room: $e'); }
+    if (mounted) setState(() => busy = false);
+  }
+
+  Future<void> joinRaceRoom(Map<String,dynamic> room) async {
+    if (busy) return;
+    setState(() => busy = true);
+    try {
+      final uid = db.auth.currentUser!.id;
+      final existing = await db.from('multiplayer_players').select('id').eq('room_id',room['id']).eq('user_id',uid).maybeSingle();
+      if (existing == null) {
+        await db.from('multiplayer_players').insert({
+          'room_id':room['id'], 'user_id':uid, 'display_name':await _displayName()
+        });
+      }
+      await openRaceRoom(room);
+    } catch (e) { note('Tidak bisa bergabung: $e'); }
+    if (mounted) setState(() => busy = false);
+  }
+
+  Future<void> openRaceRoom(Map<String,dynamic> room) async {
+    raceChannel?.unsubscribe();
+    if (!mounted) return;
+    setState(() => activeRoom = Map<String,dynamic>.from(room));
+    await refreshRacePlayers();
+    raceChannel = db.channel('air-force-room-${room['id']}')
+      ..onPostgresChanges(event:PostgresChangeEvent.all,schema:'public',table:'multiplayer_players',
+        filter:PostgresChangeFilter(type:PostgresChangeFilterType.eq,column:'room_id',value:room['id'].toString()),
+        callback:(_) => refreshRacePlayers())
+      ..onPostgresChanges(event:PostgresChangeEvent.all,schema:'public',table:'multiplayer_rooms',
+        filter:PostgresChangeFilter(type:PostgresChangeFilterType.eq,column:'id',value:room['id'].toString()),
+        callback:(_) => refreshActiveRoom())
+      ..subscribe();
+  }
+
+  Future<void> refreshRacePlayers() async {
+    final room = activeRoom;
+    if (room == null) return;
+    try {
+      final rows = await db.from('multiplayer_players').select('user_id,display_name,score,joined_at')
+        .eq('room_id',room['id']).order('joined_at');
+      if (mounted) setState(() => racePlayers = List<Map<String,dynamic>>.from(rows));
+    } catch (_) {}
+  }
+
+  Future<void> refreshActiveRoom() async {
+    final room = activeRoom;
+    if (room == null) return;
+    try {
+      final row = await db.from('multiplayer_rooms').select('id,room_code,host_id,status,max_players')
+        .eq('id',room['id']).single();
+      if (mounted) setState(() => activeRoom = Map<String,dynamic>.from(row));
+    } catch (_) {}
+  }
+
+  Future<void> startRaceRoom() async {
+    final room = activeRoom;
+    if (room == null || busy) return;
+    setState(() => busy = true);
+    try {
+      await db.rpc('air_force_start_room',params:{'p_room_id':room['id']});
+      await refreshActiveRoom();
+      note('Room dimulai! Mode checkpoint race siap.');
+    } catch (e) { note('Gagal memulai room: $e'); }
+    if (mounted) setState(() => busy = false);
+  }
+
+  Future<void> leaveRaceRoom() async {
+    final room = activeRoom;
+    if (room == null) return;
+    try {
+      await db.from('multiplayer_players').delete().eq('room_id',room['id']).eq('user_id',db.auth.currentUser!.id);
+    } catch (_) {}
+    raceChannel?.unsubscribe();
+    if (mounted) setState(() { activeRoom = null; racePlayers = []; });
+    await loadRaceRooms();
+  }
+
+  Widget _raceLobby() {
+    final room = activeRoom;
+    final uid = db.auth.currentUser?.id;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: const Color(0xFF10263A),borderRadius: BorderRadius.circular(20),border: Border.all(color: const Color(0xFF31536A))),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start,children:[
+        Row(children:[
+          const Icon(Icons.groups,color:Color(0xFF80E8E0)),
+          const SizedBox(width:8),
+          const Expanded(child:Text('MULTIPLAYER CHECKPOINT RACE',style:TextStyle(color:Colors.white,fontWeight:FontWeight.w900,letterSpacing:.6))),
+          IconButton(onPressed:loadRaceRooms,icon:const Icon(Icons.refresh,color:Colors.white70)),
+        ]),
+        const Text('Buat room atau gabung pilot lain. Maksimal 8 pemain per room.',style:TextStyle(color:Colors.white60,fontSize:11)),
+        const SizedBox(height:10),
+        if (room != null) ...[
+          Container(width:double.infinity,padding:const EdgeInsets.all(12),decoration:BoxDecoration(color:const Color(0xFF173D50),borderRadius:BorderRadius.circular(14)),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+            Text('ROOM CODE  ${room['room_code']}',style:const TextStyle(color:Color(0xFF80E8E0),fontWeight:FontWeight.w900,fontSize:18,letterSpacing:2)),
+            Text('Status: ${room['status']} • ${racePlayers.length}/8 pilot',style:const TextStyle(color:Colors.white70,fontSize:11)),
+            const Divider(color:Colors.white24),
+            for(final p in racePlayers) Padding(padding:const EdgeInsets.symmetric(vertical:3),child:Row(children:[
+              const Icon(Icons.flight,color:Color(0xFF80E8E0),size:16),const SizedBox(width:7),
+              Expanded(child:Text(p['display_name'].toString(),style:const TextStyle(color:Colors.white))),
+              if(p['user_id']==room['host_id'])const Text('HOST',style:TextStyle(color:Color(0xFFFFD166),fontSize:9,fontWeight:FontWeight.w900)),
+              if(p['user_id']==uid)const Text(' YOU',style:TextStyle(color:Color(0xFF80E8E0),fontSize:9,fontWeight:FontWeight.w900)),
+            ])),
+            const SizedBox(height:8),
+            if(room['host_id']==uid && room['status']=='waiting')
+              SizedBox(width:double.infinity,child:FilledButton.icon(onPressed:busy?null:startRaceRoom,icon:const Icon(Icons.flag),label:const Text('MULAI ROOM'))),
+            if(room['status']=='playing')
+              const Text('Room sudah dimulai. Sesi multiplayer tersambung.',style:TextStyle(color:Color(0xFF80E8E0),fontSize:11)),
+            TextButton(onPressed:leaveRaceRoom,child:const Text('Keluar dari room')),
+          ])),
+        ] else ...[
+          SizedBox(width:double.infinity,child:FilledButton.icon(onPressed:busy?null:createRaceRoom,icon:const Icon(Icons.add),label:const Text('BUAT ROOM RACE'))),
+          const SizedBox(height:8),
+          if(raceRooms.isEmpty)const Text('Belum ada room terbuka. Buat room pertama!',style:TextStyle(color:Colors.white54,fontSize:11))
+          else for(final r in raceRooms)Container(margin:const EdgeInsets.only(bottom:7),padding:const EdgeInsets.symmetric(horizontal:10,vertical:8),decoration:BoxDecoration(color:const Color(0xFF142F45),borderRadius:BorderRadius.circular(12)),child:Row(children:[
+            const Icon(Icons.flight_takeoff,color:Color(0xFF80E8E0)),
+            const SizedBox(width:8),
+            Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+              Text('ROOM ${r['room_code']}',style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w900)),
+              Text('Maks. ${r['max_players']} pilot',style:const TextStyle(color:Colors.white54,fontSize:10)),
+            ])),
+            TextButton(onPressed:busy?null:()=>joinRaceRoom(r),child:const Text('GABUNG')),
+          ])),
+        ],
+      ]),
+    );
   }
 
   Future<void> convert() async {
@@ -218,6 +376,8 @@ class _AirForceScreenState extends State<AirForceScreen> {
           label: const Text('Tukar AP menjadi AC  •  10 AP = 1 AC'),
           style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFF80E8E0)),
         ),
+        _section('SQUADRON NETWORK', 'Terhubung dengan pilot lain melalui room multiplayer.'),
+        _raceLobby(),
         _section('FLIGHT CHALLENGE', 'Terbang melewati gerbang energi dalam tantangan arcade 25 detik.'),
         _challenge(),
         _section('ACTIVE AIRCRAFT', 'Pesawat yang sedang kamu gunakan.'),
